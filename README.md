@@ -10,15 +10,13 @@
 [![Supergrid](https://img.shields.io/badge/supergrid-90%2F366%2F2520-6f42c1?style=flat-square)](docs/Supergrid%20Exploration/90-366-2520-transformation.md)
 [![Interactive Demo](https://img.shields.io/badge/demo-security%20game-ff69b4?style=flat-square&logo=googlechrome&logoColor=white)](demo/mrs-auth-security-game.html)
 
-`test result: ok. 85 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 54.26s`
-
 # MRS-AUTH
 
 ### Hybrid Post-Quantum Coercion-Resistant Authentication Framework
 
 > **MRS-AUTH** is an experimental hybrid PQC authentication construction. It uses **NIST-standardized ML-KEM-1024** (FIPS 203, IND-CCA2) as its post-quantum confidentiality mechanism, and adds an independent **witness-space / coercion-resistance layer** on top, built on the structural multiplicity of MRS(19,9) Diophantine representations.
 >
-> It provides **witness ambiguity**: a coerced user can produce a mathematically valid alternative credential (an alternative witness), computationally indistinguishable from the authentic one without the master derivation key.
+> It provides **witness ambiguity**: a coerced user can produce a mathematically valid alternative credential (an alternative witness), intended to be computationally indistinguishable from the authentic one without the master derivation key.
 
 </div>
 
@@ -50,7 +48,7 @@
 
 ## Overview
 
-MRS-AUTH addresses the real-world threat of physical coercion, extortion, and duress in digital authentication. Traditional cryptographic systems rely on a **single, unique secret key**. Under coercion, a user has no recourse: revealing the secret compromises security, while refusal plaintextly proves the secret's existence.
+MRS-AUTH addresses the real-world threat of physical coercion, extortion, and duress in digital authentication. Traditional cryptographic systems rely on a **single, unique secret key**. Under coercion, a user has no recourse: revealing the secret compromises security, while refusal effectively proves the secret's existence.
 
 MRS-AUTH introduces **mathematical multiplicity** through nested linear Diophantine systems. Instead of a single static key, the protocol constructs a **combinatorially large witness space** of valid credential chains rooted in the foundational equation:
 
@@ -64,7 +62,7 @@ The authentic witness is deterministically derived from a master secret and boun
 
 To eliminate the need for heavy $O(N)$ processing loops or brute-force enumeration, the framework compresses the entire Diophantine witness-space parameter calculations into a set of constant-time, closed-form equations.
 
-These equations allow the `cdf_sampler` engine to complete the full 3-layer nesting process in **sub-microsecond execution loops** while maintaining complete side-channel immunity:
+These equations allow the `cdf_sampler` engine to complete the full 3-layer nesting process in **constant time, independent of the size of N** (see [Benchmarks](#benchmarks)), and are designed to avoid secret-dependent branching:
 
 ### 1. The Core Anchor Equation
 
@@ -257,6 +255,15 @@ MRS-Hybride-PQC/
 
 - **Rust** 1.70 or newer
 - A **nightly toolchain** is recommended for full constant-time guarantees (some `subtle` features)
+
+### From crates.io
+
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+mrs_auth_pqc = "1.0"
+```
 
 ### From Git
 
@@ -720,7 +727,7 @@ Because all witnesses in $\mathcal{W}_N$ are structurally isomorphic without the
 
 ### 🔌 Feature Flag: Cryptographic Scale Scaling
 
-By default, the core engine leverages bare-metal `u64` types to ensure lightning-fast benchmarks. For advanced multi-word operations matching the paper's largest entropy parameter sets ($N \approx 10^{42}$), a modular `crypto-bigint` stack can be toggled on-demand:
+By default, the core engine leverages bare-metal `u64` types to keep the sampler fast. For advanced multi-word operations matching the paper's largest entropy parameter sets ($N \approx 10^{42}$), a modular `crypto-bigint` stack can be toggled on-demand:
 
 ```bash
 cargo test --features bigint
@@ -848,6 +855,8 @@ available:
 
 > **Research Prototype.**
 > MRS-AUTH is an active research-phase cryptographic framework, built on machine-checked EasyCrypt proofs of its abstract model and a comprehensive test suite for its Rust implementation. It has not undergone independent third-party security audit, formal code review, or red-team penetration testing, and it carries no certification of any kind, NIST or otherwise. Independent review is welcome, and treat production deployment accordingly until that review has happened.
+
+> **Version 1.0.0** marks a stable public API. It does **not** indicate a security audit or production readiness.
 
 ---
 
