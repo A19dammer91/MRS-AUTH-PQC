@@ -7,8 +7,9 @@ pub mod security;
 
 pub use crate::core::DiophantinePair;
 pub use crate::crypto::{
-    decrypt_payload_hybrid, derive_hybrid_key, encrypt_payload_hybrid,
-    HybridCiphertextPacket,
+    commit, decrypt_payload, derive_key_from_clock, encrypt_payload,
+    recover_secret, recover_secret_checked, split_secret,
+    ClockCiphertextPacket, ClockKey, ShamirError, ShamirSharesWithCommitment,
 };
 pub use crate::forest::{ForestBranch, ForestNode};
 pub use crate::framework::{FrameworkError, Keypair, MrsAuthFramework, SecureEnvelope};
