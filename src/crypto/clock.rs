@@ -11,10 +11,10 @@ const C2: u128 = 9;
 const FROBENIUS: u128 = (C1 - 1) * (C2 - 1) - 1;
 const MIN_N: u128 = FROBENIUS + 1;
 
-const DAY_MS:  u128 = 86_400_000;
+const DAY_MS: u128 = 86_400_000;
 const HOUR_MS: u128 = 3_600_000;
-const MIN_MS:  u128 = 60_000;
-const SEC_MS:  u128 = 1_000;
+const MIN_MS: u128 = 60_000;
+const SEC_MS: u128 = 1_000;
 
 #[derive(Clone, Zeroize)]
 #[zeroize(drop)]
@@ -35,13 +35,19 @@ pub struct ClockCiphertextPacket {
 }
 
 #[inline]
-fn dr(n: u128) -> u128 { 1 + ((n - 1) % C2) }
+fn dr(n: u128) -> u128 {
+    1 + ((n - 1) % C2)
+}
 
 #[inline]
-fn a0(n: u128) -> u128 { dr(n) }
+fn a0(n: u128) -> u128 {
+    dr(n)
+}
 
 #[inline]
-fn b0(n: u128) -> u128 { (n - C1 * a0(n)) / C2 }
+fn b0(n: u128) -> u128 {
+    (n - C1 * a0(n)) / C2
+}
 
 #[inline]
 fn representation(n: u128, k: u128) -> (u128, u128) {
@@ -50,12 +56,12 @@ fn representation(n: u128, k: u128) -> (u128, u128) {
 
 #[inline]
 fn decompose(n: u128) -> (u128, u32, u32, u32, u32) {
-    let d   = n / DAY_MS;
+    let d = n / DAY_MS;
     let rem = n % DAY_MS;
-    let h   = (rem / HOUR_MS) as u32;
-    let m   = ((rem % HOUR_MS) / MIN_MS) as u32;
-    let s   = ((rem % MIN_MS) / SEC_MS) as u32;
-    let ms  = (n % SEC_MS) as u32;
+    let h = (rem / HOUR_MS) as u32;
+    let m = ((rem % HOUR_MS) / MIN_MS) as u32;
+    let s = ((rem % MIN_MS) / SEC_MS) as u32;
+    let ms = (n % SEC_MS) as u32;
     (d, h, m, s, ms)
 }
 
@@ -65,7 +71,9 @@ pub fn derive_key_from_clock(seed: &[u8]) -> ClockKey {
     let mut n_buf = [0u8; 16];
     n_buf.copy_from_slice(&h[0..16]);
     let mut n = u128::from_be_bytes(n_buf);
-    if n < MIN_N { n += MIN_N; }
+    if n < MIN_N {
+        n += MIN_N;
+    }
 
     let clock = decompose(n);
     let rn_val = rn(n).max(1);
@@ -99,7 +107,14 @@ pub fn derive_key_from_clock(seed: &[u8]) -> ClockKey {
     let mut key = [0u8; 32];
     key.copy_from_slice(&out);
 
-    ClockKey { key, n, clock, rn: rn_val, k, ab }
+    ClockKey {
+        key,
+        n,
+        clock,
+        rn: rn_val,
+        k,
+        ab,
+    }
 }
 
 pub fn encrypt_payload(
@@ -112,7 +127,13 @@ pub fn encrypt_payload(
     let cipher = Aes256Gcm::new(key);
     let nonce = Nonce::from_slice(nonce_bytes);
     cipher
-        .encrypt(nonce, aes_gcm::aead::Payload { msg: plaintext, aad: associated_data })
+        .encrypt(
+            nonce,
+            aes_gcm::aead::Payload {
+                msg: plaintext,
+                aad: associated_data,
+            },
+        )
         .map_err(|_| "AES-GCM encryption failed")
 }
 
@@ -126,7 +147,13 @@ pub fn decrypt_payload(
     let cipher = Aes256Gcm::new(key);
     let nonce = Nonce::from_slice(nonce_bytes);
     cipher
-        .decrypt(nonce, aes_gcm::aead::Payload { msg: ciphertext, aad: associated_data })
+        .decrypt(
+            nonce,
+            aes_gcm::aead::Payload {
+                msg: ciphertext,
+                aad: associated_data,
+            },
+        )
         .map_err(|_| "AES-GCM decryption failed (integrity check failed)")
 }
 
@@ -160,7 +187,10 @@ mod tests {
         s2[0] ^= 0x01;
         let k1 = derive_key_from_clock(s1);
         let k2 = derive_key_from_clock(&s2);
-        let diff: u32 = k1.key.iter().zip(k2.key.iter())
+        let diff: u32 = k1
+            .key
+            .iter()
+            .zip(k2.key.iter())
             .map(|(a, b)| (a ^ b).count_ones())
             .sum();
         assert!(diff > 100);

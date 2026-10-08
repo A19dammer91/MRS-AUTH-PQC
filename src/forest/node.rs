@@ -16,7 +16,12 @@ impl ForestNode {
         let a0_val = dr(n);
         let b0_val = (n - c1() * a0_val) / c2();
         let rn_val = rn(n);
-        ForestNode { n, a0: a0_val, b0: b0_val, rn: rn_val }
+        ForestNode {
+            n,
+            a0: a0_val,
+            b0: b0_val,
+            rn: rn_val,
+        }
     }
 
     pub fn is_representable(&self) -> bool {
@@ -24,7 +29,9 @@ impl ForestNode {
     }
 
     pub fn branch(&self, k: u128) -> Option<ForestBranch> {
-        if k >= self.rn { return None; }
+        if k >= self.rn {
+            return None;
+        }
         Some(ForestBranch {
             k,
             a: self.a0 + c2() * k,
@@ -37,7 +44,9 @@ impl ForestNode {
     }
 
     pub fn last(&self) -> Option<ForestBranch> {
-        if self.rn == 0 { return None; }
+        if self.rn == 0 {
+            return None;
+        }
         self.branch(self.rn - 1)
     }
 
@@ -49,8 +58,8 @@ impl ForestNode {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::primitives::{c1, c2};
+    use super::*;
 
     #[test]
     fn node_first_and_last() {

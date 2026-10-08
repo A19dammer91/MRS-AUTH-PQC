@@ -4,23 +4,41 @@ const FROBENIUS: u128 = (C1 - 1) * (C2 - 1) - 1;
 const MIN_N: u128 = FROBENIUS + 1;
 
 pub fn dr(n: u128) -> u128 {
-    if n == 0 { return 0; }
+    if n == 0 {
+        return 0;
+    }
     1 + ((n - 1) % C2)
 }
 
 pub fn rn(n: u128) -> u128 {
-    if n < MIN_N { return 0; }
+    if n < MIN_N {
+        return 0;
+    }
     let q = n / C1;
     let d = dr(n);
-    if q < d { 0 } else { (q - d) / C2 + 1 }
+    if q < d {
+        0
+    } else {
+        (q - d) / C2 + 1
+    }
 }
 
-pub fn is_representable(n: u128) -> bool { n >= MIN_N }
+pub fn is_representable(n: u128) -> bool {
+    n >= MIN_N
+}
 
-pub const fn frobenius() -> u128 { FROBENIUS }
-pub const fn min_representable() -> u128 { MIN_N }
-pub const fn c1() -> u128 { C1 }
-pub const fn c2() -> u128 { C2 }
+pub const fn frobenius() -> u128 {
+    FROBENIUS
+}
+pub const fn min_representable() -> u128 {
+    MIN_N
+}
+pub const fn c1() -> u128 {
+    C1
+}
+pub const fn c2() -> u128 {
+    C2
+}
 
 #[cfg(test)]
 mod tests {
@@ -60,7 +78,9 @@ mod tests {
     fn unrepresentable_below_frobenius() {
         let mut count = 0;
         for n in 0..=FROBENIUS {
-            if !is_representable(n) { count += 1; }
+            if !is_representable(n) {
+                count += 1;
+            }
         }
         assert_eq!(count, 72);
     }
