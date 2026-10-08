@@ -8,7 +8,7 @@ license = "Apache-2.0"
 repository = "https://github.com/A19dammer91/MRS-AUTH-PQC"
 documentation = "https://docs.rs/mrs_auth_pqc"
 readme = "README.md"
-keywords = ["cryptography", "post-quantum", "kyber", "deniability", "diophantine"]
+keywords = ["cryptography", "post-quantum", "kyber", "kdf", "diophantine"]
 categories = ["cryptography"]
 rust-version = "1.70"
 
@@ -21,6 +21,7 @@ pqc_kyber = { version = "0.7", features = ["std", "kyber1024"] }
 subtle = { version = "2.6", default-features = false }
 zeroize = { version = "1.8", features = ["derive"] }
 sha2 = "0.10"
+hmac = "0.12"
 aes-gcm = "0.10.3"
 rand = "0.8"
 argon2 = "0.5"
