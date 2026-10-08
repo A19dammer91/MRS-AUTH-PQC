@@ -106,23 +106,13 @@ mod tests {
         let aad = b"envelope-header";
         let plaintext = b"a message that survives the round trip";
 
-        let envelope = MrsAuthFramework::full_encrypt(
-            &keypair.public_key,
-            session_id,
-            &nonce,
-            aad,
-            plaintext,
-        )
-        .expect("encryption should succeed");
+        let envelope =
+            MrsAuthFramework::full_encrypt(&keypair.public_key, session_id, &nonce, aad, plaintext)
+                .expect("encryption should succeed");
 
-        let recovered = MrsAuthFramework::full_decrypt(
-            &keypair.secret_key,
-            &envelope,
-            session_id,
-            &nonce,
-            aad,
-        )
-        .expect("decryption should succeed");
+        let recovered =
+            MrsAuthFramework::full_decrypt(&keypair.secret_key, &envelope, session_id, &nonce, aad)
+                .expect("decryption should succeed");
 
         assert_eq!(plaintext.to_vec(), recovered);
     }

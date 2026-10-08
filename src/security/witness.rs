@@ -168,8 +168,8 @@ impl MasterSecret {
             SecretMode::Duress => b"MRS-AUTH-MASTER-v1-DURESS" as &[u8],
         };
 
-        let mut extract =
-            <HmacSha256 as Mac>::new_from_slice(&input.salt).map_err(|_| DeriveError::HkdfFailed)?;
+        let mut extract = <HmacSha256 as Mac>::new_from_slice(&input.salt)
+            .map_err(|_| DeriveError::HkdfFailed)?;
         extract.update(&combined);
         let prk = extract.finalize().into_bytes();
 
