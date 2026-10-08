@@ -1,4 +1,4 @@
-use crate::forest::rn;
+use crate::forest::{a0, b0, rn};
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
 use pqc_kyber::KYBER_CIPHERTEXTBYTES;
@@ -32,21 +32,6 @@ pub struct ClockKey {
 pub struct ClockCiphertextPacket {
     pub kyber_ciphertext: [u8; KYBER_CIPHERTEXTBYTES],
     pub aes_payload: Vec<u8>,
-}
-
-#[inline]
-fn dr(n: u128) -> u128 {
-    1 + ((n - 1) % C2)
-}
-
-#[inline]
-fn a0(n: u128) -> u128 {
-    dr(n)
-}
-
-#[inline]
-fn b0(n: u128) -> u128 {
-    (n - C1 * a0(n)) / C2
 }
 
 #[inline]
@@ -212,6 +197,18 @@ mod tests {
             let ck = derive_key_from_clock(&i.to_be_bytes());
             let (a, b) = ck.ab;
             assert_eq!(C1 * a + C2 * b, ck.n);
+        }
+    }
+
+    #[test]
+    fn clock_decomposition_is_bijective() {
+        for i in 0u32..1000 {
+            let ck = derive_key_from_clock(&i.to_be_bytes());
+            let (d, h, m, s, ms) = ck.clock;
+            let recomposed = d * DAY_MS + (h as u128) * HOUR_MS + (m as u128) * MIN_MS
+                + (s as u128) * SEC_MS
+                + (ms as u128);
+            assert_eq!(recomposed, ck.n);
         }
     }
 
