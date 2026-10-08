@@ -1,5 +1,5 @@
 use super::branch::ForestBranch;
-use super::primitives::{c1, c2, dr, rn};
+use super::primitives::{a0, b0, c1, c2, rn};
 use zeroize::Zeroize;
 
 #[derive(Clone, Zeroize)]
@@ -13,9 +13,9 @@ pub struct ForestNode {
 
 impl ForestNode {
     pub fn new(n: u128) -> Self {
-        let a0_val = dr(n);
-        let b0_val = (n - c1() * a0_val) / c2();
+        let a0_val = a0(n);
         let rn_val = rn(n);
+        let b0_val = if rn_val == 0 { 0 } else { b0(n) };
         ForestNode {
             n,
             a0: a0_val,
@@ -76,7 +76,7 @@ mod tests {
 
     #[test]
     fn node_all_branches_satisfy_equation() {
-        for n in [144u128, 500, 1991, 10_000, 1_000_000] {
+        for n in [9u128, 144, 500, 1991, 10_000, 1_000_000] {
             let node = ForestNode::new(n);
             for branch in node.all(64) {
                 assert_eq!(c1() * branch.a + c2() * branch.b, n);
@@ -95,5 +95,16 @@ mod tests {
     fn node_is_representable() {
         assert!(!ForestNode::new(143).is_representable());
         assert!(ForestNode::new(144).is_representable());
+        assert!(ForestNode::new(9).is_representable());
+    }
+
+    #[test]
+    fn node_edge_cases_previously_missed() {
+        for n in [9u128, 18, 144, 153, 162] {
+            let node = ForestNode::new(n);
+            assert!(node.is_representable(), "n={} should be representable", n);
+            let b = node.first().unwrap();
+            assert_eq!(c1() * b.a + c2() * b.b, n);
+        }
     }
 }
