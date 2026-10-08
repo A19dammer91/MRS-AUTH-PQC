@@ -10,32 +10,38 @@ pub fn dr(n: u128) -> u128 {
     1 + ((n - 1) % C2)
 }
 
+pub fn a0(n: u128) -> u128 {
+    n % C2
+}
+
+pub fn b0(n: u128) -> u128 {
+    (n - C1 * a0(n)) / C2
+}
+
 pub fn rn(n: u128) -> u128 {
-    if n < MIN_N {
+    let a = a0(n);
+    if C1 * a > n {
         return 0;
     }
-    let q = n / C1;
-    let d = dr(n);
-    if q < d {
-        0
-    } else {
-        (q - d) / C2 + 1
-    }
+    (b0(n) / C1) + 1
 }
 
 pub fn is_representable(n: u128) -> bool {
-    n >= MIN_N
+    rn(n) > 0
 }
 
 pub const fn frobenius() -> u128 {
     FROBENIUS
 }
+
 pub const fn min_representable() -> u128 {
     MIN_N
 }
+
 pub const fn c1() -> u128 {
     C1
 }
+
 pub const fn c2() -> u128 {
     C2
 }
@@ -53,14 +59,12 @@ mod tests {
     }
 
     #[test]
-    fn rn_closed_form_matches_bruteforce() {
-        for n in MIN_N..10000u128 {
-            let brute = (0u128..)
-                .map(|k| dr(n) + 9 * k)
-                .take_while(|&a| 19 * a <= n)
-                .filter(|&a| (n - 19 * a) % 9 == 0)
+    fn rn_matches_bruteforce() {
+        for n in 0..2000u128 {
+            let brute = (0u128..=n)
+                .filter(|&a| C1 * a <= n && (n - C1 * a) % C2 == 0)
                 .count() as u128;
-            assert_eq!(rn(n), brute);
+            assert_eq!(rn(n), brute, "mismatch at n={}", n);
         }
     }
 
@@ -72,6 +76,24 @@ mod tests {
         assert_eq!(dr(18), 9);
         assert_eq!(dr(19), 1);
         assert_eq!(dr(1991), 2);
+    }
+
+    #[test]
+    fn a0_is_n_mod_9() {
+        assert_eq!(a0(0), 0);
+        assert_eq!(a0(9), 0);
+        assert_eq!(a0(19), 1);
+        assert_eq!(a0(144), 0);
+        assert_eq!(a0(1991), 2);
+    }
+
+    #[test]
+    fn rn_edge_cases_previously_missed() {
+        assert_eq!(rn(9), 1);
+        assert_eq!(rn(18), 1);
+        assert_eq!(rn(144), 1);
+        assert_eq!(rn(153), 1);
+        assert_eq!(rn(162), 1);
     }
 
     #[test]
