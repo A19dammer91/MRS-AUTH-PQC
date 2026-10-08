@@ -2,9 +2,8 @@ use pqc_kyber::{decapsulate, encapsulate, keypair, KyberError};
 use rand::thread_rng;
 
 use crate::crypto::{
-    decrypt_payload_hybrid, derive_hybrid_key, encrypt_payload_hybrid, HybridCiphertextPacket,
+    decrypt_payload, derive_key_from_clock, encrypt_payload, ClockCiphertextPacket,
 };
-use crate::sampler::{sample_three_layers_safe, MrsChain};
 
 pub struct Keypair {
     pub public_key: [u8; pqc_kyber::KYBER_PUBLICKEYBYTES],
@@ -12,14 +11,12 @@ pub struct Keypair {
 }
 
 pub struct SecureEnvelope {
-    pub packet: HybridCiphertextPacket,
-    pub mrs_chain: MrsChain,
+    pub packet: ClockCiphertextPacket,
 }
 
 #[derive(Debug)]
 pub enum FrameworkError {
     Kyber(KyberError),
-    ChainSamplingFailed,
     Crypto(&'static str),
 }
 
@@ -29,12 +26,12 @@ impl From<KyberError> for FrameworkError {
     }
 }
 
-fn derive_session_root(session_id: &[u8]) -> u64 {
-    let mut acc: u64 = 0x9E3779B97F4A7C15;
-    for &byte in session_id {
-        acc = acc.wrapping_mul(0x100000001B3).wrapping_add(byte as u64);
-    }
-    1_000_000_000u64 + (acc % 1_000_000_000u64)
+fn combine_seed(shared_secret: &[u8], session_id: &[u8]) -> Vec<u8> {
+    let mut seed = Vec::with_capacity(shared_secret.len() + 1 + session_id.len());
+    seed.extend_from_slice(shared_secret);
+    seed.push(0x00);
+    seed.extend_from_slice(session_id);
+    seed
 }
 
 pub struct MrsAuthFramework;
@@ -59,23 +56,17 @@ impl MrsAuthFramework {
         let mut rng = thread_rng();
         let (kyber_ciphertext, shared_secret) = encapsulate(public_key, &mut rng)?;
 
-        let root_n = derive_session_root(session_id);
+        let seed = combine_seed(&shared_secret, session_id);
+        let clock_key = derive_key_from_clock(&seed);
 
-        let mrs_chain = sample_three_layers_safe(root_n, &mut rng)
-            .ok_or(FrameworkError::ChainSamplingFailed)?;
-
-        let hybrid_key = derive_hybrid_key(&shared_secret, &mrs_chain, session_id)
-            .map_err(FrameworkError::Crypto)?;
-
-        let aes_payload = encrypt_payload_hybrid(&hybrid_key, nonce, plaintext, associated_data)
+        let aes_payload = encrypt_payload(&clock_key.key, nonce, plaintext, associated_data)
             .map_err(FrameworkError::Crypto)?;
 
         Ok(SecureEnvelope {
-            packet: HybridCiphertextPacket {
+            packet: ClockCiphertextPacket {
                 kyber_ciphertext,
                 aes_payload,
             },
-            mrs_chain,
         })
     }
 
@@ -88,11 +79,11 @@ impl MrsAuthFramework {
     ) -> Result<Vec<u8>, FrameworkError> {
         let shared_secret = decapsulate(&envelope.packet.kyber_ciphertext, secret_key)?;
 
-        let hybrid_key = derive_hybrid_key(&shared_secret, &envelope.mrs_chain, session_id)
-            .map_err(FrameworkError::Crypto)?;
+        let seed = combine_seed(&shared_secret, session_id);
+        let clock_key = derive_key_from_clock(&seed);
 
-        let plaintext = decrypt_payload_hybrid(
-            &hybrid_key,
+        let plaintext = decrypt_payload(
+            &clock_key.key,
             nonce,
             &envelope.packet.aes_payload,
             associated_data,
@@ -115,14 +106,51 @@ mod tests {
         let aad = b"envelope-header";
         let plaintext = b"a message that survives the round trip";
 
-        let envelope =
-            MrsAuthFramework::full_encrypt(&keypair.public_key, session_id, &nonce, aad, plaintext)
-                .expect("encryption should succeed");
+        let envelope = MrsAuthFramework::full_encrypt(
+            &keypair.public_key,
+            session_id,
+            &nonce,
+            aad,
+            plaintext,
+        )
+        .expect("encryption should succeed");
 
-        let recovered =
-            MrsAuthFramework::full_decrypt(&keypair.secret_key, &envelope, session_id, &nonce, aad)
-                .expect("decryption should succeed");
+        let recovered = MrsAuthFramework::full_decrypt(
+            &keypair.secret_key,
+            &envelope,
+            session_id,
+            &nonce,
+            aad,
+        )
+        .expect("decryption should succeed");
 
         assert_eq!(plaintext.to_vec(), recovered);
+    }
+
+    #[test]
+    fn wrong_session_id_fails() {
+        let keypair = MrsAuthFramework::keygen().expect("keygen should not fail");
+        let nonce = [7u8; 12];
+        let aad = b"envelope-header";
+        let plaintext = b"secret";
+
+        let envelope = MrsAuthFramework::full_encrypt(
+            &keypair.public_key,
+            b"session-A",
+            &nonce,
+            aad,
+            plaintext,
+        )
+        .expect("encryption should succeed");
+
+        let result = MrsAuthFramework::full_decrypt(
+            &keypair.secret_key,
+            &envelope,
+            b"session-B",
+            &nonce,
+            aad,
+        );
+
+        assert!(result.is_err());
     }
 }
