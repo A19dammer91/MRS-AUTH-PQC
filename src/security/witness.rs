@@ -14,7 +14,8 @@
 //! Architecture:
 //! - `generate_alibi` lives on `WitnessSpace` (public), NOT on `MasterSecret`.
 //! - `Alibi` is a newtype wrapper around `Witness` to prevent type confusion.
-//! - `MasterSecret` is derived multi-factor via Argon2id + HKDF with mode separation.
+//! - `MasterSecret` is derived multi-factor via Argon2id + HMAC-SHA256
+//!   (RFC 5869 single-block HKDF, inlined) with mode separation.
 //! - `Duress` mode produces mathematically valid but unbound witnesses.
 //! - `seal`/`unseal` protects the master secret at rest.
 //!
@@ -35,91 +36,58 @@ use aes_gcm::{
     Aes256Gcm, Nonce,
 };
 use argon2::{Argon2, Params as Argon2Params};
-use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use rand::RngCore;
 use sha2::{Digest, Sha256};
 use subtle::{Choice, ConstantTimeEq};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-// =============================================================================
-// Type Aliases
-// =============================================================================
-
 type HmacSha256 = Hmac<Sha256>;
 
-// =============================================================================
-// Data Structures
-// =============================================================================
-
-/// A witness is a mathematically valid MRS Diophantine chain plus a
-/// cryptographic binding tag that links it (optionally) to an identity.
 #[derive(Debug, Clone, PartialEq, Zeroize, ZeroizeOnDrop)]
 pub struct Witness {
-    /// The underlying MRS Diophantine chain (public or private components).
     pub chain: MrsChain,
-    /// Cryptographic binding tag: HMAC(master_secret, identity || session || chain_hash)
-    /// Empty if this is an unbound alternative witness.
     pub binding_tag: [u8; 32],
-    /// Session identifier this witness was generated for.
     pub session_id: Vec<u8>,
 }
 
-/// An Alibi IS a Witness, but the compiler sees it as a unique type.
-/// Prevents accidental submission of an alibi where an authentic witness is expected.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Alibi(pub Witness);
 
-/// The prover's long-term secret. From this, all per-session authentic
-/// witnesses are deterministically derived.
 #[derive(Debug, Clone, Zeroize, ZeroizeOnDrop)]
 pub struct MasterSecret {
     key: ProtectedKey,
     mode: SecretMode,
 }
 
-/// Encapsulated 32-byte key. Never public.
 #[derive(Debug, Clone, Zeroize, ZeroizeOnDrop)]
 struct ProtectedKey([u8; 32]);
 
-/// Operational mode of the master secret.
-/// This enum contains no secret data, it's only a tag.
-/// Therefore it can be Copy without compromising security.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Zeroize)]
 pub enum SecretMode {
-    /// Real identity, used for authentication.
     Authentic,
-    /// Panic mode: revealed under coercion, generates unbound witnesses.
     Duress,
 }
 
-/// Input for master secret derivation.
 #[derive(Zeroize, ZeroizeOnDrop)]
 pub struct SecretInput {
-    /// Password or PIN (knowledge factor).
     pub password: String,
-    /// Optional: hardware token (possession factor, e.g. YubiKey HMAC).
     pub hardware_token: Option<[u8; 32]>,
-    /// Optional: biometric hash (inherence factor, computed locally).
     pub biometric_hash: Option<[u8; 32]>,
-    /// Unique salt per user, stored publicly.
     pub salt: [u8; 16],
 }
 
-/// Configuration for the KDF.
 pub struct SecretConfig {
     pub argon2_params: Argon2Params,
     pub mode: SecretMode,
 }
 
-/// A share for Shamir Secret Sharing.
 #[derive(Debug, Clone, Zeroize, ZeroizeOnDrop)]
 pub struct KeyShare {
     pub index: u8,
     pub value: [u8; 32],
 }
 
-/// Sealed master secret for storage on disk.
 #[derive(Debug, Clone)]
 pub struct SealedMasterSecret {
     pub ciphertext: Vec<u8>,
@@ -127,49 +95,31 @@ pub struct SealedMasterSecret {
     pub mode: SecretMode,
 }
 
-/// Public parameters for a witness space W_N.
-/// Anyone can verify membership of a witness in W_N using only these params.
 #[derive(Debug, Clone)]
 pub struct WitnessSpace {
-    /// The public session root N.
     pub root_n: u64,
-    /// Depth of the MRS chain (fixed at 3 in MRS-AUTH).
     pub depth: usize,
 }
 
-/// Result of a witness verification.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WitnessStatus {
-    /// Witness is mathematically valid in W_N but NOT bound to any identity.
     ValidButUnbound,
-    /// Witness is mathematically valid AND correctly bound to the claimed identity.
     Authentic,
-    /// Witness is mathematically INVALID (fails N = 19A + 9B checks).
     Invalid,
-    /// Witness is mathematically valid but binding tag does NOT match.
     BindingMismatch,
 }
 
-/// Errors during derivation or secret sharing.
 #[derive(Debug)]
 pub enum DeriveError {
     KdfFailed,
     HkdfFailed,
     InvalidFactors,
     InsufficientEntropy,
-    /// Not enough shares provided for recovery.
     InsufficientShares,
-    /// Duplicate share indices detected.
     DuplicateShares,
-    /// Recovered secret does not match the commitment (wrong or corrupted shares).
     CommitmentMismatch,
 }
 
-// =============================================================================
-// Trait: ProverSpace
-// =============================================================================
-
-/// Every 'Space' in the application can generate alibis without secrets.
 pub trait ProverSpace {
     type WitnessType;
     type AlibiType;
@@ -190,19 +140,8 @@ impl ProverSpace for WitnessSpace {
     }
 }
 
-// =============================================================================
-// Master Secret: Multi-Factor Derivation & Management
-// =============================================================================
-
 impl MasterSecret {
-    /// Derive a master secret from multiple factors.
-    ///
-    /// Derivation pipeline:
-    /// 1. Password to Argon2id (memory-hard, GPU-resistant)
-    /// 2. Constant-time XOR with hardware token and biometric hash
-    /// 3. HKDF-SHA256 with mode-specific domain separation
     pub fn derive(input: &SecretInput, config: &SecretConfig) -> Result<Self, DeriveError> {
-        // Step 1: Memory-hard KDF on the password
         let mut password_key = [0u8; 32];
         Argon2::new(
             argon2::Algorithm::Argon2id,
@@ -212,7 +151,6 @@ impl MasterSecret {
         .hash_password_into(input.password.as_bytes(), &input.salt, &mut password_key)
         .map_err(|_| DeriveError::KdfFailed)?;
 
-        // Step 2: Constant-time XOR with hardware/biometrics
         let mut combined = password_key;
         if let Some(token) = input.hardware_token {
             for (c, t) in combined.iter_mut().zip(token.iter()) {
@@ -225,16 +163,24 @@ impl MasterSecret {
             }
         }
 
-        // Step 3: Mode-dependent domain separation
         let domain = match config.mode {
             SecretMode::Authentic => b"MRS-AUTH-MASTER-v1-AUTHENTIC" as &[u8],
             SecretMode::Duress => b"MRS-AUTH-MASTER-v1-DURESS" as &[u8],
         };
 
-        let hkdf = Hkdf::<Sha256>::new(Some(&input.salt), &combined);
+        let mut extract =
+            <HmacSha256 as Mac>::new_from_slice(&input.salt).map_err(|_| DeriveError::HkdfFailed)?;
+        extract.update(&combined);
+        let prk = extract.finalize().into_bytes();
+
+        let mut expand =
+            <HmacSha256 as Mac>::new_from_slice(&prk).map_err(|_| DeriveError::HkdfFailed)?;
+        expand.update(domain);
+        expand.update(&[1u8]);
+        let okm = expand.finalize().into_bytes();
+
         let mut final_key = [0u8; 32];
-        hkdf.expand(domain, &mut final_key)
-            .map_err(|_| DeriveError::HkdfFailed)?;
+        final_key.copy_from_slice(&okm[0..32]);
 
         password_key.zeroize();
         combined.zeroize();
@@ -245,11 +191,6 @@ impl MasterSecret {
         })
     }
 
-    /// Generate the duress input from an authentic input.
-    ///
-    /// Convention: the duress password is the authentic password with a
-    /// configurable panic suffix (e.g. "mypasswordPANIC").
-    /// Hardware/biometric factors remain identical.
     pub fn derive_duress_input(authentic: &SecretInput, panic_suffix: &str) -> SecretInput {
         let mut duress_password = authentic.password.clone();
         duress_password.push_str(panic_suffix);
@@ -262,18 +203,6 @@ impl MasterSecret {
         }
     }
 
-    // --- Shamir Secret Sharing ---
-
-    /// Split the master secret into `shares` shares, `threshold` needed.
-    ///
-    /// Delegates to `shamir::split_secret` over GF(2^8). Each byte of the
-    /// 32-byte master key is shared independently using a distinct random
-    /// polynomial of degree `threshold - 1`.
-    ///
-    /// Returns the shares together with a public SHA-256 commitment to the
-    /// original secret. The commitment must be stored or transmitted alongside
-    /// the shares so that recovery can verify that a sufficient, correct set
-    /// of shares was supplied.
     pub fn split(
         &self,
         threshold: usize,
@@ -298,15 +227,6 @@ impl MasterSecret {
         Ok((key_shares, commitment))
     }
 
-    /// Recover a master secret from a set of shares.
-    ///
-    /// Uses Lagrange interpolation in GF(2^8). The caller must supply at
-    /// least `threshold` shares with distinct 1-based indices. The mode
-    /// is not encoded in the shares and must be provided by the caller.
-    ///
-    /// The `commitment` must be the SHA-256 value returned by `split` for
-    /// this secret. Recovery will fail with `DeriveError::CommitmentMismatch`
-    /// if too few, the wrong, or corrupted shares are supplied.
     pub fn recover(
         shares: &[KeyShare],
         commitment: &[u8; 32],
@@ -323,10 +243,6 @@ impl MasterSecret {
             _ => DeriveError::InvalidFactors,
         });
 
-        // Zeroize the temporary share buffer now that recovery has run.
-        // Must iterate with `iter_mut()` (not `&mut raw_shares` with a
-        // `mut` binding) since `[u8; 32]` is `Copy`, binding by value would
-        // silently zeroize a local copy instead of the data in `raw_shares`.
         for (_, value) in raw_shares.iter_mut() {
             value.zeroize();
         }
@@ -338,9 +254,6 @@ impl MasterSecret {
         })
     }
 
-    // --- At-Rest Protection ---
-
-    /// Seal the master secret with a device key (e.g. TPM-derived).
     pub fn seal(&self, device_key: &[u8; 32]) -> SealedMasterSecret {
         let cipher = Aes256Gcm::new_from_slice(device_key).expect("valid key length");
         let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
@@ -358,7 +271,6 @@ impl MasterSecret {
         }
     }
 
-    /// Unseal a master secret. Only possible with the correct device_key.
     pub fn unseal(sealed: &SealedMasterSecret, device_key: &[u8; 32]) -> Result<Self, DeriveError> {
         let cipher = Aes256Gcm::new_from_slice(device_key).expect("valid key length");
         let nonce = Nonce::from_slice(&sealed.nonce);
@@ -379,11 +291,6 @@ impl MasterSecret {
         })
     }
 
-    // --- Internal API ---
-
-    /// Internal access to the raw key, only for HMAC computations within
-    /// this module and other modules in the same crate (e.g. witness_supergrid).
-    /// Not public outside the crate.
     pub(crate) fn key_bytes(&self) -> &[u8; 32] {
         &self.key.0
     }
@@ -393,28 +300,9 @@ impl MasterSecret {
     }
 }
 
-// =============================================================================
-// Authentic Witness Generation
-// =============================================================================
-
 impl MasterSecret {
-    /// The fixed number of independently-seeded attempts made when
-    /// deriving an authentic witness. See the module-level constant-time
-    /// note above for why this loop never exits early.
     const MAX_WITNESS_ATTEMPTS: u32 = 512;
 
-    /// Deterministically derive the "intended" witness for a given identity
-    /// and session. This witness is the ONE that authenticates the identity.
-    ///
-    /// Always performs exactly `MAX_WITNESS_ATTEMPTS` independently-seeded
-    /// draws and always does the same amount of work regardless of which
-    /// attempt (if any) succeeds. There is no early return: every attempt
-    /// computes its chain, its hash, and its binding tag, and the winning
-    /// candidate is folded into the result with `select_chain` and
-    /// `select_bytes32` rather than a branch. The number of attempts
-    /// actually needed is a function of `master_secret` (see `derive_seed`
-    /// below), so an early-exit version would leak that count through
-    /// timing.
     pub fn generate_authentic_witness(
         &self,
         space: &WitnessSpace,
@@ -468,9 +356,6 @@ impl MasterSecret {
         }
     }
 
-    /// Compute binding tag:
-    /// HMAC(master_secret, "MRS-AUTH-BIND" || len(identity) || identity ||
-    ///                     len(session_id) || session_id || chain_hash)
     fn compute_binding_tag(
         master_key: &[u8; 32],
         identity: &[u8],
@@ -492,7 +377,6 @@ impl MasterSecret {
         tag
     }
 
-    /// Derive a deterministic 32-byte seed from master_secret + context + attempt.
     fn derive_seed(
         master_key: &[u8; 32],
         identity: &[u8],
@@ -515,12 +399,7 @@ impl MasterSecret {
     }
 }
 
-// =============================================================================
-// Authenticity Verification (Verifier side, has master_secret)
-// =============================================================================
-
 impl MasterSecret {
-    /// Verify the cryptographic binding of a witness to an identity.
     pub fn verify_authenticity(&self, witness: &Witness, identity: &[u8]) -> WitnessStatus {
         let chain_hash = hash_chain(&witness.chain);
         let expected_tag =
@@ -534,35 +413,13 @@ impl MasterSecret {
     }
 }
 
-// =============================================================================
-// Public Verification (Verifier side, does NOT have master_secret)
-// =============================================================================
-
 impl WitnessSpace {
-    /// The fixed number of attempts made when generating an alternative
-    /// witness. Unlike `generate_authentic_witness`, no secret material is
-    /// involved anywhere in this path (see `generate_alternative_witness`
-    /// below), so this loop does not carry the same timing-leak risk. It
-    /// still runs at a fixed cost and without an early return, to match
-    /// the rest of this module and to avoid the same silent-fallback
-    /// failure mode on the rare chance that no candidate validates.
     const MAX_ALIBI_ATTEMPTS: usize = 512;
 
     pub fn new(root_n: u64, depth: usize) -> Self {
         Self { root_n, depth }
     }
 
-    /// Internal raw membership verification (returns status).
-    ///
-    /// Always walks every layer of `chain.layers` and only decides which
-    /// `WitnessStatus` to return once the walk is complete, rather than
-    /// returning as soon as one layer fails. A chain produced by this
-    /// crate's own sampler never hits an early-exit condition here in the
-    /// first place (the sampler enforces the same equation while building
-    /// the chain), so the only effect of removing the early exits is
-    /// making this function's timing independent of malformed input too,
-    /// rather than depending on how deep the malformed part of that input
-    /// happens to sit.
     fn verify_membership_raw(&self, chain: &MrsChain) -> WitnessStatus {
         let length_ok = Choice::from((chain.layers.len() == self.depth) as u8);
         let mut current_n = self.root_n;
@@ -586,19 +443,10 @@ impl WitnessSpace {
         }
     }
 
-    /// Verify whether a witness is a mathematically valid member of W_N.
-    /// This is a PUBLIC operation, anyone can run it.
     pub fn verify_membership(&self, witness: &Witness) -> WitnessStatus {
         self.verify_membership_raw(&witness.chain)
     }
 
-    /// Generate an alternative witness w' ∈ W_N that is mathematically valid
-    /// but NOT bound to the identity. PUBLIC operation, no MasterSecret needed.
-    ///
-    /// Always performs exactly `MAX_ALIBI_ATTEMPTS` draws from `rng` and
-    /// always does the same amount of work regardless of which attempt (if
-    /// any) succeeds, matching `generate_authentic_witness`'s discipline
-    /// even though no secret is involved on this path.
     pub fn generate_alternative_witness(
         &self,
         authentic: &Witness,
@@ -623,10 +471,6 @@ impl WitnessSpace {
             );
             let candidate_ok = chain_valid & differs & member_ok;
 
-            // Drawn for every attempt, not just the winning one: this is
-            // already public, non-secret randomness, so generating it
-            // unconditionally costs nothing in terms of what it reveals,
-            // and keeps this loop free of any branch on candidate_ok.
             let mut candidate_tag = [0u8; 32];
             rng.fill_bytes(&mut candidate_tag);
 
@@ -653,11 +497,6 @@ impl WitnessSpace {
     }
 }
 
-// =============================================================================
-// Helper Functions
-// =============================================================================
-
-/// SHA-256 hash of an MRS chain.
 pub fn hash_chain(chain: &MrsChain) -> [u8; 32] {
     let mut hasher = Sha256::new();
     for pair in &chain.layers {
@@ -669,7 +508,6 @@ pub fn hash_chain(chain: &MrsChain) -> [u8; 32] {
     out
 }
 
-/// Constant-time equality check for two MrsChain structures.
 fn chains_equal_ct(a: &MrsChain, b: &MrsChain) -> Choice {
     if a.layers.len() != b.layers.len() {
         return Choice::from(0);
@@ -682,23 +520,14 @@ fn chains_equal_ct(a: &MrsChain, b: &MrsChain) -> Choice {
     eq
 }
 
-/// Selects between two 32-byte tags without branching on `choice`, the
-/// same role `select_chain` plays for chains. Implemented with a manual
-/// bitmask rather than relying on a generic `ConditionallySelectable`
-/// array impl, matching this crate's existing style for types `subtle`
-/// does not cover directly (see `ct_select_u128` in the sampler module).
 fn select_bytes32(current_best: &[u8; 32], candidate: &[u8; 32], choice: Choice) -> [u8; 32] {
-    let mask = choice.unwrap_u8().wrapping_neg(); // 0x00 or 0xFF
+    let mask = choice.unwrap_u8().wrapping_neg();
     let mut out = [0u8; 32];
     for i in 0..32 {
         out[i] = (candidate[i] & mask) | (current_best[i] & !mask);
     }
     out
 }
-
-// =============================================================================
-// Deterministic RNG for reproducible authentic witness derivation
-// =============================================================================
 
 struct DeterministicRng {
     state: [u8; 32],
@@ -771,10 +600,6 @@ impl RngCore for DeterministicRng {
     }
 }
 
-// =============================================================================
-// Test Helpers
-// =============================================================================
-
 #[cfg(test)]
 fn find_working_root_n() -> u64 {
     for n in (3_000_001..10_000_000).step_by(100_000) {
@@ -827,10 +652,6 @@ fn generate_duress_master() -> MasterSecret {
     };
     MasterSecret::derive(&duress_input, &config).expect("derive duress")
 }
-
-// =============================================================================
-// Tests
-// =============================================================================
 
 #[cfg(test)]
 mod tests {
@@ -1044,7 +865,6 @@ mod tests {
         let authentic = MasterSecret::derive(&input, &auth_config).unwrap();
         let duress = MasterSecret::derive(&duress_input, &duress_config).unwrap();
 
-        // Keys must be completely different
         assert_ne!(authentic.key_bytes(), duress.key_bytes());
         assert_eq!(authentic.mode(), SecretMode::Authentic);
         assert_eq!(duress.mode(), SecretMode::Duress);
@@ -1075,13 +895,11 @@ mod tests {
             .generate_authentic_witness(&space, id, session)
             .expect("Failed to generate duress witness");
 
-        // Duress witness is mathematically valid
         assert_eq!(
             space.verify_membership(&duress_witness),
             WitnessStatus::ValidButUnbound
         );
 
-        // But NOT bound to the identity
         let authentic_master = {
             let auth_config = SecretConfig {
                 argon2_params: Argon2Params::default(),
@@ -1254,10 +1072,6 @@ mod tests {
         );
     }
 
-    // =============================================================================
-    // Shamir Secret Sharing Tests
-    // =============================================================================
-
     #[test]
     fn test_shamir_split_recover_exact_threshold() {
         let salt = [0u8; 16];
@@ -1274,11 +1088,9 @@ mod tests {
         let master = MasterSecret::derive(&input, &config).unwrap();
         let original_key = *master.key_bytes();
 
-        // 3-of-5 scheme
         let (shares, commitment) = master.split(3, 5).expect("split failed");
         assert_eq!(shares.len(), 5);
 
-        // Recover with exactly 3 shares (indices 0, 2, 4)
         let subset = vec![shares[0].clone(), shares[2].clone(), shares[4].clone()];
         let recovered = MasterSecret::recover(&subset, &commitment, SecretMode::Authentic)
             .expect("recover failed");
@@ -1302,7 +1114,6 @@ mod tests {
         let master = MasterSecret::derive(&input, &config).unwrap();
         let original_key = *master.key_bytes();
 
-        // 2-of-4 scheme
         let (shares, commitment) = master.split(2, 4).expect("split failed");
         let recovered = MasterSecret::recover(&shares, &commitment, SecretMode::Authentic)
             .expect("recover failed");
@@ -1327,7 +1138,6 @@ mod tests {
 
         let (shares, commitment) = master.split(3, 5).expect("split failed");
 
-        // Try multiple 3-share subsets
         let subsets = vec![
             vec![shares[0].clone(), shares[1].clone(), shares[2].clone()],
             vec![shares[1].clone(), shares[3].clone(), shares[4].clone()],
@@ -1356,11 +1166,8 @@ mod tests {
         };
         let master = MasterSecret::derive(&input, &config).unwrap();
 
-        // Threshold too low
         assert!(master.split(1, 5).is_err());
-        // Shares < threshold
         assert!(master.split(3, 2).is_err());
-        // Shares > 255
         assert!(master.split(3, 256).is_err());
     }
 
@@ -1438,16 +1245,12 @@ mod tests {
 
     #[test]
     fn verify_membership_raw_rejects_without_early_exit_shortcuts() {
-        // A chain that fails at the very first layer and one that fails
-        // only at the last layer should both be rejected identically,
-        // there is no early return left to make the first case faster
-        // than the second.
         let space = WitnessSpace::new(3_000_001, 3);
 
         let fails_first = Witness {
             chain: MrsChain {
                 layers: vec![
-                    DiophantinePair { a: 1, b: 1 }, // wrong immediately
+                    DiophantinePair { a: 1, b: 1 },
                     DiophantinePair { a: 1, b: 1 },
                     DiophantinePair { a: 1, b: 1 },
                 ],
@@ -1460,7 +1263,7 @@ mod tests {
         let (real_master, real_space, real_witness) = generate_test_witness();
         let mut fails_last = real_witness.chain.clone();
         if let Some(last) = fails_last.layers.last_mut() {
-            last.a = last.a.wrapping_add(1); // break only the final layer
+            last.a = last.a.wrapping_add(1);
         }
         let fails_last_witness = Witness {
             chain: fails_last,
@@ -1476,6 +1279,6 @@ mod tests {
             real_space.verify_membership(&fails_last_witness),
             WitnessStatus::Invalid
         );
-        let _ = real_master; // silence unused warning if generate_test_witness signature changes
+        let _ = real_master;
     }
 }
