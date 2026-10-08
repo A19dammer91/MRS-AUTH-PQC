@@ -1,3 +1,4 @@
+use crate::forest::rn;
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
 use pqc_kyber::KYBER_CIPHERTEXTBYTES;
@@ -41,14 +42,6 @@ fn a0(n: u128) -> u128 { dr(n) }
 
 #[inline]
 fn b0(n: u128) -> u128 { (n - C1 * a0(n)) / C2 }
-
-#[inline]
-fn rn(n: u128) -> u128 {
-    if n < MIN_N { return 0; }
-    let q = n / C1;
-    let d = dr(n);
-    if q < d { 0 } else { (q - d) / C2 + 1 }
-}
 
 #[inline]
 fn representation(n: u128, k: u128) -> (u128, u128) {
@@ -190,25 +183,6 @@ mod tests {
             let (a, b) = ck.ab;
             assert_eq!(C1 * a + C2 * b, ck.n);
         }
-    }
-
-    #[test]
-    fn rn_matches_bruteforce() {
-        for n in MIN_N..5000u128 {
-            let brute = (0u128..)
-                .map(|k| a0(n) + 9 * k)
-                .take_while(|&a| 19 * a <= n)
-                .filter(|&a| (n - 19 * a) % 9 == 0)
-                .count() as u128;
-            assert_eq!(rn(n), brute);
-        }
-    }
-
-    #[test]
-    fn frobenius_is_143() {
-        assert_eq!(FROBENIUS, 143);
-        assert_eq!(rn(143), 0);
-        assert_eq!(rn(144), 1);
     }
 
     #[test]
