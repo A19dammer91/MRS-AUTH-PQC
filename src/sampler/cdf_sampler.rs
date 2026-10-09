@@ -802,7 +802,17 @@ mod tests {
         // Include multiples of 9 among the test values: these are the
         // edge cases for the positive-anchor convention, where
         // calculate_anchor(n) = 9 and 19*9 may exceed n.
-        for n in [201u64, 1_001, 12_345, 200_001, 999_999, 144, 162, 999_999_999, 3_000_006] {
+        for n in [
+            201u64,
+            1_001,
+            12_345,
+            200_001,
+            999_999,
+            144,
+            162,
+            999_999_999,
+            3_000_006,
+        ] {
             assert_eq!(
                 count_triangle_filtered_closed_form(n),
                 count_triangle_filtered_bruteforce(n),
