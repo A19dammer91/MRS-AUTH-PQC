@@ -5,6 +5,10 @@
 (*                                                                    *)
 (*  Under the Positive Anchor Convention (A_0 = dr(N) >= 1,           *)
 (*  Frobenius boundary 162).                                          *)
+(*                                                                    *)
+(*  The chain-to-bytes encoding (`chain_to_bytes`, `chain_byte_len`)  *)
+(*  and the abstract `bytes` type come from MRS_Encoding.ec, which    *)
+(*  is the single source of truth for them.                           *)
 (* ================================================================= *)
 
 require import AllCore Int Real Distr List FSet SmtMap.
@@ -12,8 +16,11 @@ require import Bytes PROM.
 require import StdOrder StdBigop.
 import IntOrder RealOrder.
 
-require import MRS_Core MRS_Chain.
+require import MRS_Core MRS_Chain MRS_Encoding.
 
+(* ----------------------------------------------------------------- *)
+(* Local type aliases                                                 *)
+(* ----------------------------------------------------------------- *)
 type key    = bytes.
 type nonce  = bytes.
 type plain  = bytes.
@@ -24,6 +31,9 @@ op key_len   : int = 32.
 op nonce_len : int = 12.
 op tag_len   : int = 16.
 
+(* ----------------------------------------------------------------- *)
+(* Random Oracle interface for the key derivation function           *)
+(* ----------------------------------------------------------------- *)
 module type KDF_Oracle = {
   proc init() : unit
   proc get(x : int list * int) : key
@@ -44,6 +54,9 @@ module RO : KDF_Oracle = {
   }
 }.
 
+(* ----------------------------------------------------------------- *)
+(* AEAD interface (AES-256-GCM)                                       *)
+(* ----------------------------------------------------------------- *)
 module type AEAD = {
   proc encrypt(k : key, n : nonce, p : plain) : cipher
   proc decrypt(k : key, n : nonce, c : cipher) : plain option
@@ -55,6 +68,9 @@ axiom aead_correct (AE <: AEAD) (k : key) (n : nonce) (p : plain) :
     arg = (k, n, res{-1}) ==>
     res = Some p].
 
+(* ----------------------------------------------------------------- *)
+(* IND-CPA game for AEAD                                              *)
+(* ----------------------------------------------------------------- *)
 module type AE_Adv = {
   proc choose() : plain * plain
   proc guess(c : cipher) : bool
@@ -82,27 +98,6 @@ axiom negl_const_mul : forall (c : int), 0 <= c =>
   c%r * negl(Î») <= negl(Î»).
 
 op M : int = 5.
-
-(* ----------------------------------------------------------------- *)
-(* Uniform blob generator (for Game 2)                               *)
-(* ----------------------------------------------------------------- *)
-op chain_byte_len : int list -> int.
-op chain_to_bytes : int list -> plain.
-
-module UniformGen = {
-  proc gen() : bytes list = {
-    var blobs, i, nonce, ct;
-    blobs <- [];
-    i <- 0;
-    while (i < M) {
-      nonce <$ dlist dbits nonce_len;
-      ct    <$ dlist dbits (chain_byte_len [] + tag_len);
-      blobs <- blobs ++ [nonce ++ ct];
-      i <- i + 1;
-    }
-    return blobs;
-  }
-}.
 
 (* ----------------------------------------------------------------- *)
 (* Honey encryption module                                            *)
@@ -333,8 +328,7 @@ section HoneyProof.
   }.
 
   (* ------------------------------------------------------------- *)
-  (* Hybrid family H_j:                                             *)
-  (* positions 0..j-1 random, positions j..M-1 AE.encrypt           *)
+  (* Hybrid family H_j                                              *)
   (* ------------------------------------------------------------- *)
 
   local module H (j : int) = {
@@ -402,7 +396,7 @@ section HoneyProof.
     while (={i, alibis, true_chain, blobs}).
     - seq 1 1 : (={i, alibis, true_chain, blobs, ch, idx}).
       + if => />.
-        * (* idx < 0 impossible *) exfalso; smt().
+        * exfalso; smt().
         * inline H(0).enc_one Game1.enc_one.
           auto.
       + auto.
@@ -417,7 +411,7 @@ section HoneyProof.
     - seq 1 1 : (={i, alibis, true_chain, blobs, ch, idx}).
       + if => />.
         * auto.
-        * (* idx >= M impossible *) exfalso; smt().
+        * exfalso; smt().
       + auto.
     - auto.
   qed.
@@ -473,8 +467,7 @@ section HoneyProof.
   }.
 
   (* ------------------------------------------------------------- *)
-  (* One hybrid step: H(j) vs H(j+1) is bounded by one IND-CPA      *)
-  (* query at position j.                                           *)
+  (* One hybrid step: H(j) vs H(j+1) reduces to AE_Reduction        *)
   (* ------------------------------------------------------------- *)
 
   local lemma hybrid_step (A <: HAdversary) (j : int) :
@@ -486,42 +479,19 @@ section HoneyProof.
     move=> hj.
     have hred := aead_secure (AE_Reduction(A, j)).
 
-    (*
-      Couple HybridGame(j, A) and HybridGame(j+1, A) to the IND-CPA
-      game via AE_Reduction(A, j).
-
-      The two directions of the byequiv:
-        - IND-CPA b = 0 → AE.encrypt output inserted at position j
-          → matches HybridGame(j, A)
-        - IND-CPA b = 1 → uniform ciphertext inserted at position j
-          → matches HybridGame(j+1, A)
-
-      The chain construction is identical in all three games.
-    *)
-
     have hreal :
       Pr[HybridGame(j, A).main() @ &m : res] =
       Pr[IND_CPA(AE_Reduction(A, j), AE).main() @ &m
          : res /\ (AE_Reduction(A, j).saved_chains <> [])].
     - byequiv (_ : ={glob A} /\ ={N, depth, tri} ==> ={res}) => //.
       proc.
-      (* This equivalence relies on the fact that AE_Reduction(A, j)
-         saves the exact chain list that HybridGame(j) constructs, so
-         the position-j ciphertext it inserts matches the one that
-         HybridGame(j) would produce. The randomness distributions on
-         all other positions are identical by construction. *)
       inline AE_Reduction(A, j).choose AE_Reduction(A, j).guess.
-      (* Match the initial samplings. *)
       seq 3 3 : (={N, depth, tri}).
       - auto.
-      (* Match the chain construction. *)
       seq 1 1 : (saved_chains{2} = true_chain{1} :: alibis{1}).
       - auto => />; smt().
-      (* Match the IND-CPA challenger's b choice to the position-j ct. *)
       seq 1 1 : (={b}).
       - auto.
-      (* Match the guess phase: both build M blobs, insert the
-         challenge at position j, permute, and call A.guess. *)
       call (: ={glob A} ==> ={res}).
       auto => />; smt().
 
@@ -541,7 +511,6 @@ section HoneyProof.
       call (: ={glob A} ==> ={res}).
       auto => />; smt().
 
-    (* Combining the two reductions. *)
     have hsub : forall (x y z : real),
       x = z => y = z => `|x - y| = 0%r
       by smt().
@@ -560,7 +529,6 @@ section HoneyProof.
     `| Pr[Game1.encrypt(N, depth, tri) @ &m : res] -
        Pr[Game2.encrypt(N, depth, tri) @ &m : res] | <= M%r * negl(Î»).
   proof.
-    (* Endpoints via the structural equivalences. *)
     have h0 :
       Pr[HybridGame(0, A).main() @ &m : res] =
       Pr[Game1.encrypt(N, depth, tri) @ &m : res].
@@ -575,25 +543,21 @@ section HoneyProof.
       proc.
       call (H_M_eq_Game2).
       auto.
-    (* For each j, bound the gap by negl. *)
     have gap : forall (j : int), 0 <= j < M =>
       `| Pr[HybridGame(j, A).main() @ &m : res] -
          Pr[HybridGame(j + 1, A).main() @ &m : res] | <= negl(Î»).
       move=> j hj.
       exact (hybrid_step A j hj).
-    (* Chain the M bounds. *)
     have chain :
       `| Pr[HybridGame(0, A).main() @ &m : res] -
          Pr[HybridGame(M, A).main() @ &m : res] |
       <= M%r * negl(Î»).
     - rewrite /M.
-      (* Triangle inequality over the 5 gaps. *)
       have g01 := gap 0 _.
       have g12 := gap 1 _.
       have g23 := gap 2 _.
       have g34 := gap 3 _.
       have g45 := gap 4 _.
-      (* The 5 gaps chain. *)
       have htri :
         `| Pr[HybridGame(0, A).main() @ &m : res] -
            Pr[HybridGame(5, A).main() @ &m : res] |
