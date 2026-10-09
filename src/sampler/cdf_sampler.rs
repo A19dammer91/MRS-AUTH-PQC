@@ -293,7 +293,9 @@ impl LayerParams {
     // `dr(A_0) = dr(N)` hold identically at every layer, and it is a
     // deliberate design choice of the framework, not a numerical
     // accident. The standard Frobenius number 143 (which assumes A ≥ 0)
-    // does not apply here; under Positive Anchor the boundary is 162.
+    // does not apply here; under Positive Anchor the pure-representability
+    // boundary is 162, and the first N with a *triangle-valid* candidate
+    // is 171.
     pub fn new_ct(n: u64) -> Self {
         let a0 = calculate_anchor(n);
         let a0_19 = 19u64.saturating_mul(a0);
@@ -843,8 +845,18 @@ mod tests {
             );
         }
 
-        // For n above the positive-anchor threshold, a representation exists.
-        for n in [163u64, 171, 999, 3_000_006] {
+        // For n above the positive-anchor threshold where a
+        // triangle-valid representation exists, the parameter extraction
+        // must succeed and the reconstructed pair at t = 0 must satisfy
+        // 19A + 9B = n.
+        //
+        // Note: the sampler's `valid` flag requires a *triangle-valid*
+        // candidate (dr(B) = dr(2 * dr(N))), which is stricter than mere
+        // representability. The first N >= 163 with a triangle-valid
+        // candidate is 171 (where a0 = 9, b0 = 0, k0 = 0, k_max = 0), not
+        // 163. The Frobenius boundary of 162 applies to pure
+        // representability, not to the sampler's `valid` flag.
+        for n in [171u64, 400, 999, 3_000_006] {
             let params = LayerParams::new_ct(n);
             assert_eq!(
                 params.valid.unwrap_u8(),
