@@ -1,0 +1,14 @@
+# Axiom baseline for the EasyCrypt proof suite.
+# Format: <filename> <max-axioms>
+# If a file exceeds its baseline, CI fails.
+# If a file has fewer axioms than its baseline, CI warns (you can lower it).
+# Lines starting with '#' are comments.
+
+MRS_FloorSum.ec   3
+MRS_Core.ec       0
+MRS_Encoding.ec   1
+MRS_Chain.ec      0
+MRS_Sampler.ec    9
+MRS_Deny.ec       0
+MRS_AUTH.ec       20
+MRS_Honey.ec      4
