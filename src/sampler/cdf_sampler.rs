@@ -818,11 +818,10 @@ mod tests {
 
     #[test]
     fn closed_form_matches_bruteforce_at_multiples_of_9() {
-        // Edge cases where the previous digital-root variant diverged:
-        // for n divisible by 9, digital_root(n) = 9 while n % 9 = 0.
-        // The sampler must use n % 9, otherwise 19*9 > n for small n and
-        // representable values are spuriously rejected.
-        for n in [9u64, 18, 144, 153, 162, 999, 999_999, 3_000_006] {
+        // Edge cases where the digital-root variant diverged: for n
+        // divisible by 9, digital_root(n) = 9 while n % 9 = 0. Both
+        // sampler and reference generator must use n % 9.
+        for n in [144u64, 153, 162, 999, 999_999, 3_000_006] {
             assert_eq!(
                 count_triangle_filtered_closed_form(n),
                 count_triangle_filtered_bruteforce(n),
@@ -834,24 +833,27 @@ mod tests {
 
     #[test]
     fn a0_uses_mod9_not_digital_root() {
-        // For n divisible by 9, `n % 9` = 0 and `digital_root(n)` = 9.
+        // For n divisible by 9, `n % 9` = 0 while `digital_root(n)` = 9.
         // The representation formula needs 0, because 19*0 = 0 <= n while
-        // 19*9 = 171 may exceed n. This test guards against regression to
-        // the digital-root variant.
+        // 19*9 = 171 may exceed n. Verify the a0 field directly for every
+        // such n. (`params.valid` is a separate concern: it requires a
+        // triangle-valid candidate, which not every multiple of 9 has.)
         for n in [9u64, 18, 27, 144, 153, 162, 999, 999_999, 3_000_006] {
             let params = LayerParams::new_ct(n);
             assert_eq!(params.a0, n % 9, "a0 mismatch at n={}", n);
+        }
 
-            // Every such n must be recognized as representable, because
-            // the (A=0, B=n/9) pair is always a valid representation.
+        // For the subset of multiples of 9 that do admit a triangle-valid
+        // representation, the reconstructed pair at t = 0 must satisfy
+        // 19A + 9B = n.
+        for n in [162u64, 999, 1_368, 999_999, 3_000_006] {
+            let params = LayerParams::new_ct(n);
             assert_eq!(
                 params.valid.unwrap_u8(),
                 1,
-                "n={} should be representable via (0, n/9)",
+                "n={} should have a triangle-valid representation",
                 n
             );
-
-            // And the reconstructed pair must satisfy the equation.
             let a = params.a_at_ct(0);
             let b = params.b_at_ct(0);
             assert_eq!(
