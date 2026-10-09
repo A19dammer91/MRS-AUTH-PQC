@@ -4,6 +4,7 @@
 [![CI](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/ci.yml/badge.svg)](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/github/actions/workflow/status/A19dammer91/MRS-AUTH-PQC/rust.yml?label=tests&style=flat-square&logo=githubactions&logoColor=white)](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/rust.yml)
 [![Benchmarks](https://img.shields.io/github/actions/workflow/status/A19dammer91/MRS-AUTH-PQC/benchmark.yml?label=benchmarks&style=flat-square&logo=githubactions&logoColor=white)](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/benchmark.yml)
+[![EasyCrypt](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/easycrypt.yml/badge.svg)](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/easycrypt.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange?style=flat-square&logo=rust)](https://www.rust-lang.org)
 [![NIST](https://img.shields.io/badge/NIST-FIPS%20203%20%7C%20ML--KEM--1024-informational?style=flat-square)](https://csrc.nist.gov/projects/post-quantum-cryptography)
@@ -17,6 +18,8 @@
 > **MRS-AUTH-PQC** is an experimental post-quantum authentication framework. It uses **NIST-standardized ML-KEM-1024** (FIPS 203, IND-CCA2) for confidentiality, and derives its session key from the **structure of the (19,9) Diophantine representation system** that the framework itself is built on.
 >
 > The key is **not hashed from a seed**. It is **derived from the structure itself**.
+
+**Test suite status:** `cargo test` — **108 passed, 0 failed** (52.22s).
 
 </div>
 
@@ -96,7 +99,7 @@ The authentic witness is deterministically derived from a master secret and boun
 
 The framework compresses the entire Diophantine witness-space parameter calculation into closed-form equations. The full derivations are in the papers; the essentials are:
 
-**Anchor.** `A₀ = N mod 9` — the smallest non-negative starting A-value.
+**Anchor.** `A₀ = dr(N)` — the smallest positive A-value congruent to N modulo 9. Range 1..9, never 0 (Positive Anchor Convention).
 
 **Maximum base.** `B₀ = (N − 19·A₀) / 9`.
 
@@ -111,7 +114,9 @@ k = 0, 1, …, R(N) − 1
 
 ```
 
-**Frobenius boundary.** 263 is the largest non-representable N. From 264 onward, every integer has at least one representation.
+**Frobenius boundary (Positive Anchor).** 162 is the largest N with no representation. From 163 onward, every integer has at least one representation.
+
+**First triangle-valid N.** The sampler's `valid` flag requires a triangle-valid candidate (`dr(B) = dr(2·dr(N))`), which is stricter than mere representability. The first N ≥ 163 satisfying this is **171**.
 
 **Clock decomposition.**
 ```
@@ -121,7 +126,7 @@ T = 86,400,000·D + 3,600,000·H + 60,000·M + 1000·S + Ms
 ```
 A bijection: every T maps to exactly one (D, H, M, S, Ms), and every tuple maps back to exactly one T.
 
-> **Note on the anchor.** `A₀ = N mod 9` returns 0 for N divisible by 9, whereas the digital root `dr(N) = 1 + ((N−1) mod 9)` returns 9. Both are congruent mod 9, but the representation formula requires the smallest non-negative value, so `N mod 9` is used for A₀. The digital root remains correct for the triangle condition `dr(B) = dr(2·dr(N))`, where only the residue mod 9 matters.
+> **Note on the anchor.** Under the Positive Anchor Convention, `A₀ = dr(N)` (range 1..9). An alternative "standard" convention would use `A₀ = N mod 9` (range 0..8), which admits A = 0 and gives Frobenius boundary 143. MRS-AUTH-PQC deliberately chooses the Positive Anchor variant: it makes every representation carry a non-trivial core A ≥ 1, which the deniability construction relies on. The digital root `dr(N) = 1 + ((N−1) mod 9)` is the definition used throughout the codebase, and the Frobenius boundary in this system is 162.
 
 ---
 
@@ -192,7 +197,7 @@ The clock KDF imports `rn`, `a0`, `b0` from `forest` so the (19,9) arithmetic ha
 ```
 
 MRS-AUTH-PQC/
-├── .github/workflows/          # CI, tests, benchmarks
+├── .github/workflows/          # CI, tests, benchmarks, EasyCrypt proofs
 ├── Cargo.toml                  # v2.0.0, features: bigint
 ├── LICENSE                     # Apache-2.0
 ├── README.md
@@ -211,10 +216,11 @@ MRS-AUTH-PQC/
 │   ├── README.md               # Why the HKDF hybrid was replaced
 │   └── MRS_AUTH_KEM_Hybrid.ec.txt    # v1 XOR-based hybrid KEM proof (archived)
 ├── proofs/                     # EasyCrypt formal verification
+│   ├── MRS_FloorSum.ec         # Floor-sum properties for the CDF
 │   ├── MRS_Core.ec             # Diophantine algebra, Popoviciu cardinality
+│   ├── MRS_Encoding.ec         # Chain-to-bytes encoding for the honey layer
 │   ├── MRS_Chain.ec            # Chain construction and verification
 │   ├── MRS_Sampler.ec          # CDF sampler correctness, constant-time retry
-│   ├── MRS_FloorSum.ec         # Floor-sum properties for the CDF
 │   ├── MRS_Deny.ec             # Coercion resistance via witness ambiguity
 │   ├── MRS_AUTH.ec             # Temporal barrier, HMAC (EUF-CMA), forward secrecy
 │   └── MRS_Honey.ec            # Honey encryption IND-CPA (generic KDF_Oracle)
@@ -342,7 +348,7 @@ Every push runs the full matrix:
 
 · Clock KDF: determinism, avalanche, bijectivity of the decomposition, representation validity.
 · Forest: rn matches brute-force count, Frobenius boundary, edge cases (n ∈ {9, 18, 144, 153, 162}).
-· Sampler: structural validity of generated chains across all layers; a0 = n % 9 at multiples of 9; fixed draw count across retries.
+· Sampler: structural validity of generated chains across all layers; a0 = dr(N); fixed draw count across retries; first triangle-valid N is 171.
 · Witness: authenticity binding, session isolation, coercion-resistance statistical tests.
 · Shamir: split/recover roundtrips, commitment mismatch, subset recovery.
 · At-rest protection: seal/unseal roundtrip, wrong-key rejection.
@@ -356,6 +362,8 @@ cargo clippy --all-targets -- -D warnings
 cargo bench --bench sampler_bench
 ```
 
+Current status: cargo test --lib — 108 passed, 0 failed, 52.22s.
+
 ---
 
 Formal Verification
@@ -364,14 +372,17 @@ All core security properties are machine-verified in EasyCrypt. The proof script
 
 Scope note. These proofs verify properties of the abstract mathematical model. They are not a line-by-line verification of the Rust implementation. Implementation correctness is established through unit and regression tests.
 
-File Content
-MRS_Core.ec Diophantine algebra, Popoviciu cardinality, Frobenius bound
-MRS_Chain.ec Construction and structural verification of MRS chains
-MRS_Sampler.ec Weighted CDF sampler correctness and constant-time retry loop
-MRS_FloorSum.ec Floor-sum properties underlying the CDF prefix weights
-MRS_Deny.ec Sampler-level chain-selection indistinguishability
-MRS_AUTH.ec Temporal barrier, HMAC as PRF (EUF-CMA), forward secrecy
-MRS_Honey.ec Honey encryption layer IND-CPA, over a generic KDF_Oracle
+Verification order. The .ec files are verified in dependency order. Each file only require imports files that come before it in this list.
+
+# File Content
+00 MRS_FloorSum.ec Floor-sum properties underlying the CDF prefix weights
+01 MRS_Core.ec Diophantine algebra, Popoviciu cardinality, Frobenius bound
+02 MRS_Encoding.ec Chain-to-bytes encoding for the honey layer
+03 MRS_Chain.ec Construction and structural verification of MRS chains
+04 MRS_Sampler.ec Weighted CDF sampler correctness and constant-time retry loop
+05 MRS_Deny.ec Sampler-level chain-selection indistinguishability
+06 MRS_AUTH.ec Temporal barrier, HMAC as PRF (EUF-CMA), forward secrecy
+07 MRS_Honey.ec Honey encryption layer IND-CPA, over a generic KDF_Oracle
 
 Legacy. legacy/MRS_AUTH_KEM_Hybrid.ec.txt documents the v1 XOR-based hybrid KEM. It was replaced by the framework-native clock KDF in v2.0.0 and is preserved for the paper's comparison section. The Kyber IND-CCA2 assumption it relies on is reused elsewhere; only the specific XOR reduction is historical.
 
