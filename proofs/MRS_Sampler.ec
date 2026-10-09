@@ -2,19 +2,22 @@
 (*  MRS_Sampler.ec                                                    *)
 (*  Correctness and constant-time behaviour of the weighted CDF      *)
 (*  sampler that produces 3-layer witness chains.                    *)
-(*                                                                   *)
+(*                                                                    *)
+(*  Under the Positive Anchor Convention (A_0 = dr(N) >= 1,           *)
+(*  Frobenius boundary 162).                                          *)
+(*                                                                    *)
 (*  This file complements MRS_Core.ec (which establishes per-layer   *)
 (*  representability and triangle correctness) and MRS_Chain.ec      *)
 (*  (which establishes the chain construction invariant). Here we    *)
 (*  prove the properties specific to the constant-time CDF sampler   *)
 (*  in src/sampler/cdf_sampler.rs:                                   *)
-(*                                                                   *)
+(*                                                                    *)
 (*   1. Prefix-weight monotonicity and correctness of the CDF.       *)
 (*   2. Binary-search termination and correctness.                   *)
 (*   3. Validity of a single sampler attempt.                        *)
 (*   4. Fixed draw count in the retry loop (constant-time property). *)
 (*   5. Equivalence between retry loop and single-attempt success.   *)
-(*                                                                   *)
+(*                                                                    *)
 (*  The prefix-weight layer is defined concretely in MRS_FloorSum.ec *)
 (*  and its three characteristic properties (zero-before,           *)
 (*  monotonicity, positivity) are proven there. Remaining axioms in  *)
@@ -47,12 +50,12 @@ proof. by rewrite /MAX_ATTEMPTS. qed.
 (* ================================================================= *)
 
 type layer_params = {
-  lp_a0    : int;
-  lp_b0    : int;
-  lp_k0    : int;
-  lp_tmax  : int;
+  lp_a0     : int;
+  lp_b0     : int;
+  lp_k0     : int;
+  lp_tmax   : int;
   lp_eprime : int;
-  lp_valid : bool;
+  lp_valid  : bool;
 }.
 
 op mk_params (n : int) : layer_params =
@@ -62,10 +65,6 @@ op mk_params (n : int) : layer_params =
   let tgt  = dr (2 * dr n) in
   let k0   = (b0 + 9 - tgt) %% 9 in
   let tmax = (kmax - k0) %/ 9 in
-  (* e_prime is derived from weight_params_ct in Rust; here it is a
-     public parameter, but we model it as 0 for the sampler-level
-     contracts (its exact value does not affect the correctness
-     proof, only the weight distribution). *)
   {| lp_a0 = a0; lp_b0 = b0; lp_k0 = k0; lp_tmax = tmax;
      lp_eprime = 0;
      lp_valid = (19 * a0 <= n) /\ (k0 <= kmax) |}.
@@ -121,13 +120,13 @@ lemma a_at_b_at_linear (p : layer_params) (t : int) :
 proof. by rewrite /a_at /b_at; ring. qed.
 
 lemma a_at_b_at_eq_N (N : int) (p : layer_params) (t : int) :
-  N %% 9 <> 0 => p = mk_params N =>
+  N > 0 => p = mk_params N =>
   19 * a_at p t + 9 * b_at p t = N.
 proof.
-  move=> hmod hp.
+  move=> hN hp.
   rewrite a_at_b_at_linear hp.
   rewrite mk_params_a0 mk_params_b0.
-  exact (a0_B0_eq N hmod).
+  exact (a0_B0_eq N hN).
 qed.
 
 lemma a_at_ge_a0 (p : layer_params) (t : int) :
@@ -196,11 +195,6 @@ qed.
 (* ================================================================= *)
 (* Binary search correctness                                         *)
 (* ================================================================= *)
-(*                                                                   *)
-(* The Rust binary search (ct_binary_search) finds the smallest t >= *)
-(* t_filter with prefix_weight p t_filter t > r. The following op +  *)
-(* axiom is its functional specification.                            *)
-(*                                                                   *)
 
 op select_t (p : layer_params) (t_filter : int) (r : int) : int.
 
@@ -212,10 +206,6 @@ axiom select_t_spec (p : layer_params) (t_filter : int) (r : int) :
   prefix_weight p t_filter (select_t p t_filter r) > r /\
   (t_filter < select_t p t_filter r =>
      prefix_weight p t_filter (select_t p t_filter r - 1) <= r).
-
-(* ----------------------------------------------------------------- *)
-(* Derived properties of select_t                                    *)
-(* ----------------------------------------------------------------- *)
 
 lemma select_t_is_in_range (p : layer_params) (t_filter : int) (r : int) :
   p.`lp_valid => t_filter <= p.`lp_tmax => 171 <= p.`lp_eprime =>
@@ -310,16 +300,16 @@ proof.
 qed.
 
 lemma attempt_layer_is_representation (N : int) (p : layer_params) (r : int) :
-  N %% 9 <> 0 => p = mk_params N =>
+  N > 0 => p = mk_params N =>
   p.`lp_valid => 171 <= p.`lp_eprime =>
   0 <= r => r < total_weight p p.`lp_k0 =>
   19 * (attempt_layer p r).`ar_layer.a
     + 9 * (attempt_layer p r).`ar_layer.b = N.
 proof.
-  move=> hmod hp hpv he hr hrng.
+  move=> hN hp hpv he hr hrng.
   have [hrec _] := attempt_layer_is_valid_pair p r hpv he hr hrng.
   rewrite hrec.
-  exact (a_at_b_at_eq_N N p (select_t p p.`lp_k0 r) hmod hp).
+  exact (a_at_b_at_eq_N N p (select_t p p.`lp_k0 r) hN hp).
 qed.
 
 (* ================================================================= *)
@@ -332,7 +322,7 @@ axiom sample_three_draw_count (root_n : int) (r1 r2 r3 : int) :
   size (sample_three_attempt root_n r1 r2 r3) = 2 * DEPTH + 1.
 
 axiom sample_three_correct (root_n : int) :
-  root_n > 143 => root_n %% 9 <> 0 =>
+  root_n > 162 =>
   let p0 = mk_params root_n in
   p0.`lp_valid => 171 <= p0.`lp_eprime =>
   forall r1, 0 <= r1 < total_weight p0 p0.`lp_k0 =>
@@ -440,7 +430,7 @@ axiom failure_decreases :
 (* ================================================================= *)
 
 lemma sampler_produces_correct_chain (root_n : int) :
-  root_n > 143 => root_n %% 9 <> 0 =>
+  root_n > 162 =>
   let p0 = mk_params root_n in
   p0.`lp_valid => 171 <= p0.`lp_eprime =>
   forall r1, 0 <= r1 < total_weight p0 p0.`lp_k0 =>
@@ -455,9 +445,9 @@ lemma sampler_produces_correct_chain (root_n : int) :
   let chain = sample_three_attempt root_n r1 r2 r3 in
   19 * (nth 0 chain 1) + 9 * (nth 0 chain 2) = root_n.
 proof.
-  move=> hN hmod hp0 he0 r1 hr1 p1 hp1 he1 r2 hr2 p2 hp2 he2 r3 hr3.
+  move=> hN hp0 he0 r1 hr1 p1 hp1 he1 r2 hr2 p2 hp2 he2 r3 hr3.
   have h := sample_three_correct
-    root_n hN hmod hp0 he0 r1 hr1 hp1 he1 r2 hr2 hp2 he2 r3 hr3.
+    root_n hN hp0 he0 r1 hr1 hp1 he1 r2 hr2 hp2 he2 r3 hr3.
   move: h => [hsz [hn0 hforall]].
   have h0 := hforall 0.
   have h0' : 0 <= 0 < DEPTH by rewrite /DEPTH.
