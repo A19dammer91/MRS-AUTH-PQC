@@ -1,7 +1,6 @@
-```markdown
 # COMPARISON.md
 
-**MRS-AUTH-PQC v2.0.0**
+**MRS-AUTH-PQC**
 
 This document compares three things:
 
