@@ -1,0 +1,52 @@
+name: EasyCrypt Proofs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'proofs/**'
+      - '.github/workflows/easycrypt.yml'
+  pull_request:
+    paths:
+      - 'proofs/**'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Verify EasyCrypt proofs
+    runs-on: ubuntu-latest
+    container:
+      image: easycrypt/easycrypt:latest
+      options: --user root
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify MRS_FloorSum.ec
+        working-directory: proofs
+        run: easycrypt MRS_FloorSum.ec
+
+      - name: Verify MRS_Core.ec
+        working-directory: proofs
+        run: easycrypt MRS_Core.ec
+
+      - name: Verify MRS_Chain.ec
+        working-directory: proofs
+        run: easycrypt MRS_Chain.ec
+
+      - name: Verify MRS_Sampler.ec
+        working-directory: proofs
+        run: easycrypt MRS_Sampler.ec
+
+      - name: Verify MRS_Deny.ec
+        working-directory: proofs
+        run: easycrypt MRS_Deny.ec
+
+      - name: Verify MRS_AUTH.ec
+        working-directory: proofs
+        run: easycrypt MRS_AUTH.ec
+
+      - name: Verify MRS_Honey.ec
+        working-directory: proofs
+        run: easycrypt MRS_Honey.ec
