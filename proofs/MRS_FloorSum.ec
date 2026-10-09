@@ -4,10 +4,15 @@
 (*                                                                    *)
 (*  Uses an explicit `int -> bool` predicate in place of `predT`,     *)
 (*  which is polymorphic and cannot be inferred by `bigi`.            *)
+(*                                                                    *)
+(*  The `bigi` operator lives in `StdBigop.Bigint`. Importing the     *)
+(*  submodule makes its short name available; `require import         *)
+(*  StdBigop` alone only brings the enclosing module into scope.      *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real.
 require import StdOrder StdBigop.
+import StdBigop.Bigint.
 import IntOrder RealOrder.
 
 (* ================================================================= *)
