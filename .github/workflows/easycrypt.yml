@@ -72,5 +72,5 @@ jobs:
             echo "=========================================="
             echo "== Verifying $f"
             echo "=========================================="
-            easycrypt "$f" || exit 1
+            easycrypt -I . "$f" || exit 1
           done
