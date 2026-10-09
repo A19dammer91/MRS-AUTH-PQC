@@ -127,17 +127,25 @@ fn ct_eq_u128(a: u128, b: u128) -> Choice {
 // checking the same formula a second time does not add independent
 // verification power, it only adds a second place for an argument-order
 // mistake to live.
+//
+// `a0 = n % 9`, not `digital_root(n)`: the two differ numerically at
+// multiples of 9 (0 vs 9). The representation formula needs the smallest
+// non-negative A with 19*A <= n, which is n % 9. The digital root 9 would
+// give 19*9 = 171, spuriously rejecting representable values like 144,
+// 153, 162. `digital_root` remains correct for the triangle condition
+// and for the shifted constant e_prime, since those only depend on the
+// residue mod 9.
 
 /// Counts valid triangle candidates using the closed form (constant-time).
 /// Returns 0 if no valid candidates exist.
 pub fn count_triangle_filtered_closed_form(n: u64) -> u64 {
-    let a0 = digital_root(n);
+    let a0 = n % 9;
     let a0_19 = 19u64.saturating_mul(a0);
     let valid = a0_19.ct_le(&n); // 19*a0 <= n
 
     let b0 = n.wrapping_sub(19 * a0) / 9;
     let k_max = b0 / 19;
-    let target = digital_root(2 * a0);
+    let target = digital_root(2 * digital_root(n));
     let k0 = b0.wrapping_add(9).wrapping_sub(target) % 9;
     let has_candidates = k0.ct_le(&k_max);
     let valid = valid & has_candidates;
@@ -285,14 +293,22 @@ pub struct LayerParams {
 
 impl LayerParams {
     // Extracts layer parameters in constant time.
+    //
+    // `a0 = n % 9` (not `digital_root(n)`): for n divisible by 9 these
+    // differ numerically (0 vs 9) even though they are congruent mod 9.
+    // The representation A_0 must be the smallest non-negative A with
+    // 19*A <= n, which is n % 9. `digital_root` would return 9, giving
+    // 19*9 = 171 > n for small n and spuriously rejecting representable
+    // values like 144, 153, 162. The digital root is still used below
+    // for the triangle condition, where only the residue mod 9 matters.
     pub fn new_ct(n: u64) -> Self {
-        let a0 = digital_root(n);
+        let a0 = n % 9;
         let a0_19 = 19u64.saturating_mul(a0);
         let valid = a0_19.ct_le(&n); // 19*a0 <= n
 
         let b0 = n.wrapping_sub(19 * a0) / 9;
         let k_max = b0 / 19;
-        let target = digital_root(2 * a0);
+        let target = digital_root(2 * digital_root(n));
         let k0 = b0.wrapping_add(9).wrapping_sub(target) % 9;
         let has_candidates = k0.ct_le(&k_max);
         let valid = valid & has_candidates;
@@ -795,6 +811,53 @@ mod tests {
                 count_triangle_filtered_closed_form(n),
                 count_triangle_filtered_bruteforce(n),
                 "count mismatch at n={}",
+                n
+            );
+        }
+    }
+
+    #[test]
+    fn closed_form_matches_bruteforce_at_multiples_of_9() {
+        // Edge cases where the previous digital-root variant diverged:
+        // for n divisible by 9, digital_root(n) = 9 while n % 9 = 0.
+        // The sampler must use n % 9, otherwise 19*9 > n for small n and
+        // representable values are spuriously rejected.
+        for n in [9u64, 18, 144, 153, 162, 999, 999_999, 3_000_006] {
+            assert_eq!(
+                count_triangle_filtered_closed_form(n),
+                count_triangle_filtered_bruteforce(n),
+                "count mismatch at n={}",
+                n
+            );
+        }
+    }
+
+    #[test]
+    fn a0_uses_mod9_not_digital_root() {
+        // For n divisible by 9, `n % 9` = 0 and `digital_root(n)` = 9.
+        // The representation formula needs 0, because 19*0 = 0 <= n while
+        // 19*9 = 171 may exceed n. This test guards against regression to
+        // the digital-root variant.
+        for n in [9u64, 18, 27, 144, 153, 162, 999, 999_999, 3_000_006] {
+            let params = LayerParams::new_ct(n);
+            assert_eq!(params.a0, n % 9, "a0 mismatch at n={}", n);
+
+            // Every such n must be recognized as representable, because
+            // the (A=0, B=n/9) pair is always a valid representation.
+            assert_eq!(
+                params.valid.unwrap_u8(),
+                1,
+                "n={} should be representable via (0, n/9)",
+                n
+            );
+
+            // And the reconstructed pair must satisfy the equation.
+            let a = params.a_at_ct(0);
+            let b = params.b_at_ct(0);
+            assert_eq!(
+                19 * a + 9 * b,
+                n,
+                "reconstructed pair does not satisfy 19A + 9B = n at n={}",
                 n
             );
         }
