@@ -70,7 +70,7 @@ The clock KDF does **not add entropy**. It shapes the entropy that already exist
 2. **The clock provides the uniqueness.** T ↔ (D, H, M, S, Ms) is a bijection, branchless and audit-free.
 3. **The Diophantine ladder provides the richness.** Each N has R(N) representations; the seed selects one, and the full ladder is exposed for verification.
 
-The legacy HKDF-based hybrid KDF is preserved for reference in [`legacy/hybrid_hkdf.rs`](legacy/hybrid_hkdf.rs) and is no longer compiled into the crate. See [`legacy/README.md`](legacy/README.md) for the design rationale and a side-by-side comparison.
+The legacy HKDF-based hybrid KDF is preserved for reference in [`legacy/`](legacy/) and is no longer compiled into the crate. See [`legacy/README.md`](legacy/README.md) for the design rationale and a side-by-side comparison.
 
 ---
 
@@ -121,6 +121,8 @@ T = 86,400,000·D + 3,600,000·H + 60,000·M + 1000·S + Ms
 ```
 A bijection: every T maps to exactly one (D, H, M, S, Ms), and every tuple maps back to exactly one T.
 
+> **Note on the anchor.** `A₀ = N mod 9` returns 0 for N divisible by 9, whereas the digital root `dr(N) = 1 + ((N−1) mod 9)` returns 9. Both are congruent mod 9, but the representation formula requires the smallest non-negative value, so `N mod 9` is used for A₀. The digital root remains correct for the triangle condition `dr(B) = dr(2·dr(N))`, where only the residue mod 9 matters.
+
 ---
 
 ## Why (19, 9)
@@ -153,7 +155,7 @@ Coercion-resistant cryptography protects against a specific, well-defined threat
 
 MRS-AUTH-PQC is a mathematical descendant of Rubberhose (Assange et al.). Rubberhose achieved plausible deniability by filling a disk with indistinguishable encrypted chaff. MRS-AUTH-PQC moves that haystack from disk space into abstract mathematics: a single small three-layer chain travels with the message, and alternative witnesses are generated on the fly by the Crown Equations sampler.
 
-Under the assumptions in [`DENIABILITY.md`](DENIABILITY.md) and [`proofs/WITNESS-INDISTINGUISHABILITY.md`](proofs/WITNESS-INDISTINGUISHABILITY.md), an adversary who obtains a witness cannot mathematically prove whether it is authentic or an alternative.
+Under the assumptions in [`DENIABILITY.md`](DENIABILITY.md) and [`WITNESS-INDISTINGUISHABILITY.md`](WITNESS-INDISTINGUISHABILITY.md), an adversary who obtains a witness cannot mathematically prove whether it is authentic or an alternative.
 
 **The guarantee operates at the level of mathematical proof, not psychology.** An attacker who refuses any witness short of a proof that no alternative exists cannot be stopped, because that proof does not exist by design. This is the same limit shared by every deniable scheme, Rubberhose included.
 
@@ -169,13 +171,16 @@ MRS-AUTH-PQC has not undergone independent third-party audit and carries no form
 
 | Layer | Module | Role |
 |---|---|---|
-| Foundation | `core::diophantine` | `DiophantinePair`, Frobenius bound, digital root |
-| Foundation | `forest` | `ForestNode`, `ForestBranch`, `rn`, `a0`, `b0` |
+| Foundation | `core::diophantine` | `DiophantinePair`, digital root, triangle condition |
+| Foundation | `forest` | `ForestNode`, `ForestBranch`, `rn`, `a0`, `b0`, Frobenius bound |
 | Sampler | `sampler::cdf_sampler` | Constant-time 3-layer chain builder |
+| Sampler | `sampler::supergrid` | 90/366/2520 temporal transform |
 | Crypto | `crypto::clock` | Framework-native Clock KDF + AES-256-GCM |
 | Crypto | `crypto::shamir` | Shamir Secret Sharing over GF(2⁸) |
 | Security | `security::witness` | Authentic + alternative witness generation |
+| Security | `security::witness_supergrid` | Temporal witness authentication |
 | Security | `security::timecode` | HMAC-SHA256 temporal barrier |
+| Security | `security::merkle` | Merkle commitment and inclusion proofs |
 | Orchestration | `framework` | `MrsAuthFramework` top-level API |
 
 The clock KDF imports `rn`, `a0`, `b0` from `forest` so the (19,9) arithmetic has a single source of truth. The `forest` module is pure mathematics with no crypto dependencies.
@@ -189,33 +194,50 @@ The clock KDF imports `rn`, `a0`, `b0` from `forest` so the (19,9) arithmetic ha
 MRS-AUTH-PQC/
 ├── .github/workflows/          # CI, tests, benchmarks
 ├── Cargo.toml                  # v2.0.0, features: bigint
+├── LICENSE                     # Apache-2.0
 ├── README.md
+├── DENIABILITY.md              # Threat model and deniability assumptions
+├── WITNESS-INDISTINGUISHABILITY.md   # Informal hybrid argument for witness ambiguity
+├── Archive/                    # Deprecated proofs, retained for reference
+│   └── MRS_Kyber.ec            # Seed-based iteration, superseded by MRS_AUTH_KEM_Hybrid
 ├── benches/
+│   └── sampler_bench.rs        # Criterion benchmark: sample_three_layers_safe
 ├── demo/
-│   └── mrs-auth-security-game.html
+│   └── mrs-auth-security-game.html   # Interactive browser-based security demo
 ├── docs/
-│   ├── user-manual.md
-│   └── Supergrid Exploration/
-├── legacy/
+│   ├── research-notes/         # Background material (90/366/2520 transform)
+│   └── user-manual.md          # Walkthrough of the interactive demo
+├── legacy/                     # Archival only, not compiled
 │   ├── README.md               # Why the HKDF hybrid was replaced
-│   └── hybrid_hkdf.rs          # Not compiled; archival only
+│   └── MRS_AUTH_KEM_Hybrid.ec.txt    # v1 XOR-based hybrid KEM proof (archived)
 ├── proofs/                     # EasyCrypt formal verification
+│   ├── MRS_Core.ec             # Diophantine algebra, Popoviciu cardinality
+│   ├── MRS_Chain.ec            # Chain construction and verification
+│   ├── MRS_Sampler.ec          # CDF sampler correctness, constant-time retry
+│   ├── MRS_FloorSum.ec         # Floor-sum properties for the CDF
+│   ├── MRS_Deny.ec             # Coercion resistance via witness ambiguity
+│   ├── MRS_AUTH.ec             # Temporal barrier, HMAC (EUF-CMA), forward secrecy
+│   └── MRS_Honey.ec            # Honey encryption IND-CPA (generic KDF_Oracle)
 └── src/
 ├── lib.rs
 ├── framework.rs
-├── core/diophantine.rs
+├── core/
+│   └── diophantine.rs
 ├── forest/
 │   ├── mod.rs
 │   ├── primitives.rs
 │   ├── node.rs
 │   └── branch.rs
 ├── sampler/
+│   ├── mod.rs
 │   ├── cdf_sampler.rs
 │   └── supergrid.rs
 ├── crypto/
+│   ├── mod.rs
 │   ├── clock.rs
 │   └── shamir.rs
 └── security/
+├── mod.rs
 ├── witness.rs
 ├── witness_supergrid.rs
 ├── timecode.rs
@@ -310,7 +332,7 @@ println!("(A_k, B_k) = {:?}", ck.ab);
 println!("key       = {:02x?}", ck.key);
 ```
 
-For the full API — MasterSecret, WitnessSpace, ForestNode, Shamir, supergrid — see the module documentation via cargo doc --open. Additional runnable examples are in examples/.
+For the full API — MasterSecret, WitnessSpace, ForestNode, Shamir, supergrid — see the module documentation via cargo doc --open.
 
 ---
 
@@ -320,7 +342,7 @@ Every push runs the full matrix:
 
 · Clock KDF: determinism, avalanche, bijectivity of the decomposition, representation validity.
 · Forest: rn matches brute-force count, Frobenius boundary, edge cases (n ∈ {9, 18, 144, 153, 162}).
-· Sampler: structural validity of generated chains across all layers.
+· Sampler: structural validity of generated chains across all layers; a0 = n % 9 at multiples of 9; fixed draw count across retries.
 · Witness: authenticity binding, session isolation, coercion-resistance statistical tests.
 · Shamir: split/recover roundtrips, commitment mismatch, subset recovery.
 · At-rest protection: seal/unseal roundtrip, wrong-key rejection.
@@ -338,18 +360,20 @@ cargo bench --bench sampler_bench
 
 Formal Verification
 
-All core security properties are machine-verified in EasyCrypt. Scripts live in proofs/.
+All core security properties are machine-verified in EasyCrypt. The proof scripts live in proofs/.
 
 Scope note. These proofs verify properties of the abstract mathematical model. They are not a line-by-line verification of the Rust implementation. Implementation correctness is established through unit and regression tests.
 
 File Content
 MRS_Core.ec Diophantine algebra, Popoviciu cardinality, Frobenius bound
 MRS_Chain.ec Construction and structural verification of MRS chains
-MRS_Sampling.ec Correctness of the weighted CDF sampler
-MRS_Honey.ec Honey encryption layer
-MRS_AUTH.ec Temporal barrier, HMAC authentication
-MRS_AUTH_KEM_Hybrid.ec IND-CCA2 security of the KEM
-MRS_Deny.ec Coercion resistance via witness ambiguity
+MRS_Sampler.ec Weighted CDF sampler correctness and constant-time retry loop
+MRS_FloorSum.ec Floor-sum properties underlying the CDF prefix weights
+MRS_Deny.ec Sampler-level chain-selection indistinguishability
+MRS_AUTH.ec Temporal barrier, HMAC as PRF (EUF-CMA), forward secrecy
+MRS_Honey.ec Honey encryption layer IND-CPA, over a generic KDF_Oracle
+
+Legacy. legacy/MRS_AUTH_KEM_Hybrid.ec.txt documents the v1 XOR-based hybrid KEM. It was replaced by the framework-native clock KDF in v2.0.0 and is preserved for the paper's comparison section. The Kyber IND-CCA2 assumption it relies on is reused elsewhere; only the specific XOR reduction is historical.
 
 ---
 
@@ -361,7 +385,7 @@ cargo bench --bench sampler_bench
 
 The clock KDF cost is dominated by a single SHA-256 pass plus one mod R(N). It runs in well under a microsecond on typical hardware, and its cost is independent of the magnitude of the input seed.
 
-The sampler runs at near-constant time across six orders of magnitude in N (~10⁶ to ~10¹⁸), the expected result of O(1) closed-form sampling. Full results in benches/README.md.
+The sampler runs at near-constant time across six orders of magnitude in N (~10⁶ to ~10¹⁸), the expected result of O(1) closed-form sampling.
 
 ---
 
@@ -381,6 +405,8 @@ Papers
 · The Clock [3600, 60, 1] and the (25, 12)-System: A Structural Comparison. 10.5281/zenodo.22804148
 · The 19-9 System: N = 19A + 9B. 10.5281/zenodo.19474707
 
+Background material for the 90/366/2520 transformation lives in docs/research-notes/.
+
 ---
 
 Citation
@@ -390,7 +416,7 @@ Academic use does not require citation. If you'd like to cite this work anyway:
 ```bibtex
 @misc{elissaoui2026forest,
   title = {The Forest Analogy: Full Specification of the MRS-AUTH Cryptographic Framework},
-  author = {Bilal El Issaoui},
+  author = {Bilal el Issaoui},
   year = {2026},
   doi = {10.5281/zenodo.21852606},
   howpublished = {Zenodo}
