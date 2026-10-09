@@ -234,18 +234,4 @@ What MRS-AUTH-PQC does is give the honest user a real option they would not othe
 
 ---
 
-## Summary
-
-**On the KDF.** v1 used HKDF. v2 uses a framework-native clock KDF. The change removes an external dependency, reduces the hash passes from two to one, and turns the key derivation into an auditable computation with every intermediate value exposed in the public API.
-
-**On the anchor.** We use `A₀ = dr(N)`, the digital root of N. This is the Positive Anchor Convention. Its range is 1..9. It makes every representation carry a non-trivial core, it matches the framework's own claim about the digital root cycle, and it moves the Frobenius boundary from 143 to 162. This is a deliberate design choice.
-
-**On the security model.** Classical cryptography protects against eavesdroppers and forgers. MRS-AUTH-PQC protects against those too, using the same primitives. It also protects against coercion, using a witness-space construction that gives a coerced user a real alternative to hand over. The two layers coexist. Neither replaces the other.
-
-**On entropy.** Neither HKDF nor the clock KDF adds entropy. The key is bounded by the entropy of the seed in both cases. What the clock KDF adds is structure, not strength.
-
-**On honesty.** The framework does not claim more than it delivers. It provides a mathematical guarantee under a well-defined threat model. It does not provide protection against every possible attacker, and it does not pretend to.
-
----
-
 *Bilal el Issaoui, Amsterdam, 2026.*
