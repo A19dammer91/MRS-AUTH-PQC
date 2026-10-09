@@ -9,28 +9,33 @@ on:
   pull_request:
     paths:
       - 'proofs/**'
+      - '.github/workflows/easycrypt.yml'
   workflow_dispatch:
+
+concurrency:
+  group: easycrypt-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   OPAMYES: "true"
+  EC_REF: r2024.09
 
 jobs:
   verify:
     name: Verify EasyCrypt proofs
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Cache opam
-        uses: actions/cache@v4
+      - name: Restore opam cache
+        id: opam-cache
+        uses: actions/cache/restore@v4
         with:
           path: ~/.opam
-          key: opam-${{ runner.os }}-ec-r2024.09
-          restore-keys: |
-            opam-${{ runner.os }}-ec-
+          key: opam-${{ runner.os }}-ec-${{ env.EC_REF }}-ocaml4.14.1
 
       - name: Install system dependencies
         run: |
@@ -38,36 +43,70 @@ jobs:
           sudo apt-get install -y opam m4 gcc make git curl pkg-config \
             libgmp-dev libpcre3-dev
 
-      - name: Initialize opam
+      - name: Install OCaml, SMT solvers and EasyCrypt
+        if: steps.opam-cache.outputs.cache-hit != 'true'
         run: |
           opam init --disable-sandboxing --bare -y
-          opam switch create 4.14.1 -y || opam switch 4.14.1
-          eval $(opam env)
+          opam switch create 4.14.1 -y
+          opam exec -- opam install -y alt-ergo z3
+          opam exec -- opam pin add -y easycrypt \
+            https://github.com/EasyCrypt/easycrypt.git#${EC_REF}
 
-      - name: Install SMT solvers
-        run: |
-          eval $(opam env)
-          opam install -y alt-ergo z3
+      - name: Save opam cache
+        if: steps.opam-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.opam
+          key: opam-${{ runner.os }}-ec-${{ env.EC_REF }}-ocaml4.14.1
 
-      - name: Install EasyCrypt
+      - name: Configure Why3 and show provers
         run: |
-          eval $(opam env)
-          opam pin add -y easycrypt https://github.com/EasyCrypt/easycrypt.git#r2024.09
+          opam exec -- easycrypt why3config
+          opam exec -- easycrypt config
 
-      - name: Verify EasyCrypt is available
+      - name: Forbid admit and enforce axiom baseline
+        working-directory: proofs
         run: |
-          eval $(opam env)
-          easycrypt --version
+          fail=0
 
-      - name: Configure Why3
-        run: |
-          eval $(opam env)
-          easycrypt why3config
+          # (1) Forbid any occurrence of the admit tactic.
+          if grep -nE '^[[:space:]]*admit[[:space:]]*\.?[[:space:]]*$' MRS_*.ec; then
+            echo "::error::admit found in proofs"
+            fail=1
+          fi
+
+          # (2) Enforce the axiom baseline declared in .axiom-baseline.
+          if [ ! -f .axiom-baseline ]; then
+            echo "::error::.axiom-baseline not found in proofs/"
+            exit 1
+          fi
+
+          while read -r file limit; do
+            # Skip blank lines and comments.
+            [ -z "$file" ] && continue
+            case "$file" in
+              \#*) continue ;;
+            esac
+
+            count=$(grep -cE '^[[:space:]]*(declare[[:space:]]+)?axiom[[:space:]]' \
+                    "$file" || true)
+            if [ "$count" -gt "$limit" ]; then
+              echo "::error::$file has $count axioms (baseline: $limit)"
+              fail=1
+            elif [ "$count" -lt "$limit" ]; then
+              echo "::warning::$file has $count axioms (baseline: $limit) — you can lower the baseline"
+            else
+              echo "== $file: $count axioms (baseline)"
+            fi
+          done < .axiom-baseline
+
+          exit $fail
 
       - name: Verify all proofs in dependency order
         working-directory: proofs
         run: |
-          eval $(opam env)
+          set -o pipefail
+          mkdir -p ../logs
           for f in \
               MRS_FloorSum.ec \
               MRS_Core.ec \
@@ -77,19 +116,20 @@ jobs:
               MRS_Deny.ec \
               MRS_AUTH.ec \
               MRS_Honey.ec; do
-            echo "=========================================="
             echo "== Verifying $f"
-            echo "=========================================="
             start=$(date +%s)
-            if easycrypt compile -I . "$f"; then
-              end=$(date +%s)
-              echo "== $f OK ($((end - start))s)"
+            if opam exec -- easycrypt compile -I . -timeout 10 "$f" \
+                 2>&1 | tee "../logs/${f%.ec}.log"; then
+              echo "== $f OK ($(( $(date +%s) - start ))s)"
             else
-              end=$(date +%s)
-              echo "== FAILED: $f ($((end - start))s)"
+              echo "== FAILED: $f ($(( $(date +%s) - start ))s)"
               exit 1
             fi
           done
-          echo "=========================================="
-          echo "== All proofs verified successfully"
-          echo "=========================================="
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: easycrypt-logs
+          path: logs/
