@@ -205,7 +205,9 @@ mod tests {
         for i in 0u32..1000 {
             let ck = derive_key_from_clock(&i.to_be_bytes());
             let (d, h, m, s, ms) = ck.clock;
-            let recomposed = d * DAY_MS + (h as u128) * HOUR_MS + (m as u128) * MIN_MS
+            let recomposed = d * DAY_MS
+                + (h as u128) * HOUR_MS
+                + (m as u128) * MIN_MS
                 + (s as u128) * SEC_MS
                 + (ms as u128);
             assert_eq!(recomposed, ck.n);
