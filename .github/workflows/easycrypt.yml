@@ -11,6 +11,9 @@ on:
       - 'proofs/**'
   workflow_dispatch:
 
+env:
+  OPAMYES: "true"
+
 jobs:
   verify:
     name: Verify EasyCrypt proofs
@@ -29,7 +32,8 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y opam m4 gcc make git curl pkg-config libgmp-dev
+          sudo apt-get install -y opam m4 gcc make git curl pkg-config \
+            libgmp-dev libpcre3-dev
 
       - name: Initialize opam
         run: |
@@ -46,7 +50,6 @@ jobs:
         run: |
           eval $(opam env)
           opam pin add -y easycrypt https://github.com/EasyCrypt/easycrypt.git#r2024.09
-          opam install -y easycrypt
 
       - name: Configure Why3
         run: |
