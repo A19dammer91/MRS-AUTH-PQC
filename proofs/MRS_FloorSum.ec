@@ -2,21 +2,8 @@
 (*  MRS_FloorSum.ec                                                   *)
 (*  The floor sum at the heart of the weighted CDF sampler.           *)
 (*                                                                    *)
-(*  The Rust implementation (src/sampler/cdf_sampler.rs) computes:    *)
-(*                                                                    *)
-(*    floor_sum_ct(n, m, a, b) = sum_{i=0}^{n-1} floor((a*i + b)/m)   *)
-(*                                                                    *)
-(*  using a fixed 64-iteration AtCoder shift-and-add loop. Here we    *)
-(*  specify its value as an ordinary sum and prove the properties     *)
-(*  that MRS_Sampler.ec needs: monotonicity in the range and in the   *)
-(*  offset, non-negativity on non-negative arguments, and positivity  *)
-(*  on the valid range.                                               *)
-(*                                                                    *)
-(*  The AtCoder shift-and-add reduction used by the Rust              *)
-(*  implementation is not modelled here. Its correctness is           *)
-(*  established by the unit tests in cdf_sampler.rs; the fact that    *)
-(*  it computes the same value as the plain sum below is a            *)
-(*  functional specification, not a formal refinement claim.          *)
+(*  Uses an explicit `int -> bool` predicate in place of `predT`,     *)
+(*  which is polymorphic and cannot be inferred by `bigi`.            *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real.
@@ -27,8 +14,10 @@ import IntOrder RealOrder.
 (* Definition                                                         *)
 (* ================================================================= *)
 
+op pred_int (i : int) : bool = true.
+
 op floor_sum (n m a b : int) : int =
-  bigi predT (fun i => (a * i + b) %/ m) 0 n.
+  bigi pred_int (fun i => (a * i + b) %/ m) 0 n.
 
 (* ================================================================= *)
 (* Basic properties                                                   *)
@@ -44,14 +33,15 @@ lemma floor_sum_step (n m a b : int) :
 proof.
   move=> hn.
   rewrite /floor_sum.
-  have h := bigiD predT (fun i => (a * i + b) %/ m) 0 n 1.
-  have h' : bigi predT (fun i => (a * i + b) %/ m) n (n + 1)
+  have h := bigiD pred_int (fun i => (a * i + b) %/ m) 0 n 1.
+  have h' : bigi pred_int (fun i => (a * i + b) %/ m) n (n + 1)
           = (a * n + b) %/ m.
-    have -> : bigi predT (fun i => (a * i + b) %/ m) n (n + 1)
-            = bigi predT (fun i => (a * i + b) %/ m) n n
-              + (if predT n then (a * n + b) %/ m else 0).
+    have -> : bigi pred_int (fun i => (a * i + b) %/ m) n (n + 1)
+            = bigi pred_int (fun i => (a * i + b) %/ m) n n
+              + (if pred_int n then (a * n + b) %/ m else 0).
       by apply bigi_rec.
     rewrite bigi_empt //.
+    by rewrite /pred_int.
   smt.
 qed.
 
@@ -127,20 +117,6 @@ qed.
 (* ================================================================= *)
 (* Prefix weight                                                      *)
 (* ================================================================= *)
-(*                                                                   *)
-(* The prefix_weight function used by the sampler is:                 *)
-(*                                                                    *)
-(*   prefix_weight(t_filter, t, t_max, e_prime) =                     *)
-(*     if t < t_filter then 0                                         *)
-(*     else                                                           *)
-(*       let end_t = min(t, t_max) in                                 *)
-(*       let n = end_t - t_filter + 1 in                              *)
-(*       floor_sum(n, 171, 9, e_prime) + n                            *)
-(*                                                                    *)
-(* The "+ n" accounts for the "+ 1" that every weight term has        *)
-(* (1 + floor((9*i + e_prime)/171)); see weight_params_ct in          *)
-(* cdf_sampler.rs.                                                    *)
-(* ================================================================= *)
 
 op prefix_weight (t_filter t t_max e_prime : int) : int =
   if t < t_filter then 0
@@ -149,10 +125,6 @@ op prefix_weight (t_filter t t_max e_prime : int) : int =
     let n = end_t - t_filter + 1 in
     floor_sum n 171 9 e_prime + n.
 
-(* ----------------------------------------------------------------- *)
-(* Zero before t_filter                                               *)
-(* ----------------------------------------------------------------- *)
-
 lemma prefix_weight_zero_before
     (t_filter t t_max e_prime : int) :
   t < t_filter => prefix_weight t_filter t t_max e_prime = 0.
@@ -160,10 +132,6 @@ proof.
   move=> hlt.
   by rewrite /prefix_weight hlt.
 qed.
-
-(* ----------------------------------------------------------------- *)
-(* Monotonicity in t                                                  *)
-(* ----------------------------------------------------------------- *)
 
 lemma prefix_weight_monotone
     (t_filter t1 t2 t_max e_prime : int) :
@@ -208,10 +176,6 @@ proof.
     smt.
 qed.
 
-(* ----------------------------------------------------------------- *)
-(* Positivity on the valid range                                      *)
-(* ----------------------------------------------------------------- *)
-
 lemma prefix_weight_positive
     (t_filter t t_max e_prime : int) :
   t_filter <= t => t <= t_max => 171 <= e_prime =>
@@ -235,7 +199,3 @@ proof.
     linarith.
   linarith.
 qed.
-
-(* ================================================================= *)
-(* End of MRS_FloorSum.ec                                             *)
-(* ================================================================= *)
