@@ -15,36 +15,20 @@ jobs:
   verify:
     name: Verify EasyCrypt proofs
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/easycrypt/ec-build-box:latest
+      options: --user root
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y opam m4 gcc make git curl
-
-      - name: Initialize opam
-        run: |
-          opam init --disable-sandboxing --bare -y
-          opam switch create 5.1.1 -y
-          eval $(opam env)
-
-      - name: Install EasyCrypt
+      - name: Install EasyCrypt from source
         run: |
           eval $(opam env)
-          opam install -y easycrypt
-
-      - name: Install SMT solvers
-        run: |
-          eval $(opam env)
-          opam install -y alt-ergo
-
-      - name: Configure Why3
-        run: |
-          eval $(opam env)
-          easycrypt why3config
+          opam pin add -n easycrypt https://github.com/EasyCrypt/easycrypt.git#r2024.09
+          opam install --deps-only easycrypt
+          opam install easycrypt
 
       - name: Verify MRS_FloorSum.ec
         working-directory: proofs
