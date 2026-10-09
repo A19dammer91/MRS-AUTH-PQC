@@ -1,41 +1,33 @@
 (* ================================================================= *)
-(* MRS_AUTH.ec                                                       *)
-(* Time-based Authentication                                         *)
-(*                                                                   *)
-(* Three main components:                                            *)
-(* I. Temporal Barrier (timing + zeroize)                            *)
-(* II. HMAC as PRF and EUF-CMA security                              *)
-(* III. Forward Secrecy                                              *)
-(*                                                                   *)
-(* Note: this file previously contained a fourth component           *)
-(* (HKDF Time-Key Derivation, Random Oracle model). That section     *)
-(* was removed because the framework now derives session keys from   *)
-(* a framework-native clock KDF (src/crypto/clock.rs) instead of     *)
-(* HKDF. The archived version is preserved in                       *)
-(* legacy/MRS_AUTH_HKDF.ec.                                          *)
+(*  MRS_AUTH.ec                                                       *)
+(*  Time-based Authentication                                         *)
+(*                                                                    *)
+(*  Under the Positive Anchor Convention (A_0 = dr(N) >= 1,           *)
+(*  Frobenius boundary 162).                                          *)
+(*                                                                    *)
+(*  Three main components:                                            *)
+(*   I. Temporal Barrier (timing + zeroize)                           *)
+(*  II. HMAC as PRF and EUF-CMA security                              *)
+(* III. Forward Secrecy                                               *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List FSet SmtMap.
 require import StdOrder StdBigop.
 import IntOrder RealOrder.
-(* Assumption: MRS_Core is available with dr, a0, B0, kmax, etc. *)
 require import MRS_Core.
 
-(* ================================================================= *)
-(* Shared type synonyms and operators                                *)
-(* ================================================================= *)
 type bytes.
 type key = bytes.
 type nonce = bytes.
 
-op dbytes : int -> bytes distr.   (* uniform distribution over n-byte strings *)
+op dbytes : int -> bytes distr.
 axiom dbytes_ll : forall n, is_lossless (dbytes n).
 axiom dbytes_uniform : forall n, is_uniform (dbytes n).
 axiom dbytes_full : forall n, is_full (dbytes n).
 axiom dbytes_single_prob : forall n (b : bytes), mu (dbytes n) (pred1 b) = 2%r ^ (-8*n).
 
-op key_len : int = 32.            (* 256 bits *)
-op hmac_len : int = 32.           (* 256-bit output *)
+op key_len : int = 32.
+op hmac_len : int = 32.
 op encode_chain : int list -> bytes.
 axiom encode_chain_inj : forall (c1 c2 : int list),
   encode_chain c1 = encode_chain c2 => c1 = c2.
@@ -45,7 +37,7 @@ axiom int_to_bytes8_inj : forall (t1 t2 : int),
 op sample_time : unit -> int distr.
 axiom sample_time_ll : is_lossless (sample_time ()).
 axiom sample_time_infinite : forall t, mu (sample_time ()) (pred1 t) = 0%r.
-op hmac : bytes -> bytes -> bytes.  (* HMAC with first arg key, second arg message *)
+op hmac : bytes -> bytes -> bytes.
 axiom hmac_inj : forall k1 k2 m, hmac k1 m = hmac k2 m => k1 = k2.
 
 op negl : int -> real.
@@ -144,13 +136,12 @@ proof.
   by move=> [_ [h1 h2]]; smt().
 qed.
 
-(* Temporal barrier module *)
 module TemporalBarrier = {
   proc sample_mrs_timed(N : int, timeout : real) : (int * int * real) option = {
     var Ap, Bp, k_min, k_max, first_k, final_k, A, B, duration;
     Ap <- N;
     Bp <- -2 * N;
-    k_min <- (-Ap + 143 + 8) %/ 9;
+    k_min <- (-Ap + 162 + 8) %/ 9;
     k_max <- Bp %/ 19;
     if (k_min > k_max) { return None; }
     first_k <- k_min + ((dr (Bp - 19 * k_min) - dr (2 * dr N)) %% 9);
@@ -167,14 +158,14 @@ module TemporalBarrier = {
 }.
 
 lemma triangle_shift_correct (N k_min : int) :
-  N > 143 => N %% 9 <> 0 =>
+  N > 162 =>
   let Bp = -2 * N in
   let shift = (dr (Bp - 19 * k_min) - dr (2 * dr N)) %% 9 in
   let first_k = k_min + shift in
   Bp - 19 * first_k > 0 =>
   dr (Bp - 19 * first_k) = dr (2 * dr N).
 proof.
-  move=> hN hmod /=.
+  move=> hN /=.
   set Bp := -2 * N.
   set shift := (dr (Bp - 19 * k_min) - dr (2 * dr N)) %% 9.
   set first_k := k_min + shift.
@@ -218,7 +209,7 @@ proof.
 qed.
 
 lemma temporal_barrier_correctness (N : int) (timeout : real) :
-  N > 143 => N %% 9 <> 0 =>
+  N > 162 =>
   hoare [TemporalBarrier.sample_mrs_timed :
     arg = (N, timeout) ==>
     match res with
@@ -228,9 +219,9 @@ lemma temporal_barrier_correctness (N : int) (timeout : real) :
     | None => true
     end].
 proof.
-  move=> hN hmod.
+  move=> hN.
   proc.
-  seq 4 : (Ap = N /\ Bp = -2 * N /\ k_min = (-N + 143 + 8) %/ 9 /\
+  seq 4 : (Ap = N /\ Bp = -2 * N /\ k_min = (-N + 162 + 8) %/ 9 /\
            k_max = (-2 * N) %/ 19).
   - auto.
   if.
@@ -283,22 +274,21 @@ proof.
         have hpos_si2 : x - 171 * si > 0 by smt().
         rewrite dr_step_9_invariant; first by linarith.
         apply ih; smt().
-    have hdr_first := triangle_shift_correct N k_min{m} hN hmod.
+    have hdr_first := triangle_shift_correct N k_min{m} hN.
     rewrite hdr_invariant.
     apply hdr_first.
     smt(hfirst_pos).
 qed.
 
 lemma temporal_barrier_noninterference (N1 N2 : int) (timeout : real) :
-  N1 > 143 => N2 > 143 =>
-  N1 %% 9 <> 0 => N2 %% 9 <> 0 =>
+  N1 > 162 => N2 > 162 =>
   step_to_time (total_steps N1) > timeout =>
   step_to_time (total_steps N2) > timeout =>
   equiv [TemporalBarrier.sample_mrs_timed ~ TemporalBarrier.sample_mrs_timed :
     arg{1} = (N1, timeout) /\ arg{2} = (N2, timeout) ==>
     res{1} = None /\ res{2} = None].
 proof.
-  move=> hN1 hN2 hmod1 hmod2 htout1 htout2.
+  move=> hN1 hN2 htout1 htout2.
   proc.
   seq 4 4 : true; first by auto.
   if{1}.
@@ -354,12 +344,12 @@ proof.
 qed.
 
 lemma temporal_barrier_conditional_uniform (N : int) (timeout : real) :
-  N > 143 => N %% 9 <> 0 =>
+  N > 162 =>
   step_to_time (total_steps N) <= timeout =>
   equiv [TemporalBarrier.sample_mrs_timed ~ TemporalBarrier.sample_mrs_timed :
     ={arg} /\ arg{1} = (N, timeout) ==> ={res}].
 proof.
-  move=> hN hmod htimeout.
+  move=> hN htimeout.
   proc.
   seq 4 4 : (={Ap, Bp, k_min, k_max} /\
              Ap{1} = N /\ Bp{1} = -2 * N).
@@ -383,7 +373,6 @@ proof.
   - auto.
 qed.
 
-(* Memory state abstraction for zeroize *)
 type mem_state = Valid of (int * int) | Cleared | Uninitialized.
 op zeroize (m : mem_state) : mem_state = Cleared.
 
@@ -408,7 +397,7 @@ module RustTemporalBarrier = {
     var Ap, Bp, k_min, k_max, first_k, final_k, A, B, duration;
     Ap <- N;
     Bp <- -2 * N;
-    k_min <- (-Ap + 143 + 8) %/ 9;
+    k_min <- (-Ap + 162 + 8) %/ 9;
     k_max <- Bp %/ 19;
     if (k_min > k_max) { return RustCleared; }
     first_k <- k_min + ((dr (Bp - 19 * k_min) - dr (2 * dr N)) %% 9);
@@ -423,14 +412,14 @@ module RustTemporalBarrier = {
 }.
 
 lemma refinement_backward_security (N : int) (timeout : int) :
-  N > 143 => N %% 9 <> 0 =>
+  N > 162 =>
   hoare [RustTemporalBarrier.sample_with_zeroize :
     arg = (N, timeout) ==>
     attacker_obs (rust_to_abstract res) = false \/
     (exists A B, res = RustValid (A, B) /\ 19 * A + 9 * B = N /\
       dr B = dr (2 * dr N))].
 proof.
-  move=> hN hmod.
+  move=> hN.
   proc.
   auto => /> &m.
   case (k_min{m} > k_max{m}).
@@ -471,7 +460,6 @@ proof.
           apply triangle_shift_correct; smt().
 qed.
 
-(* Chain builder using temporal barrier *)
 module ChainWithTemporalBarrier = {
   proc build_chain(N : int, depth : int, timeout : real)
     : int list option = {
@@ -502,15 +490,14 @@ pred chain_invariant
     size chain = 2 * layer + 1 /\
     nth 0 chain 0 = N /\
     current = nth 0 chain (2 * layer) /\
-    current > 143 /\
-    current %% 9 <> 0 /\
+    current > 162 /\
     (forall j, 0 <= j < layer =>
       19 * (nth 0 chain (2*j+1)) + 9 * (nth 0 chain (2*j+2))
       = nth 0 chain (2*j))) /\
   (!success => chain = []).
 
 lemma chain_temporal_security (N : int) (depth : int) (timeout : real) :
-  N > 143 => N %% 9 <> 0 => depth >= 1 => timeout > 0%r =>
+  N > 162 => depth >= 1 => timeout > 0%r =>
   hoare [ChainWithTemporalBarrier.build_chain :
     arg = (N, depth, timeout) ==>
     match res with
@@ -523,13 +510,12 @@ lemma chain_temporal_security (N : int) (depth : int) (timeout : real) :
     | None => true
     end].
 proof.
-  move=> hN hmod hdepth htimeout.
+  move=> hN hdepth htimeout.
   proc.
   while (0 <= layer /\ layer <= depth /\
          chain_invariant chain current layer depth N success).
   - seq 1 : (ms).
     + call (temporal_barrier_correctness current timeout).
-    - smt(chain_invariant).
     - smt(chain_invariant).
     auto.
     match ms.
@@ -553,10 +539,6 @@ proof.
         smt(hinv_suc size_cat).
       split.
       * smt(hlin chain_invariant).
-      split.
-      * have hdrA : dr A = dr current{m}.
-          smt(dr_rep_A chain_invariant).
-        smt(chain_invariant dr_range).
       * move=> j hj.
         case (j < layer{m}).
         - move=> hjl.
@@ -572,13 +554,12 @@ proof.
     split; first by done.
     split; first by done.
     split; first by exact hN.
-    split; first by exact hmod.
     by move=> j hj; smt().
   - auto => />.
     move=> &m [hlayer [hdepth_ok hinv]].
     case (success{m}).
     + move=> hsuc.
-      have [hsz [hn0 [hcur [hcurN [hcurmod hforall]]]]] := hinv.`1 hsuc.
+      have [hsz [hn0 [hcur [hcurN hforall]]]] := hinv.`1 hsuc.
       split; first by smt().
       split; first by exact hn0.
       exact hforall.
@@ -640,7 +621,6 @@ axiom hmac_prf (A <: PRF_Distinguisher) &m :
   `| Pr[PRF_Game_Real(A).main() @ &m : res] -
      Pr[PRF_Game_Rand(A).main() @ &m : res] | <= negl lambda.
 
-(* EUF-CMA game for time-code authentication *)
 op t_star : int.
 op sig_star : bytes.
 
@@ -698,7 +678,7 @@ lemma timecode_euf_cma (A <: EUF_Adversary) :
 proof.
   have step1 :
     Pr[EUF_CMA(A).main() @ &m : res] =
-    Pr[PRF_Game_Real(EUF_to_PRF(A)).main() @ &m : res]. 
+    Pr[PRF_Game_Real(EUF_to_PRF(A)).main() @ &m : res].
     proof.
     byequiv => //.
     proc.
@@ -822,5 +802,4 @@ qed.
 
 (* ================================================================= *)
 (* End of MRS_AUTH.ec                                                *)
-(* Time-based Authentication — fully verified                       *)
 (* ================================================================= *)
