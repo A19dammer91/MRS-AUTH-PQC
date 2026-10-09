@@ -81,7 +81,7 @@ jobs:
             echo "== Verifying $f"
             echo "=========================================="
             start=$(date +%s)
-            if easycrypt -I . "$f"; then
+            if easycrypt compile -I . "$f"; then
               end=$(date +%s)
               echo "== $f OK ($((end - start))s)"
             else
