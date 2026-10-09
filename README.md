@@ -197,33 +197,33 @@ The clock KDF imports `rn`, `a0`, `b0` from `forest` so the (19,9) arithmetic ha
 ```
 
 MRS-AUTH-PQC/
-├── .github/workflows/          # CI, tests, benchmarks, EasyCrypt proofs
-├── Cargo.toml                  # v2.0.0, features: bigint
-├── LICENSE                     # Apache-2.0
+├── .github/workflows/
+├── Cargo.toml
+├── LICENSE
 ├── README.md
-├── DENIABILITY.md              # Threat model and deniability assumptions
-├── WITNESS-INDISTINGUISHABILITY.md   # Informal hybrid argument for witness ambiguity
-├── Archive/                    # Deprecated proofs, retained for reference
-│   └── MRS_Kyber.ec            # Seed-based iteration, superseded by MRS_AUTH_KEM_Hybrid
+├── DENIABILITY.md
+├── WITNESS-INDISTINGUISHABILITY.md
+├── Archive/
+│   └── MRS_Kyber.ec
 ├── benches/
-│   └── sampler_bench.rs        # Criterion benchmark: sample_three_layers_safe
+│   └── sampler_bench.rs
 ├── demo/
-│   └── mrs-auth-security-game.html   # Interactive browser-based security demo
+│   └── mrs-auth-security-game.html
 ├── docs/
-│   ├── research-notes/         # Background material (90/366/2520 transform)
-│   └── user-manual.md          # Walkthrough of the interactive demo
-├── legacy/                     # Archival only, not compiled
-│   ├── README.md               # Why the HKDF hybrid was replaced
-│   └── MRS_AUTH_KEM_Hybrid.ec.txt    # v1 XOR-based hybrid KEM proof (archived)
-├── proofs/                     # EasyCrypt formal verification
-│   ├── MRS_FloorSum.ec         # Floor-sum properties for the CDF
-│   ├── MRS_Core.ec             # Diophantine algebra, Popoviciu cardinality
-│   ├── MRS_Encoding.ec         # Chain-to-bytes encoding for the honey layer
-│   ├── MRS_Chain.ec            # Chain construction and verification
-│   ├── MRS_Sampler.ec          # CDF sampler correctness, constant-time retry
-│   ├── MRS_Deny.ec             # Coercion resistance via witness ambiguity
-│   ├── MRS_AUTH.ec             # Temporal barrier, HMAC (EUF-CMA), forward secrecy
-│   └── MRS_Honey.ec            # Honey encryption IND-CPA (generic KDF_Oracle)
+│   ├── research-notes/
+│   └── user-manual.md
+├── legacy/
+│   ├── README.md               
+│   └── MRS_AUTH_KEM_Hybrid.ec
+├── proofs/
+│   ├── MRS_FloorSum.ec
+│   ├── MRS_Core.ec
+│   ├── MRS_Encoding.ec
+│   ├── MRS_Chain.ec
+│   ├── MRS_Sampler.ec
+│   ├── MRS_Deny.ec
+│   ├── MRS_AUTH.ec
+│   └── MRS_Honey.ec
 └── src/
 ├── lib.rs
 ├── framework.rs
@@ -384,10 +384,6 @@ Verification order. The .ec files are verified in dependency order. Each file on
 06 MRS_AUTH.ec Temporal barrier, HMAC as PRF (EUF-CMA), forward secrecy
 07 MRS_Honey.ec Honey encryption layer IND-CPA, over a generic KDF_Oracle
 
-Legacy. legacy/MRS_AUTH_KEM_Hybrid.ec.txt documents the v1 XOR-based hybrid KEM. It was replaced by the framework-native clock KDF in v2.0.0 and is preserved for the paper's comparison section. The Kyber IND-CCA2 assumption it relies on is reused elsewhere; only the specific XOR reduction is historical.
-
----
-
 Benchmarks
 
 ```bash
@@ -413,7 +409,6 @@ See docs/user-manual.md for a full walkthrough.
 Papers
 
 · RDSI — Representation, Domain Modelling and Software Implementation. 10.5281/zenodo.23077746
-· The Clock [3600, 60, 1] and the (25, 12)-System: A Structural Comparison. 10.5281/zenodo.22804148
 · The 19-9 System: N = 19A + 9B. 10.5281/zenodo.19474707
 
 Background material for the 90/366/2520 transformation lives in docs/research-notes/.
