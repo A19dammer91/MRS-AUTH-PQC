@@ -24,7 +24,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.opam
-          key: opam-${{ runner.os }}-ec2024.09
+          key: opam-${{ runner.os }}-ec-r2024.09
 
       - name: Install system dependencies
         run: |
@@ -37,16 +37,15 @@ jobs:
           opam switch create 4.14.1 -y || opam switch 4.14.1
           eval $(opam env)
 
-      - name: Install EasyCrypt dependencies
+      - name: Install SMT solvers
         run: |
           eval $(opam env)
           opam install -y alt-ergo z3
-          opam pin add -n easycrypt https://github.com/EasyCrypt/easycrypt.git#r2024.09
-          opam install --deps-only -y easycrypt
 
       - name: Install EasyCrypt
         run: |
           eval $(opam env)
+          opam pin add -y easycrypt https://github.com/EasyCrypt/easycrypt.git#r2024.09
           opam install -y easycrypt
 
       - name: Configure Why3
