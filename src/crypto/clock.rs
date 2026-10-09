@@ -76,16 +76,16 @@ pub fn derive_key_from_clock(seed: &[u8]) -> ClockKey {
 
     let mut kh = Sha256::new();
     kh.update(DOMAIN);
-    kh.update(&n.to_be_bytes());
-    kh.update(&clock.0.to_be_bytes());
-    kh.update(&clock.1.to_be_bytes());
-    kh.update(&clock.2.to_be_bytes());
-    kh.update(&clock.3.to_be_bytes());
-    kh.update(&clock.4.to_be_bytes());
-    kh.update(&rn_val.to_be_bytes());
-    kh.update(&k.to_be_bytes());
-    kh.update(&ab.0.to_be_bytes());
-    kh.update(&ab.1.to_be_bytes());
+    kh.update(n.to_be_bytes());
+    kh.update(clock.0.to_be_bytes());
+    kh.update(clock.1.to_be_bytes());
+    kh.update(clock.2.to_be_bytes());
+    kh.update(clock.3.to_be_bytes());
+    kh.update(clock.4.to_be_bytes());
+    kh.update(rn_val.to_be_bytes());
+    kh.update(k.to_be_bytes());
+    kh.update(ab.0.to_be_bytes());
+    kh.update(ab.1.to_be_bytes());
     kh.update(&h[16..32]);
 
     let out = kh.finalize();
