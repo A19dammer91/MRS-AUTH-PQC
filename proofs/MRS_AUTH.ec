@@ -2,11 +2,17 @@
 (* MRS_AUTH.ec                                                       *)
 (* Time-based Authentication                                         *)
 (*                                                                   *)
-(* Four main components:                                             *)
+(* Three main components:                                            *)
 (* I. Temporal Barrier (timing + zeroize)                            *)
-(* II. HKDF Time-Key Derivation (Random Oracle model)                *)
-(* III. HMAC as PRF and EUF-CMA security                             *)
-(* IV. Forward Secrecy                                               *)
+(* II. HMAC as PRF and EUF-CMA security                              *)
+(* III. Forward Secrecy                                              *)
+(*                                                                   *)
+(* Note: this file previously contained a fourth component           *)
+(* (HKDF Time-Key Derivation, Random Oracle model). That section     *)
+(* was removed because the framework now derives session keys from   *)
+(* a framework-native clock KDF (src/crypto/clock.rs) instead of     *)
+(* HKDF. The archived version is preserved in                       *)
+(* legacy/MRS_AUTH_HKDF.ec.                                          *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List FSet SmtMap.
@@ -580,57 +586,7 @@ proof.
 qed.
 
 (* ================================================================= *)
-(* PART II: HKDF Time-Key Derivation (Random Oracle model)           *)
-(* ================================================================= *)
-
-module type HKDF_Oracle = {
-  proc extract(salt : bytes, ikm : bytes) : bytes
-  proc expand(prk : bytes, info : bytes, L : int) : bytes
-}.
-
-module HKDF_RO (O : HKDF_Oracle) = {
-  proc derive_key(t : int, context : bytes, L : int) : bytes = {
-    var prk, okm;
-    prk <@ O.extract(context, int_to_bytes8 t);   (* salt=context, ikm=time *)
-    okm <@ O.expand(prk, context, L);
-    return okm;
-  }
-}.
-
-module type HKDF_Adversary = {
-  proc distinguish() : bool
-}.
-
-module HKDF_Game_Real (O : HKDF_Oracle, A : HKDF_Adversary) = {
-  proc main() : bool = {
-    var t, context, L, key;
-    t <$ sample_time();
-    context <$ dbytes 32;
-    L <- hmac_len;
-    key <@ HKDF_RO(O).derive_key(t, context, L);
-    return A.distinguish();
-  }
-}.
-
-module HKDF_Game_Rand (O : HKDF_Oracle, A : HKDF_Adversary) = {
-  proc main() : bool = {
-    var key;
-    key <$ dbytes hmac_len;
-    return A.distinguish();
-  }
-}.
-
-axiom hkdf_ro_secure (A <: HKDF_Adversary) &m :
-  `| Pr[HKDF_Game_Real(HKDF_Oracle, A).main() @ &m : res] -
-     Pr[HKDF_Game_Rand(HKDF_Oracle, A).main() @ &m : res] | <= negl lambda.
-
-lemma hkdf_timekey_uniform (A <: HKDF_Adversary) &m :
-  `| Pr[HKDF_Game_Real(HKDF_Oracle, A).main() @ &m : res] -
-     Pr[HKDF_Game_Rand(HKDF_Oracle, A).main() @ &m : res] | <= negl lambda.
-proof. exact (hkdf_ro_secure A &m). qed.
-
-(* ================================================================= *)
-(* PART III: HMAC as PRF and EUF-CMA                                 *)
+(* PART II: HMAC as PRF and EUF-CMA                                  *)
 (* ================================================================= *)
 
 module type PRF_Oracle = {
@@ -662,6 +618,10 @@ module PRF_Rand = {
   }
 }.
 
+module type PRF_Distinguisher = {
+  proc distinguish() : bool
+}.
+
 module PRF_Game_Real (A : PRF_Distinguisher) = {
   proc main() : bool = {
     PRF_Real.key <$ dbytes key_len;
@@ -674,10 +634,6 @@ module PRF_Game_Rand (A : PRF_Distinguisher) = {
     PRF_Rand.init();
     return A.distinguish();
   }
-}.
-
-module type PRF_Distinguisher = {
-  proc distinguish() : bool
 }.
 
 axiom hmac_prf (A <: PRF_Distinguisher) &m :
@@ -770,7 +726,7 @@ proof.
 qed.
 
 (* ================================================================= *)
-(* PART IV: Forward Secrecy                                           *)
+(* PART III: Forward Secrecy                                         *)
 (* ================================================================= *)
 module type FS_Adversary = {
   proc choose(code_t : bytes, t : int) : int
