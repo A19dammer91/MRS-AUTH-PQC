@@ -26,15 +26,15 @@ op nonce_len : int = 12.   (*  96 bit = 12 bytes *)
 op tag_len   : int = 16.   (* 128 bit = 16 bytes *)
 
 (* ----------------------------------------------------------------- *)
-(* Random Oracle interface for HKDF                                   *)
+(* Random Oracle interface for the key derivation function           *)
 (* ----------------------------------------------------------------- *)
-module type HKDF_RO = {
+module type KDF_RO = {
   proc init() : unit
   proc get(x : int list * int) : key   (* input: (chain, layer index) *)
 }.
 
 (* Standard lazy RO instance *)
-module RO : HKDF_RO = {
+module RO : KDF_RO = {
   var ro : (int list * int, key) fmap
 
   proc init() = { ro <- empty; }
@@ -99,7 +99,7 @@ op Î»    : int.            (* security parameter                            *)
 
 op M : int = 5.   (* number of honeywords: 1 real + 4 alibis *)
 
-module HoneyEnc (RO : HKDF_RO, AE : AEAD) = {
+module HoneyEnc (RO : KDF_RO, AE : AEAD) = {
 
   (* Encrypt a single chain *)
   proc enc_one(ch : int list, idx : int) : bytes = {
@@ -144,7 +144,7 @@ module type HAdversary = {
   proc guess(blobs : bytes list) : bool
 }.
 
-module Honey_IND_CPA (A : HAdversary, RO : HKDF_RO, AE : AEAD) = {
+module Honey_IND_CPA (A : HAdversary, RO : KDF_RO, AE : AEAD) = {
   proc main() : bool = {
     var N, depth, tri, ch0, ch1, b, b', blobs0, blobs1;
     N     <- sample_N();          (* choose the public parameter *)
@@ -166,7 +166,7 @@ module Honey_IND_CPA (A : HAdversary, RO : HKDF_RO, AE : AEAD) = {
 (* ================================================================= *)
 section HoneyProof.
 
-  declare module RO <: HKDF_RO { }.
+  declare module RO <: KDF_RO { }.
   declare module AE <: AEAD { }.
 
   (* IND-CPA assumption for the underlying AEAD scheme *)
