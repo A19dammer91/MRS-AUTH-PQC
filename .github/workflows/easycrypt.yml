@@ -15,38 +15,75 @@ jobs:
   verify:
     name: Verify EasyCrypt proofs
     runs-on: ubuntu-latest
-    container:
-      image: easycrypt/easycrypt:latest
-      options: --user root
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y opam m4 gcc make git curl
+
+      - name: Initialize opam
+        run: |
+          opam init --disable-sandboxing --bare -y
+          opam switch create 5.1.1 -y
+          eval $(opam env)
+
+      - name: Install EasyCrypt
+        run: |
+          eval $(opam env)
+          opam install -y easycrypt
+
+      - name: Install SMT solvers
+        run: |
+          eval $(opam env)
+          opam install -y alt-ergo
+
+      - name: Configure Why3
+        run: |
+          eval $(opam env)
+          easycrypt why3config
+
       - name: Verify MRS_FloorSum.ec
         working-directory: proofs
-        run: easycrypt MRS_FloorSum.ec
+        run: |
+          eval $(opam env)
+          easycrypt MRS_FloorSum.ec
 
       - name: Verify MRS_Core.ec
         working-directory: proofs
-        run: easycrypt MRS_Core.ec
+        run: |
+          eval $(opam env)
+          easycrypt MRS_Core.ec
 
       - name: Verify MRS_Chain.ec
         working-directory: proofs
-        run: easycrypt MRS_Chain.ec
+        run: |
+          eval $(opam env)
+          easycrypt MRS_Chain.ec
 
       - name: Verify MRS_Sampler.ec
         working-directory: proofs
-        run: easycrypt MRS_Sampler.ec
+        run: |
+          eval $(opam env)
+          easycrypt MRS_Sampler.ec
 
       - name: Verify MRS_Deny.ec
         working-directory: proofs
-        run: easycrypt MRS_Deny.ec
+        run: |
+          eval $(opam env)
+          easycrypt MRS_Deny.ec
 
       - name: Verify MRS_AUTH.ec
         working-directory: proofs
-        run: easycrypt MRS_AUTH.ec
+        run: |
+          eval $(opam env)
+          easycrypt MRS_AUTH.ec
 
       - name: Verify MRS_Honey.ec
         working-directory: proofs
-        run: easycrypt MRS_Honey.ec
+        run: |
+          eval $(opam env)
+          easycrypt MRS_Honey.ec
