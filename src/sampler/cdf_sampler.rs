@@ -28,7 +28,9 @@
 //!   why an early-exit retry loop would undo the constant-time guarantee
 //!   built up here.
 
-use crate::core::diophantine::{digital_root, validate_triangle_condition, DiophantinePair};
+use crate::core::diophantine::{
+    calculate_anchor, digital_root, validate_triangle_condition, DiophantinePair,
+};
 use rand::RngCore;
 use subtle::{
     Choice, ConditionallySelectable, ConstantTimeEq, ConstantTimeGreater, ConstantTimeLess,
@@ -116,36 +118,28 @@ fn ct_eq_u128(a: u128, b: u128) -> Choice {
 // Core Mathematical Operations (Constant-Time)
 // ============================================================================
 
-// `digital_root` and `validate_triangle_condition` live in
-// `core::diophantine`, they are not redefined here. Two implementations
-// of the same formula drifting apart is exactly the kind of bug this
-// crate can't afford, so this module only ever adds NEW operations on
-// top of the shared ones. The same principle is why the final assembled
-// chain below is not re-checked against the triangle condition a second
-// time: the check already runs once, per layer, against the single
-// shared implementation while the chain is built. A second call site
-// checking the same formula a second time does not add independent
-// verification power, it only adds a second place for an argument-order
-// mistake to live.
-//
-// `a0 = n % 9`, not `digital_root(n)`: the two differ numerically at
-// multiples of 9 (0 vs 9). The representation formula needs the smallest
-// non-negative A with 19*A <= n, which is n % 9. The digital root 9 would
-// give 19*9 = 171, spuriously rejecting representable values like 144,
-// 153, 162. `digital_root` remains correct for the triangle condition
-// and for the shifted constant e_prime, since those only depend on the
-// residue mod 9.
+// `digital_root`, `calculate_anchor`, and `validate_triangle_condition`
+// live in `core::diophantine`, they are not redefined here. Two
+// implementations of the same formula drifting apart is exactly the kind
+// of bug this crate can't afford, so this module only ever adds NEW
+// operations on top of the shared ones. The same principle is why the
+// final assembled chain below is not re-checked against the triangle
+// condition a second time: the check already runs once, per layer,
+// against the single shared implementation while the chain is built. A
+// second call site checking the same formula a second time does not add
+// independent verification power, it only adds a second place for an
+// argument-order mistake to live.
 
 /// Counts valid triangle candidates using the closed form (constant-time).
 /// Returns 0 if no valid candidates exist.
 pub fn count_triangle_filtered_closed_form(n: u64) -> u64 {
-    let a0 = n % 9;
+    let a0 = calculate_anchor(n);
     let a0_19 = 19u64.saturating_mul(a0);
     let valid = a0_19.ct_le(&n); // 19*a0 <= n
 
     let b0 = n.wrapping_sub(19 * a0) / 9;
     let k_max = b0 / 19;
-    let target = digital_root(2 * digital_root(n));
+    let target = digital_root(2 * a0);
     let k0 = b0.wrapping_add(9).wrapping_sub(target) % 9;
     let has_candidates = k0.ct_le(&k_max);
     let valid = valid & has_candidates;
@@ -294,21 +288,20 @@ pub struct LayerParams {
 impl LayerParams {
     // Extracts layer parameters in constant time.
     //
-    // `a0 = n % 9` (not `digital_root(n)`): for n divisible by 9 these
-    // differ numerically (0 vs 9) even though they are congruent mod 9.
-    // The representation A_0 must be the smallest non-negative A with
-    // 19*A <= n, which is n % 9. `digital_root` would return 9, giving
-    // 19*9 = 171 > n for small n and spuriously rejecting representable
-    // values like 144, 153, 162. The digital root is still used below
-    // for the triangle condition, where only the residue mod 9 matters.
+    // `a0 = calculate_anchor(n) = dr(n)` under the Positive Anchor
+    // Convention: A_0 ∈ {1, ..., 9}, never 0. This is what makes
+    // `dr(A_0) = dr(N)` hold identically at every layer, and it is a
+    // deliberate design choice of the framework, not a numerical
+    // accident. The standard Frobenius number 143 (which assumes A ≥ 0)
+    // does not apply here; under Positive Anchor the boundary is 162.
     pub fn new_ct(n: u64) -> Self {
-        let a0 = n % 9;
+        let a0 = calculate_anchor(n);
         let a0_19 = 19u64.saturating_mul(a0);
         let valid = a0_19.ct_le(&n); // 19*a0 <= n
 
         let b0 = n.wrapping_sub(19 * a0) / 9;
         let k_max = b0 / 19;
-        let target = digital_root(2 * digital_root(n));
+        let target = digital_root(2 * a0);
         let k0 = b0.wrapping_add(9).wrapping_sub(target) % 9;
         let has_candidates = k0.ct_le(&k_max);
         let valid = valid & has_candidates;
@@ -806,7 +799,10 @@ mod tests {
 
     #[test]
     fn closed_form_matches_brute_force_count() {
-        for n in [201u64, 1_001, 12_345, 200_001, 999_999] {
+        // Include multiples of 9 among the test values: these are the
+        // edge cases for the positive-anchor convention, where
+        // calculate_anchor(n) = 9 and 19*9 may exceed n.
+        for n in [201u64, 1_001, 12_345, 200_001, 999_999, 144, 162, 999_999_999, 3_000_006] {
             assert_eq!(
                 count_triangle_filtered_closed_form(n),
                 count_triangle_filtered_bruteforce(n),
@@ -817,41 +813,33 @@ mod tests {
     }
 
     #[test]
-    fn closed_form_matches_bruteforce_at_multiples_of_9() {
-        // Edge cases where the digital-root variant diverged: for n
-        // divisible by 9, digital_root(n) = 9 while n % 9 = 0. Both
-        // sampler and reference generator must use n % 9.
-        for n in [144u64, 153, 162, 999, 999_999, 3_000_006] {
-            assert_eq!(
-                count_triangle_filtered_closed_form(n),
-                count_triangle_filtered_bruteforce(n),
-                "count mismatch at n={}",
-                n
-            );
-        }
-    }
-
-    #[test]
-    fn a0_uses_mod9_not_digital_root() {
-        // For n divisible by 9, `n % 9` = 0 while `digital_root(n)` = 9.
-        // The representation formula needs 0, because 19*0 = 0 <= n while
-        // 19*9 = 171 may exceed n. Verify the a0 field directly for every
-        // such n. (`params.valid` is a separate concern: it requires a
-        // triangle-valid candidate, which not every multiple of 9 has.)
+    fn positive_anchor_at_multiples_of_9() {
+        // Under the Positive Anchor Convention, calculate_anchor(n) = 9
+        // for n divisible by 9, not 0. The smallest A is therefore 9, and
+        // if 19*9 > n no representation exists.
         for n in [9u64, 18, 27, 144, 153, 162, 999, 999_999, 3_000_006] {
             let params = LayerParams::new_ct(n);
-            assert_eq!(params.a0, n % 9, "a0 mismatch at n={}", n);
+            assert_eq!(params.a0, 9, "a0 mismatch at n={}", n);
         }
 
-        // For the subset of multiples of 9 that do admit a triangle-valid
-        // representation, the reconstructed pair at t = 0 must satisfy
-        // 19A + 9B = n.
-        for n in [162u64, 999, 1_368, 999_999, 3_000_006] {
+        // For n where 19*9 > n, no representation exists.
+        for n in [9u64, 18, 27, 144, 153, 162] {
+            let params = LayerParams::new_ct(n);
+            assert_eq!(
+                params.valid.unwrap_u8(),
+                0,
+                "n={} should have no valid representation (19*9 > n)",
+                n
+            );
+        }
+
+        // For n above the positive-anchor threshold, a representation exists.
+        for n in [163u64, 171, 999, 3_000_006] {
             let params = LayerParams::new_ct(n);
             assert_eq!(
                 params.valid.unwrap_u8(),
                 1,
-                "n={} should have a triangle-valid representation",
+                "n={} should have a valid representation",
                 n
             );
             let a = params.a_at_ct(0);
