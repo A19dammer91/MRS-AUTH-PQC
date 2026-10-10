@@ -29,6 +29,12 @@
 (*  hypothesis. The alternative (letting `k` range over all integers) *)
 (*  makes the pre-condition `0 < 9 * k + r` unprovable for negative   *)
 (*  `k`. Callers supply `0 <= k` from their own hypotheses.           *)
+(*                                                                    *)
+(*  Pattern convention: when the left-hand side of a `have ->:` does  *)
+(*  not appear verbatim in the goal (e.g. because it sits inside a    *)
+(*  function argument), `have ->:` reports "nothing to rewrite". In   *)
+(*  that case, introduce the equality as a named hypothesis with      *)
+(*  `have H : ... by tactic.` and then `rewrite H.` explicitly.       *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -89,9 +95,7 @@ qed.
 (* dr(9k + r) = dr(r) for 0 <= k and 0 < r, proved algebraically
    without induction on the integer k. The hypothesis `0 <= k` is
    required so that the precondition `0 < 9 * k + r` (needed to
-   discharge the first `if` in `dr`) is provable for every input.
-   Without it, a negative k would make `9 * k + r` potentially
-   negative and the branch condition unsatisfiable. *)
+   discharge the first `if` in `dr`) is provable for every input. *)
 lemma dr_9k_r (k r : int) : 0 <= k => 0 < r => dr (9 * k + r) = dr r.
 proof.
   move=> hk hr.
@@ -105,19 +109,25 @@ proof.
   by rewrite key.
 qed.
 
-(* `apply dr_9k_r; smt().` discharges the two side conditions
-   `0 <= 2 * n` and `0 < n` from the local hypothesis `hn`. *)
+(* Introduces the algebraic identity as a named hypothesis, then
+   rewrites with it explicitly. `have ->:` would fail here because
+   the left-hand side `19 * n` sits inside the argument of `dr`,
+   and EasyCrypt's `have ->` pattern matcher does not descend into
+   function arguments. *)
 lemma dr_19 (n : int) : 0 < n => dr (19 * n) = dr n.
 proof.
   move=> hn.
-  have ->: 19 * n = 9 * (2 * n) + n by ring.
+  have Heq : 19 * n = 9 * (2 * n) + n by ring.
+  rewrite Heq.
   apply dr_9k_r; smt().
 qed.
 
+(* Same pattern as dr_19: named equality plus explicit rewrite. *)
 lemma dr_19A_9B (n m : int) : 0 < n => dr (19 * n + 9 * m) = dr n.
 proof.
   move=> hn.
-  have ->: 19 * n + 9 * m = 9 * (2 * n + m) + n by ring.
+  have Heq : 19 * n + 9 * m = 9 * (2 * n + m) + n by ring.
+  rewrite Heq.
   apply dr_9k_r; smt().
 qed.
 
@@ -323,7 +333,8 @@ proof.
   move=> hN hk.
   have ha0 : 0 < a0 N by smt(a0_range).
   have hpos : 0 < a0 N + 9 * k by smt().
-  have ->: a0 N + 9 * k = 9 * k + a0 N by ring.
+  have Heq : a0 N + 9 * k = 9 * k + a0 N by ring.
+  rewrite Heq.
   rewrite dr_9k_r; smt().
 qed.
 
