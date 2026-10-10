@@ -21,15 +21,14 @@
 (*  - `ring_simplify` is avoided.                                     *)
 (*  - `(by tactic)` is never used as a term argument.                 *)
 (*  - `smt(/pred_name)` is NOT used: it is a parse error in r2024.09. *)
-(*    Instead, `pred` hypotheses are expanded via the portable        *)
-(*    pattern:                                                        *)
-(*        move: h. rewrite /pred_name. move=> [..].                   *)
-(*    which uses only core tactics available in every version.        *)
+(*  - `rewrite /pred_name` in a goal is NOT used: in r2024.09 the     *)
+(*    pred is expanded automatically by `move: h.` on a hypothesis.   *)
+(*    The portable pattern for a pred hypothesis h is therefore:      *)
+(*        move: h. move=> [pat].                                      *)
+(*    with no rewrite step in between.                                *)
 (*  - `case ... => [...]` is avoided when the goal is a disjunction;  *)
 (*    explicit `case ...` + `move=> ...` is used instead.             *)
-(*  - Concrete `dr` computations use `smt()` directly; the pattern    *)
-(*    `have Heq : .. by ring.` + `rewrite Heq.` fails when the goal   *)
-(*    is already reduced by `rewrite h1 /=`.                          *)
+(*  - Concrete `dr` computations use `smt()` directly.                *)
 (*  - Conjunctive lemmas are bound to a name before splitting:        *)
 (*    `have hrange := L.` followed by `have [..] := hrange.` instead  *)
 (*    of `have [..] := L.` directly.                                  *)
@@ -320,9 +319,9 @@ qed.
 
 pred is_rep (N A B : int) = 1 <= A /\ 0 <= B /\ 19*A + 9*B = N.
 
-(* is_rep is expanded via `move: hrep. rewrite /is_rep. move=> [pat].`.  *)
-(* This uses only core EasyCrypt tactics and works in every version,    *)
-(* including r2024.09 where `smt(/is_rep)` is a parse error.            *)
+(* is_rep is expanded automatically by `move: hrep.` in r2024.09.    *)
+(* No `rewrite /is_rep` step is needed; in fact it fails with         *)
+(* "nothing to rewrite" because the pred has already been expanded.   *)
 lemma rep_uniq (N : int) (A B : int) :
   162 < N => is_rep N A B =>
   exists k, 0 <= k <= kmax N /\ A = a0 N + 9*k /\ B = B0 N - 19*k.
@@ -330,17 +329,14 @@ proof.
   move=> hN hrep.
   have Apos : 1 <= A.
     move: hrep.
-    rewrite /is_rep.
     move=> [hA _].
     exact hA.
   have Bpos : 0 <= B.
     move: hrep.
-    rewrite /is_rep.
     move=> [_ [hB _]].
     exact hB.
   have eq : 19*A + 9*B = N.
     move: hrep.
-    rewrite /is_rep.
     move=> [_ [_ hEq]].
     exact hEq.
   have hNpos : 0 < N by smt().
@@ -455,17 +451,14 @@ proof.
   move=> hrep.
   have hA : 1 <= A.
     move: hrep.
-    rewrite /is_rep.
     move=> [h _].
     exact h.
   have hB : 0 <= B.
     move: hrep.
-    rewrite /is_rep.
     move=> [_ [h _]].
     exact h.
   have hEq : 19*A + 9*B = 162.
     move: hrep.
-    rewrite /is_rep.
     move=> [_ [_ h]].
     exact h.
   have hmod : A %% 9 = 0.
