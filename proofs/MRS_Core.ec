@@ -23,14 +23,17 @@
 (*  - `smt(/pred_name)` is NOT used (parse error in r2024.09).        *)
 (*  - `rewrite /pred_name` in a goal is NOT used: in r2024.09 the     *)
 (*    pred is expanded automatically by `move: h.` on a hypothesis.   *)
+(*  - `mulzI` and `ltz_pmod` are NOT used (not available in r2024.09) *)
+(*    injectivity of multiplication by a nonzero constant is         *)
+(*    delegated to `smt()` directly.                                  *)
 (*  - Long `rewrite Heq` chains are fragile in r2024.09; modular      *)
 (*    arithmetic is delegated to `smt(modzDl modzMl modz_mod)`.       *)
 (*  - `case (cond).` without `=>` pattern is a parse error in         *)
 (*    r2024.09; the robust form is `case (cond) => [hyp_true |        *)
 (*    hyp_false].` everywhere.                                        *)
-(*  - Case-splits are avoided when `smt()` closes the goal directly;  *)
-(*    `exact h` on a `case`-introduced hypothesis is fragile because  *)
-(*    the goal shape after `case` is not the same as the hypothesis.  *)
+(*  - `set k := ...` is a parse error in r2024.09; concrete terms    *)
+(*    are substituted directly instead.                               *)
+(*  - Case-splits are avoided when `smt()` closes the goal directly.  *)
 (*  - Concrete `dr` computations use `smt()` directly.                *)
 (*  - Conjunctive lemmas are bound to a name before splitting:        *)
 (*    `have hrange := L.` followed by `have [..] := hrange.` instead  *)
@@ -343,30 +346,30 @@ proof.
   have hrange := a0_range N hNpos.
   have [hlo hhi] := hrange.
   have hA_ge_a0 : a0 N <= A by smt().
-have k_ge0 : 0 <= (A - a0 N) %/ 9 by smt().
-have A_eq : A = a0 N + 9 * ((A - a0 N) %/ 9).
-  have := divz_eq (A - a0 N) 9.
-  smt().
-have B_eq : B = B0 N - 19 * ((A - a0 N) %/ 9).
-  have sum_eq : 19 * (a0 N + 9*((A - a0 N) %/ 9)) + 9*B = N
-    by rewrite -A_eq; smt().
-  have hNpos' : 0 < N by smt().
-  have base_eq : 19 * a0 N + 9 * B0 N = N by apply a0_B0_eq.
-  have : 9 * B = 9 * (B0 N - 19 * ((A - a0 N) %/ 9)) by smt().
-  smt(mulzI).
-have k_le_kmax : (A - a0 N) %/ 9 <= kmax N.
-  rewrite /kmax.
-  have hB : 0 <= B0 N - 19 * ((A - a0 N) %/ 9) by rewrite -B_eq; smt().
-  have hdecomp : B0 N - 19 * ((A - a0 N) %/ 9) =
-                 19 * ((B0 N - 19 * ((A - a0 N) %/ 9)) %/ 19) +
-                 (B0 N - 19 * ((A - a0 N) %/ 9)) %% 19
-    by smt(divz_eq).
-  have hmod_ge0 : 0 <= (B0 N - 19 * ((A - a0 N) %/ 9)) %% 19 by smt(modz_ge0).
-  have hmod_lt : (B0 N - 19 * ((A - a0 N) %/ 9)) %% 19 < 19 by smt(modz_ge0 divz_eq).
-  smt().
-exists ((A - a0 N) %/ 9).
-split; first by split.
-split; exact.
+  have k_ge0 : 0 <= (A - a0 N) %/ 9 by smt().
+  have A_eq : A = a0 N + 9 * ((A - a0 N) %/ 9).
+    have := divz_eq (A - a0 N) 9.
+    smt().
+  have B_eq : B = B0 N - 19 * ((A - a0 N) %/ 9).
+    have sum_eq : 19 * (a0 N + 9*((A - a0 N) %/ 9)) + 9*B = N
+      by rewrite -A_eq; smt().
+    have hNpos' : 0 < N by smt().
+    have base_eq : 19 * a0 N + 9 * B0 N = N by apply a0_B0_eq.
+    smt().
+  have k_le_kmax : (A - a0 N) %/ 9 <= kmax N.
+    rewrite /kmax.
+    have hB : 0 <= B0 N - 19 * ((A - a0 N) %/ 9) by rewrite -B_eq; smt().
+    have hdecomp : B0 N - 19 * ((A - a0 N) %/ 9) =
+                   19 * ((B0 N - 19 * ((A - a0 N) %/ 9)) %/ 19) +
+                   (B0 N - 19 * ((A - a0 N) %/ 9)) %% 19
+      by smt(divz_eq).
+    have hmod_ge0 : 0 <= (B0 N - 19 * ((A - a0 N) %/ 9)) %% 19 by smt(modz_ge0).
+    have hmod_lt : (B0 N - 19 * ((A - a0 N) %/ 9)) %% 19 < 19 by smt(modz_ge0 divz_eq).
+    smt().
+  exists ((A - a0 N) %/ 9).
+  split; first by split.
+  split; exact.
+qed.
 
 (* ----------------------------------------------------------------- *)
 (* dr properties for representations                                   *)
