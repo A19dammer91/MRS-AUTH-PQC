@@ -13,18 +13,24 @@
 (*      a0 N = 9           if N %% 9 = 0                              *)
 (*  so in all cases a0 N ≡ N (mod 9) and 1 <= a0 N <= 9.              *)
 (*                                                                    *)
-(*  Robustness principles applied throughout:                         *)
+(*  Axiom baseline: 0.                                                *)
+(*                                                                    *)
+(*  Robustness principles (calibrated for EasyCrypt r2024.09):        *)
 (*  - NO axioms, NO admits.                                           *)
 (*  - `linarith`, `nlinarith`, `ltz_pmod`, `divz_ge0` are avoided.   *)
-(*  - `ring_simplify` is avoided; explicit `have Heq : ... by ring.`  *)
-(*    followed by `rewrite Heq` is used instead.                      *)
+(*  - `ring_simplify` is avoided.                                     *)
 (*  - `(by tactic)` is never used as a term argument.                 *)
 (*  - `case ... => [...]` is avoided when the goal is a disjunction;  *)
 (*    explicit `case ...` + `move=> ...` is used instead.             *)
-(*  - `pred` hypotheses are expanded explicitly via                    *)
-(*    `rewrite /pred_name in h.` followed by `have .. by smt().`,     *)
-(*    instead of relying on pattern-matching in `move=>` or           *)
-(*    `have [..] := ..`, which is not portable across versions.       *)
+(*  - `pred` hypotheses are handled via `smt(/pred_name)` as a hint;  *)
+(*    `rewrite /pred_name in h.` and pattern-matching in `move=>`     *)
+(*    do not reliably expand `pred` definitions in r2024.09.          *)
+(*  - Concrete `dr` computations use `smt()` directly; the pattern    *)
+(*    `have Heq : .. by ring.` + `rewrite Heq.` fails when the goal   *)
+(*    is already reduced by `rewrite h1 /=`.                          *)
+(*  - Conjunctive lemmas are bound to a name before splitting:        *)
+(*    `have hrange := L.` followed by `have [..] := hrange.` instead  *)
+(*    of `have [..] := L.` directly.                                  *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -312,17 +318,16 @@ qed.
 
 pred is_rep (N A B : int) = 1 <= A /\ 0 <= B /\ 19*A + 9*B = N.
 
-(* The pred is_rep is expanded explicitly via `rewrite /is_rep in hrep.` *)
-(* This works in every EasyCrypt version: it is core functionality.       *)
+(* is_rep is expanded via smt(/is_rep) as a hint. This works in      *)
+(* EasyCrypt r2024.09; the pattern-based approaches do not.          *)
 lemma rep_uniq (N : int) (A B : int) :
   162 < N => is_rep N A B =>
   exists k, 0 <= k <= kmax N /\ A = a0 N + 9*k /\ B = B0 N - 19*k.
 proof.
   move=> hN hrep.
-  rewrite /is_rep in hrep.
-  have Apos : 1 <= A by smt().
-  have Bpos : 0 <= B by smt().
-  have eq : 19*A + 9*B = N by smt().
+  have Apos : 1 <= A by smt(/is_rep).
+  have Bpos : 0 <= B by smt(/is_rep).
+  have eq : 19*A + 9*B = N by smt(/is_rep).
   have hNpos : 0 < N by smt().
   have A_mod : A %% 9 = N %% 9.
     have Heq : N = 19*A + 9*B by smt().
@@ -433,10 +438,9 @@ qed.
 lemma frobenius_162_not_rep (A B : int) : ~ is_rep 162 A B.
 proof.
   move=> hrep.
-  rewrite /is_rep in hrep.
-  have hA : 1 <= A by smt().
-  have hB : 0 <= B by smt().
-  have hEq : 19*A + 9*B = 162 by smt().
+  have hA : 1 <= A by smt(/is_rep).
+  have hB : 0 <= B by smt(/is_rep).
+  have hEq : 19*A + 9*B = 162 by smt(/is_rep).
   have hmod : A %% 9 = 0.
     have : (19*A + 9*B) %% 9 = 162 %% 9 by rewrite hEq.
     have h162 : 162 %% 9 = 0 by done.
@@ -446,15 +450,13 @@ proof.
   smt(modz_ge0).
 qed.
 
+(* dr 163: concrete computation via smt(). *)
 lemma dr_163 : dr 163 = 1.
 proof.
   rewrite /dr.
   have h1 : ! (163 <= 0) by done.
   rewrite h1 /=.
-  have Heq : 163 - 1 = 162 by ring.
-  rewrite Heq.
-  have Heq2 : 162 %% 9 = 0 by done.
-  by rewrite Heq2 /=.
+  smt().
 qed.
 
 lemma a0_163 : a0 163 = 1.
