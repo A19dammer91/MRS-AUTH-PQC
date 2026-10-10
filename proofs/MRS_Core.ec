@@ -28,9 +28,9 @@
 (*  - `case (cond).` without `=>` pattern is a parse error in         *)
 (*    r2024.09; the robust form is `case (cond) => [hyp_true |        *)
 (*    hyp_false].` everywhere.                                        *)
-(*  - `case ... => [...]` is safe for equality and inequality        *)
-(*    conditions; only disjunction goals use the explicit              *)
-(*    `case ...` + `move=>` form.                                     *)
+(*  - Case-splits are avoided when `smt()` closes the goal directly;  *)
+(*    `exact h` on a `case`-introduced hypothesis is fragile because  *)
+(*    the goal shape after `case` is not the same as the hypothesis.  *)
 (*  - Concrete `dr` computations use `smt()` directly.                *)
 (*  - Conjunctive lemmas are bound to a name before splitting:        *)
 (*    `have hrange := L.` followed by `have [..] := hrange.` instead  *)
@@ -342,14 +342,7 @@ proof.
   have heq_mod : (A - a0 N) %% 9 = 0 by smt(modzDl modzNm).
   have hrange := a0_range N hNpos.
   have [hlo hhi] := hrange.
-  have hA_ge_a0 : a0 N <= A.
-    case (a0 N <= A) => [hle | hlt].
-    - exact hle.
-    - have hlt' : A < a0 N by smt().
-      have h1 : A - a0 N < 0 by smt().
-      have h2 : -9 < A - a0 N by smt().
-      have := modz_ge0 (A - a0 N) 9.
-      smt().
+  have hA_ge_a0 : a0 N <= A by smt().
   set k := (A - a0 N) %/ 9.
   have k_ge0 : 0 <= k by smt().
   have A_eq : A = a0 N + 9 * k.
@@ -458,7 +451,6 @@ proof.
   smt(modz_ge0).
 qed.
 
-(* dr 163: concrete computation via smt(). *)
 lemma dr_163 : dr 163 = 1.
 proof.
   rewrite /dr.
