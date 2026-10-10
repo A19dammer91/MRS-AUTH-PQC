@@ -1,10 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -74,4 +71,3 @@ jobs:
 
       - name: Run benchmarks
         run: cargo bench --bench sampler_bench
-
