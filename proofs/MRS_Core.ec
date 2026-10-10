@@ -34,7 +34,8 @@
 (*  not appear verbatim in the goal (e.g. because it sits inside a    *)
 (*  function argument), `have ->:` reports "nothing to rewrite". In   *)
 (*  that case, introduce the equality as a named hypothesis with      *)
-(*  `have H : ... by tactic.` and then `rewrite H.` explicitly.       *)
+(*  `have H : ... by tactic.` and then `rewrite H.` explicitly, or    *)
+(*  use `by smt().` when the equality is a simple modular identity.   *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -103,9 +104,7 @@ proof.
   have h1 : ! (9 * k + r <= 0) by smt().
   have h2 : ! (r <= 0) by smt().
   rewrite h1 h2 /=.
-  have key : (9 * k + r - 1) %% 9 = (r - 1) %% 9.
-    have ->: 9 * k + r - 1 = (r - 1) + 9 * k by ring.
-    by rewrite modzDl modzMl addr0.
+  have key : (9 * k + r - 1) %% 9 = (r - 1) %% 9 by smt().
   by rewrite key.
 qed.
 
@@ -173,10 +172,12 @@ lemma N_minus_19a0_mod9 (N : int) : 0 < N => (N - 19 * (a0 N)) %% 9 = 0.
 proof.
   move=> hN.
   have ha0 := a0_cong9 N hN.
-  have ->: N - 19 * a0 N = N - a0 N - 18 * a0 N by ring.
+  have Heq : N - 19 * a0 N = N - a0 N - 18 * a0 N by ring.
+  rewrite Heq.
   have h1 : (N - a0 N) %% 9 = 0 by smt(modzDl modzNm).
   have h2 : (18 * a0 N) %% 9 = 0.
-    have ->: 18 * a0 N = 9 * (2 * a0 N) by ring.
+    have Heq2 : 18 * a0 N = 9 * (2 * a0 N) by ring.
+    rewrite Heq2.
     by rewrite modzMl.
   smt(modzDl).
 qed.
@@ -277,12 +278,14 @@ proof.
   move=> hN [Apos Bpos eq].
   have hNpos : 0 < N by smt().
   have A_mod : A %% 9 = N %% 9.
-    have ->: N = 19*A + 9*B by linarith.
-    have ->: (19*A + 9*B) %% 9 = (19*A) %% 9.
+    have Heq : N = 19*A + 9*B by linarith.
+    rewrite Heq.
+    have Heq2 : (19*A + 9*B) %% 9 = (19*A) %% 9.
       by rewrite -{2}(modz_mod (9*B) 9) modzMl /= addr0.
+    rewrite Heq2.
     rewrite -(modzMml 19 A 9).
-    have ->: 19 %% 9 = 1 by done.
-    by rewrite mul1z modz_mod.
+    have Heq3 : 19 %% 9 = 1 by done.
+    by rewrite Heq3 mul1z modz_mod.
   have ha0_eq_N : (a0 N - N) %% 9 = 0 by apply a0_cong9.
   have heq_mod : (A - a0 N) %% 9 = 0 by smt(modzDl modzNm).
   have [hlo hhi] := a0_range N hNpos.
@@ -334,7 +337,9 @@ proof.
   have ha0 : 0 < a0 N by smt(a0_range).
   have hpos : 0 < a0 N + 9 * k by smt().
   have Heq : a0 N + 9 * k = 9 * k + a0 N by ring.
-  rewrite Heq.
+  have Hdr : dr (a0 N + 9 * k) = dr (9 * k + a0 N).
+    by rewrite Heq.
+  rewrite Hdr.
   rewrite dr_9k_r; smt().
 qed.
 
@@ -387,9 +392,10 @@ proof.
   rewrite /dr.
   have h1 : ! (163 <= 0) by done.
   rewrite h1 /=.
-  have ->: 163 - 1 = 162 by ring.
-  have ->: 162 %% 9 = 0 by done.
-  by rewrite /=.
+  have Heq : 163 - 1 = 162 by ring.
+  rewrite Heq.
+  have Heq2 : 162 %% 9 = 0 by done.
+  by rewrite Heq2 /=.
 qed.
 
 lemma a0_163 : a0 163 = 1.
@@ -398,9 +404,10 @@ proof. by rewrite /a0 dr_163. qed.
 lemma B0_163 : B0 163 = 16.
 proof.
   rewrite /B0 a0_163.
-  have ->: 163 - 19 * 1 = 144 by ring.
-  have ->: 144 %/ 9 = 16 by done.
-  done.
+  have Heq : 163 - 19 * 1 = 144 by ring.
+  rewrite Heq.
+  have Heq2 : 144 %/ 9 = 16 by done.
+  by rewrite Heq2.
 qed.
 
 lemma frobenius_163_explicit :
@@ -544,12 +551,11 @@ proof.
         smt(B_ge0 a0_range).
       apply dr_triangle_B => //.
       + smt().
-      + have : (B0 N - 19 * k) %% 9 = (B0 N - 19 * ((B0 N - dr (2 * dr N) %% 9) %% 9 + 9*t)) %% 9.
-          by done.
-        rewrite /k.
-        have h19_9 : 19 * (9 * t) %% 9 = 0.
-          have ->: 19 * (9 * t) = 9 * (19 * t) by ring.
-          by rewrite modzMl.
+      + have Heq : (B0 N - 19 * k) %% 9 = (B0 N - 19 * ((B0 N - dr (2 * dr N) %% 9) %% 9 + 9*t)) %% 9 by done.
+        rewrite Heq.
+        have Heq2 : 19 * (9 * t) %% 9 = 0.
+          have Heq3 : 19 * (9 * t) = 9 * (19 * t) by ring.
+          by rewrite Heq3 modzMl.
         smt(modzDl modzNm modzMml modz_mod).
       + exact hB_pos.
 qed.
