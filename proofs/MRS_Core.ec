@@ -9,7 +9,7 @@
 (*                                                                    *)
 (*  Its range is 1..9. It is never 0. Consequently A = 0 is not a     *)
 (*  valid start for a representation, and the largest non-represent-  *)
-(*  able N is 162 (not the classical Sylvester bound 143, which      *)
+(*  able N is 162 (not the classical Sylvester bound 143, which       *)
 (*  assumes A >= 0). This is a deliberate design choice: it makes     *)
 (*  every representation carry a non-trivial "core" A >= 1, which     *)
 (*  is what the deniability construction relies on.                   *)
@@ -27,13 +27,14 @@
 (*  same line is a parse error in some EasyCrypt versions; write each *)
 (*  tactic on its own line.                                           *)
 (*                                                                    *)
-(*  Tactic availability: `nlinarith` is not available in all          *)
-(*  EasyCrypt versions. For linear arithmetic goals whose proof       *)
-(*  requires no non-linear reasoning, prefer `smt()` or `linarith`.   *)
+(*  Tactic availability: `linarith` and `nlinarith` are not           *)
+(*  available in all EasyCrypt versions. For linear arithmetic goals  *)
+(*  prefer `smt()`, which is universally available and handles the    *)
+(*  modular and divisibility relations that arise in this file.       *)
 (*                                                                    *)
 (*  Rewrite-pattern convention: `rewrite H` fails with "nothing to    *)
 (*  rewrite" when the left-hand side of H sits inside a function      *)
-(*  argument (e.g. inside `(...) %% 9` or `dr (...)`). Two safe        *)
+(*  argument (e.g. inside `(...) %% 9` or `dr (...)`). Two safe       *)
 (*  alternatives:                                                     *)
 (*    - `have H : ... by tactic.` + explicit `rewrite H` on the      *)
 (*      whole sub-expression, or                                       *)
@@ -201,7 +202,7 @@ proof.
       smt(modzDl modzNm).
     have hge : 171 <= N by smt(modz_ge0 ltz_pmod).
     rewrite heq.
-    linarith.
+    smt().
   - have hle : a0 N <= 8 by smt().
     smt().
 qed.
@@ -213,7 +214,7 @@ proof.
   have h_ineq := key_ineq N hN.
   have h_div  := N_minus_19a0_mod9 N (by smt()).
   apply divz_ge0.
-  - linarith.
+  - smt().
   - done.
 qed.
 
@@ -245,11 +246,11 @@ proof.
   move=> hN hk.
   have base := a0_B0_eq N (by smt()).
   ring_simplify.
-  linarith.
+  smt().
 qed.
 
-(* `nlinarith` replaced by `smt()`: the goal is linear and smt()
-   handles the divz/modz relations that arise from `kmax`. *)
+(* `nlinarith`/`linarith` replaced by `smt()`: the goal is linear and
+   smt() handles the divz/modz relations that arise from `kmax`. *)
 lemma B_ge0 (N k : int) :
   162 < N =>
   0 <= k <= kmax N =>
@@ -262,7 +263,7 @@ proof.
   have : 19 * k <= B0 N.
     have := divz_eq (B0 N) 19.
     smt(modz_ge0).
-  linarith.
+  smt().
 qed.
 
 lemma A_pos (N k : int) :
@@ -272,7 +273,7 @@ lemma A_pos (N k : int) :
 proof.
   move=> hN hk.
   have [hlo _] := a0_range N (by smt()).
-  linarith.
+  smt().
 qed.
 
 (* ----------------------------------------------------------------- *)
