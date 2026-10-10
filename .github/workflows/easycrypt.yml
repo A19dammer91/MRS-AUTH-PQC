@@ -82,7 +82,6 @@ jobs:
           fi
 
           while read -r file limit; do
-            # Skip blank lines and comments.
             [ -z "$file" ] && continue
             case "$file" in
               \#*) continue ;;
@@ -106,7 +105,6 @@ jobs:
         working-directory: proofs
         run: |
           set -o pipefail
-          mkdir -p ../logs
           for f in \
               MRS_FloorSum.ec \
               MRS_Core.ec \
@@ -116,20 +114,14 @@ jobs:
               MRS_Deny.ec \
               MRS_AUTH.ec \
               MRS_Honey.ec; do
+            echo "=========================================="
             echo "== Verifying $f"
+            echo "=========================================="
             start=$(date +%s)
-            if opam exec -- easycrypt compile -I . -timeout 10 "$f" \
-                 2>&1 | tee "../logs/${f%.ec}.log"; then
+            if opam exec -- easycrypt compile -I . -timeout 10 "$f"; then
               echo "== $f OK ($(( $(date +%s) - start ))s)"
             else
               echo "== FAILED: $f ($(( $(date +%s) - start ))s)"
               exit 1
             fi
           done
-
-      - name: Upload logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: easycrypt-logs
-          path: logs/
