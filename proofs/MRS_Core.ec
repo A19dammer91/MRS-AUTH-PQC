@@ -13,6 +13,12 @@
 (*  assumes A >= 0). This is a deliberate design choice: it makes     *)
 (*  every representation carry a non-trivial "core" A >= 1, which     *)
 (*  is what the deniability construction relies on.                   *)
+(*                                                                    *)
+(*  Ordering convention: all comparisons use the canonical form       *)
+(*  `constant < variable` or `constant <= variable`. The `>` and `>=` *)
+(*  operators are avoided because the EasyCrypt parser requires the   *)
+(*  correct ordering namespace to be in scope for them, which is      *)
+(*  fragile across stdlib versions.                                   *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -25,7 +31,7 @@ import IntOrder.
 (* ----------------------------------------------------------------- *)
 op dr (n : int) : int = if n <= 0 then 0 else 1 + ((n - 1) %% 9).
 
-lemma dr_range (n : int) : n > 0 => 1 <= dr n /\ dr n <= 9.
+lemma dr_range (n : int) : 0 < n => 1 <= dr n /\ dr n <= 9.
 proof.
   move=> hn.
   rewrite /dr hn /=.
@@ -33,7 +39,7 @@ proof.
   by smt(ltz_pmod).
 qed.
 
-lemma dr_mod9 (n : int) : n > 0 => dr n = n - 9 * ((n - 1) %/ 9).
+lemma dr_mod9 (n : int) : 0 < n => dr n = n - 9 * ((n - 1) %/ 9).
 proof.
   move=> hn.
   rewrite /dr hn /=.
@@ -41,7 +47,7 @@ proof.
   smt().
 qed.
 
-lemma dr_cong9 (n : int) : n > 0 => (dr n - n) %% 9 = 0.
+lemma dr_cong9 (n : int) : 0 < n => (dr n - n) %% 9 = 0.
 proof.
   move=> hn.
   rewrite /dr hn /=.
@@ -51,11 +57,11 @@ proof.
   exact key.
 qed.
 
-lemma dr_add9 (n : int) : n > 0 => dr (n + 9) = dr n.
+lemma dr_add9 (n : int) : 0 < n => dr (n + 9) = dr n.
 proof.
   move=> hn.
   rewrite /dr.
-  have h1 : n + 9 > 0 by smt().
+  have h1 : 0 < n + 9 by smt().
   rewrite h1 hn /=.
   have : (n + 9 - 1) %% 9 = (n - 1) %% 9.
     have ->: n + 9 - 1 = (n - 1) + 9 by ring.
@@ -63,30 +69,30 @@ proof.
   by move=> ->.
 qed.
 
-lemma dr_9k_r (k r : int) : r > 0 => dr (9 * k + r) = dr r.
+lemma dr_9k_r (k r : int) : 0 < r => dr (9 * k + r) = dr r.
 proof.
   move=> hr.
   induction k.
   - by rewrite /= /dr hr /= mulz0 /=.
   - move=> ki ih.
     have ->: 9 * (ki + 1) + r = (9 * ki + r) + 9 by ring.
-    have hpos : 9 * ki + r > 0 by smt().
+    have hpos : 0 < 9 * ki + r by smt().
     by rewrite dr_add9 // ih.
   - move=> ki ih.
     have ->: 9 * (ki - 1) + r = (9 * ki + r) - 9 by ring.
-    have hpos2 : 9 * ki + r > 0 by smt().
+    have hpos2 : 0 < 9 * ki + r by smt().
     have := dr_add9 (9 * ki + r - 9).
     smt(dr_add9).
 qed.
 
-lemma dr_19 (n : int) : n > 0 => dr (19 * n) = dr n.
+lemma dr_19 (n : int) : 0 < n => dr (19 * n) = dr n.
 proof.
   move=> hn.
   have ->: 19 * n = 9 * (2 * n) + n by ring.
   by apply dr_9k_r.
 qed.
 
-lemma dr_19A_9B (n m : int) : n > 0 => dr (19 * n + 9 * m) = dr n.
+lemma dr_19A_9B (n m : int) : 0 < n => dr (19 * n + 9 * m) = dr n.
 proof.
   move=> hn.
   have ->: 19 * n + 9 * m = 9 * (2 * n + m) + n by ring.
@@ -97,7 +103,7 @@ lemma dr_idempotent (n : int) : 1 <= n => n <= 9 => dr n = n.
 proof.
   move=> h1 h9.
   rewrite /dr.
-  have hpos : n > 0 by smt().
+  have hpos : 0 < n by smt().
   rewrite hpos /=.
   smt(modz_mod ltz_pmod modz_ge0).
 qed.
@@ -117,21 +123,21 @@ op kmax (N : int) : int = (B0 N) %/ 19.
 (* Auxiliary lemmas about a0 and B0                                   *)
 (* ----------------------------------------------------------------- *)
 
-lemma a0_range (N : int) : N > 0 => 1 <= a0 N /\ a0 N <= 9.
+lemma a0_range (N : int) : 0 < N => 1 <= a0 N /\ a0 N <= 9.
 proof.
   move=> hN.
   rewrite /a0.
   by apply dr_range.
 qed.
 
-lemma a0_cong9 (N : int) : N > 0 => (a0 N - N) %% 9 = 0.
+lemma a0_cong9 (N : int) : 0 < N => (a0 N - N) %% 9 = 0.
 proof.
   move=> hN.
   rewrite /a0.
   by apply dr_cong9.
 qed.
 
-lemma N_minus_19a0_mod9 (N : int) : N > 0 => (N - 19 * (a0 N)) %% 9 = 0.
+lemma N_minus_19a0_mod9 (N : int) : 0 < N => (N - 19 * (a0 N)) %% 9 = 0.
 proof.
   move=> hN.
   have ha0 := a0_cong9 N hN.
@@ -143,23 +149,23 @@ proof.
   smt(modzDl).
 qed.
 
-lemma key_ineq (N : int) : N > 162 => 19 * (a0 N) <= N.
+lemma key_ineq (N : int) : 162 < N => 19 * (a0 N) <= N.
 proof.
   move=> hN.
-  have hNpos : N > 0 by smt().
+  have hNpos : 0 < N by smt().
   have [hlo hhi] := a0_range N hNpos.
   case (a0 N = 9) => [heq | hne].
   - have hcong := a0_cong9 N hNpos.
     have hmod : N %% 9 = 0.
       rewrite heq in hcong.
       smt(modzDl modzNm).
-    have hge : N >= 171 by smt(modz_ge0 ltz_pmod).
+    have hge : 171 <= N by smt(modz_ge0 ltz_pmod).
     rewrite heq. linarith.
   - have hle : a0 N <= 8 by smt().
     nlinarith.
 qed.
 
-lemma B0_ge0 (N : int) : N > 162 => B0 N >= 0.
+lemma B0_ge0 (N : int) : 162 < N => 0 <= B0 N.
 proof.
   move=> hN.
   rewrite /B0.
@@ -170,7 +176,7 @@ proof.
   - done.
 qed.
 
-lemma kmax_ge0 (N : int) : N > 162 => kmax N >= 0.
+lemma kmax_ge0 (N : int) : 162 < N => 0 <= kmax N.
 proof.
   move=> hN.
   rewrite /kmax.
@@ -178,7 +184,7 @@ proof.
   done.
 qed.
 
-lemma a0_B0_eq (N : int) : N > 0 => 19 * a0 N + 9 * B0 N = N.
+lemma a0_B0_eq (N : int) : 0 < N => 19 * a0 N + 9 * B0 N = N.
 proof.
   move=> hN.
   rewrite /B0 /a0.
@@ -191,7 +197,7 @@ qed.
 (* Linear invariant                                                    *)
 (* ----------------------------------------------------------------- *)
 lemma linear_invariant N k :
-  N > 162 =>
+  162 < N =>
   0 <= k <= kmax N =>
   19 * (a0 N + 9 * k) + 9 * (B0 N - 19 * k) = N.
 proof.
@@ -202,9 +208,9 @@ proof.
 qed.
 
 lemma B_ge0 (N k : int) :
-  N > 162 =>
+  162 < N =>
   0 <= k <= kmax N =>
-  B0 N - 19 * k >= 0.
+  0 <= B0 N - 19 * k.
 proof.
   move=> hN hk.
   rewrite /kmax in hk.
@@ -217,9 +223,9 @@ proof.
 qed.
 
 lemma A_pos (N k : int) :
-  N > 162 =>
+  162 < N =>
   0 <= k <= kmax N =>
-  a0 N + 9 * k >= 1.
+  1 <= a0 N + 9 * k.
 proof.
   move=> hN hk.
   have [hlo _] := a0_range N (by smt()).
@@ -233,11 +239,11 @@ qed.
 pred is_rep (N A B : int) = 1 <= A /\ 0 <= B /\ 19*A + 9*B = N.
 
 lemma rep_uniq (N : int) (A B : int) :
-  N > 162 => is_rep N A B =>
+  162 < N => is_rep N A B =>
   exists k, 0 <= k <= kmax N /\ A = a0 N + 9*k /\ B = B0 N - 19*k.
 proof.
   move=> hN [Apos Bpos eq].
-  have hNpos : N > 0 by smt().
+  have hNpos : 0 < N by smt().
   have A_mod : A %% 9 = N %% 9.
     have ->: N = 19*A + 9*B by linarith.
     have ->: (19*A + 9*B) %% 9 = (19*A) %% 9.
@@ -248,16 +254,16 @@ proof.
   have ha0_eq_N : (a0 N - N) %% 9 = 0 by apply a0_cong9.
   have heq_mod : (A - a0 N) %% 9 = 0 by smt(modzDl modzNm).
   have [hlo hhi] := a0_range N hNpos.
-  have hA_ge_a0 : A >= a0 N.
-    case (A >= a0 N) => //.
+  have hA_ge_a0 : a0 N <= A.
+    case (a0 N <= A) => //.
     move=> hlt.
     have hlt' : A < a0 N by smt().
     have h1 : A - a0 N < 0 by smt().
-    have h2 : A - a0 N > -9 by smt().
+    have h2 : -9 < A - a0 N by smt().
     have := modz_ge0 (A - a0 N) 9.
     smt().
   set k := (A - a0 N) %/ 9.
-  have k_ge0 : k >= 0 by smt().
+  have k_ge0 : 0 <= k by smt().
   have A_eq : A = a0 N + 9 * k.
     rewrite /k.
     have := divz_eq (A - a0 N) 9.
@@ -269,7 +275,7 @@ proof.
     smt(mulzI).
   have k_le_kmax : k <= kmax N.
     rewrite /kmax.
-    have hB : B0 N - 19 * k >= 0 by rewrite -B_eq; linarith.
+    have hB : 0 <= B0 N - 19 * k by rewrite -B_eq; linarith.
     apply (lez_trans (B0 N %/ 19)).
     - smt(divz_ge0 B0_ge0).
     - done.
@@ -282,7 +288,7 @@ qed.
 (* dr properties for representations                                   *)
 (* ----------------------------------------------------------------- *)
 
-lemma dr_a0 (N : int) : N > 0 => dr (a0 N) = dr N.
+lemma dr_a0 (N : int) : 0 < N => dr (a0 N) = dr N.
 proof.
   move=> hN.
   rewrite /a0.
@@ -290,29 +296,29 @@ proof.
   by apply dr_idempotent.
 qed.
 
-lemma dr_rep_A (N k : int) : N > 0 => k >= 0 => dr (a0 N + 9 * k) = dr N.
+lemma dr_rep_A (N k : int) : 0 < N => 0 <= k => dr (a0 N + 9 * k) = dr N.
 proof.
   move=> hN hk.
-  have ha0 : a0 N > 0 by smt(a0_range).
-  have hpos : a0 N + 9 * k > 0 by smt().
+  have ha0 : 0 < a0 N by smt(a0_range).
+  have hpos : 0 < a0 N + 9 * k by smt().
   have ->: a0 N + 9 * k = 9 * k + a0 N by ring.
   rewrite dr_9k_r //.
   exact (dr_a0 N hN).
 qed.
 
 lemma dr_triangle_B (N k : int) :
-  N > 162 =>
+  162 < N =>
   0 <= k <= kmax N =>
   (B0 N - 19 * k) %% 9 = dr (2 * dr N) %% 9 =>
-  B0 N - 19 * k > 0 =>
+  0 < B0 N - 19 * k =>
   dr (B0 N - 19 * k) = dr (2 * dr N).
 proof.
   move=> hN hk hcong hpos.
   rewrite /dr hpos /=.
-  have htgt : dr (2 * dr N) > 0.
-    have hNpos : N > 0 by smt().
+  have htgt : 0 < dr (2 * dr N).
+    have hNpos : 0 < N by smt().
     have [h1 h2] := dr_range N hNpos.
-    have h2pos : 2 * (if N <= 0 then 0 else 1 + (N-1) %% 9) > 0 by smt().
+    have h2pos : 0 < 2 * (if N <= 0 then 0 else 1 + (N-1) %% 9) by smt().
     smt(dr_range modz_ge0 ltz_pmod).
   rewrite /dr htgt /=.
   have lhs_range : 1 <= B0 N - 19*k /\ B0 N - 19*k <= 9 * (kmax N + 1).
@@ -336,7 +342,7 @@ proof.
     have h162 : 162 %% 9 = 0 by done.
     smt(modzDl modzNm modzMml).
   have hAle : A <= 8 by smt().
-  have hAge : A >= 1 by exact hA.
+  have hAge : 1 <= A by exact hA.
   smt(modz_ge0 ltz_pmod).
 qed.
 
@@ -388,20 +394,20 @@ proof.
     exact frobenius_163_explicit.
 qed.
 
-lemma no_unrep_above_162 (N : int) : N > 162 => is_rep N (a0 N) (B0 N).
+lemma no_unrep_above_162 (N : int) : 162 < N => is_rep N (a0 N) (B0 N).
 proof.
   move=> hN.
-  have hB : B0 N >= 0 by apply B0_ge0.
-  have hA : a0 N >= 1 by smt(a0_range).
+  have hB : 0 <= B0 N by apply B0_ge0.
+  have hA : 1 <= a0 N by smt(a0_range).
   have heq : 19 * a0 N + 9 * B0 N = N by apply a0_B0_eq; smt().
   smt().
 qed.
 
 lemma all_above_frobenius_representable (N : int) :
-  N >= 163 => exists (A B : int), is_rep N A B.
+  163 <= N => exists (A B : int), is_rep N A B.
 proof.
   move=> hN.
-  have hN' : N > 162 by smt().
+  have hN' : 162 < N by smt().
   exists (a0 N) (B0 N).
   exact (no_unrep_above_162 N hN').
 qed.
@@ -418,13 +424,13 @@ module MRSRep = {
 
   proc sample_triangle(N : int) : int * int = {
     var a0_val, B0_val, kmax_val, target_dr, target_r, k0, tmax, t, k;
-    a0_val  <- a0 N;
-    B0_val  <- B0 N;
+    a0_val   <- a0 N;
+    B0_val   <- B0 N;
     kmax_val <- kmax N;
     target_dr <- dr (2 * dr N);
     target_r  <- target_dr %% 9;
     k0 <- (B0_val - target_r) %% 9;
-    if (k0 > kmax_val) {
+    if (kmax_val < k0) {
       return (0, 0);
     }
     tmax <- (kmax_val - k0) %/ 9;
@@ -435,15 +441,15 @@ module MRSRep = {
 }.
 
 lemma triangle_k0_le_kmax (N : int) :
-  N > 162 =>
+  162 < N =>
   (B0 N - dr (2 * dr N) %% 9) %% 9 <= kmax N \/
-  (B0 N - dr (2 * dr N) %% 9) %% 9 > kmax N.
+  kmax N < (B0 N - dr (2 * dr N) %% 9) %% 9.
 proof.
   move=> hN. smt().
 qed.
 
 lemma sample_basic_correct (N : int) :
-  N > 162 =>
+  162 < N =>
   hoare [MRSRep.sample_basic :
     arg = N ==>
     19 * (fst res) + 9 * (snd res) = N /\
@@ -461,7 +467,7 @@ proof.
 qed.
 
 lemma sample_basic_equiv (N : int) :
-  N > 162 =>
+  162 < N =>
   equiv [MRSRep.sample_basic ~ MRSRep.sample_basic : ={arg} ==> ={res}].
 proof.
   move=> hN.
@@ -472,7 +478,7 @@ proof.
 qed.
 
 lemma sample_triangle_correct (N : int) :
-  N > 162 =>
+  162 < N =>
   hoare [MRSRep.sample_triangle :
     arg = N ==>
     (fst res = 0 /\ snd res = 0) \/
@@ -497,7 +503,7 @@ proof.
     split; first by apply linear_invariant => //; smt().
     split.
     - apply dr_rep_A => //; smt().
-    - have hB_pos : B0 N - 19 * k > 0.
+    - have hB_pos : 0 < B0 N - 19 * k.
         have hBge := B_ge0 N k hN.
         smt(B_ge0 a0_range).
       apply dr_triangle_B => //.
@@ -513,7 +519,7 @@ proof.
 qed.
 
 lemma sample_triangle_equiv (N : int) :
-  N > 162 =>
+  162 < N =>
   equiv [MRSRep.sample_triangle ~ MRSRep.sample_triangle : ={arg} ==> ={res}].
 proof.
   move=> hN.
