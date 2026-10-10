@@ -25,10 +25,14 @@
 (*  completely. When L leaves a side condition, use `apply L => //.`  *)
 (*  or `apply L; smt().` instead.                                     *)
 (*                                                                    *)
-(*  Hypothesis convention: `dr_9k_r` requires `0 <= k` as an explicit *)
-(*  hypothesis. The alternative (letting `k` range over all integers) *)
-(*  makes the pre-condition `0 < 9 * k + r` unprovable for negative   *)
-(*  `k`. Callers supply `0 <= k` from their own hypotheses.           *)
+(*  Hypothesis convention:                                            *)
+(*   - `dr_9k_r` requires `0 <= k` and `0 < r` as explicit            *)
+(*     hypotheses, so that the precondition `0 < 9 * k + r` (needed   *)
+(*     to discharge the first `if` in `dr`) is provable for every     *)
+(*     input.                                                         *)
+(*   - `dr_19A_9B` requires `0 <= m` for the same reason: the         *)
+(*     identity is applied to the offset `9 * (2 * n + m) + n`, and   *)
+(*     `2 * n + m` must be non-negative to feed `dr_9k_r`.            *)
 (*                                                                    *)
 (*  Pattern convention: when the left-hand side of a `have ->:` does  *)
 (*  not appear verbatim in the goal (e.g. because it sits inside a    *)
@@ -121,13 +125,17 @@ proof.
   apply dr_9k_r; smt().
 qed.
 
-(* Same pattern as dr_19: named equality plus explicit rewrite. *)
-lemma dr_19A_9B (n m : int) : 0 < n => dr (19 * n + 9 * m) = dr n.
+(* Same pattern as dr_19. `0 <= m` is required so that `2 * n + m`
+   is non-negative, which is what `dr_9k_r` needs. Without it, a
+   negative `m` would make `2 * n + m` negative and the caller
+   cannot discharge the `0 <= k` side condition. *)
+lemma dr_19A_9B (n m : int) : 0 < n => 0 <= m => dr (19 * n + 9 * m) = dr n.
 proof.
-  move=> hn.
+  move=> hn hm.
   have Heq : 19 * n + 9 * m = 9 * (2 * n + m) + n by ring.
   rewrite Heq.
-  apply dr_9k_r; smt().
+  have hk : 0 <= 2 * n + m by smt().
+  exact (dr_9k_r (2 * n + m) n hk hn).
 qed.
 
 lemma dr_idempotent (n : int) : 1 <= n => n <= 9 => dr n = n.
@@ -136,7 +144,9 @@ proof.
   rewrite /dr.
   have hpos : ! (n <= 0) by smt().
   rewrite hpos /=.
-  smt(modz_mod ltz_pmod modz_ge0).
+  have hmod : (n - 1) %% 9 = n - 1 by smt().
+  rewrite hmod.
+  ring.
 qed.
 
 (* ----------------------------------------------------------------- *)
