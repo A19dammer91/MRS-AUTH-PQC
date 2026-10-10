@@ -367,9 +367,13 @@ proof.
     have hmod_lt : (B0 N - 19 * ((A - a0 N) %/ 9)) %% 19 < 19 by smt(modz_ge0 divz_eq).
     smt().
   exists ((A - a0 N) %/ 9).
-  split; first by split.
-  split; exact.
-qed.
+split.
+- split.
+  + exact k_ge0.
+  + exact k_le_kmax.
+- split.
+  + exact A_eq.
+  + exact B_eq.
 
 (* ----------------------------------------------------------------- *)
 (* dr properties for representations                                   *)
