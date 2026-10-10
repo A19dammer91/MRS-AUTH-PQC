@@ -429,7 +429,7 @@ qed.
 (* Frobenius boundary under Positive Anchor                          *)
 (* ----------------------------------------------------------------- *)
 
-lemma frobenius_162_not_rep (A B : int) : ! (is_rep (162) A B).
+lemma frobenius_162_not_rep (A B : int) : is_rep (162) A B => false.
 proof.
   move=> hrep.
   have hA : 1 <= A.
