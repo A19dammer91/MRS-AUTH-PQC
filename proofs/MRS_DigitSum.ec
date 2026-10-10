@@ -22,7 +22,11 @@
 (*  Robustness notes:                                                 *)
 (*  - NO axioms, NO admits.                                           *)
 (*  - No `linarith`, `nlinarith`, `ltz_pmod`, `divz_ge0`.             *)
+(*  - No `ring_simplify`.                                             *)
 (*  - No `(by tactic)` as term argument.                              *)
+(*  - Concrete dr computations use `smt()` directly rather than       *)
+(*    `have Heq : .. by ring.` + `rewrite Heq.`, because the latter   *)
+(*    fails when the target is already reduced by `rewrite h1 /=`.    *)
 (*  - Only standard modular lemmas as hints for `smt()`.              *)
 (* ================================================================= *)
 
@@ -94,18 +98,6 @@ qed.
 
 (* ----------------------------------------------------------------- *)
 (* Trace of the digit-sum iteration                                   *)
-(*                                                                    *)
-(* We define the trace explicitly as a list of integers, built from   *)
-(* the modular structure of N. Specifically:                          *)
-(*                                                                    *)
-(*   trace(N) = [N; N - 9*k1; N - 9*k2; ...; dr(N)]                   *)
-(*                                                                    *)
-(* where the intermediate values are obtained by subtracting 9        *)
-(* repeatedly. This captures the essential invariant: every           *)
-(* intermediate value is congruent to N modulo 9, and the final       *)
-(* value is dr(N).                                                    *)
-(*                                                                    *)
-(* The construction is fully explicit: no axioms, no admits.          *)
 (* ----------------------------------------------------------------- *)
 
 (* We build the trace as the list of values N - 9*k for k in 0..m,    *)
@@ -119,15 +111,14 @@ proof.
   move=> hN.
   rewrite /trace_step_count.
   have hdiv := divz_eq (N - dr N) 9.
-  have [hlo hhi] := dr_range N hN.
+  have hrange := dr_range N hN.
+  have [hlo hhi] := hrange.
   have hcong := dr_cong9 N hN.
-  (* N - dr N is divisible by 9 and non-negative. *)
   have hnn : 0 <= N - dr N by smt().
   have hdecomp : N - dr N =
                  9 * ((N - dr N) %/ 9) + (N - dr N) %% 9
     by smt(divz_eq).
   have hmod0 : (N - dr N) %% 9 = 0 by smt(modzDl modzNm).
-  have hr_zero : (N - dr N) %% 9 = 0 by smt().
   smt().
 qed.
 
@@ -135,7 +126,8 @@ lemma trace_step_count_lt (N : int) : 0 < N => trace_step_count N <= N.
 proof.
   move=> hN.
   rewrite /trace_step_count.
-  have [hlo hhi] := dr_range N hN.
+  have hrange := dr_range N hN.
+  have [hlo hhi] := hrange.
   have hnn : 0 <= N - dr N by smt().
   have hdecomp : N - dr N =
                  9 * ((N - dr N) %/ 9) + (N - dr N) %% 9
@@ -186,7 +178,6 @@ proof.
   have hm := trace_step_count_nonneg N hN.
   have := trace_build_last N (trace_step_count N) hm.
   rewrite /trace_step_count.
-  (* N - 9 * ((N - dr N) %/ 9) = dr N. *)
   have hnn : 0 <= N - dr N by smt(dr_range).
   have hmod0 : (N - dr N) %% 9 = 0 by smt(modzDl modzNm dr_cong9).
   have hdecomp : N - dr N =
@@ -251,6 +242,11 @@ qed.
 (*                                                                    *)
 (* These verify that the digital root is correctly computed for the   *)
 (* numbers used in the MRS framework.                                 *)
+(*                                                                    *)
+(* NOTE: we use `smt()` directly rather than `have Heq : ... by       *)
+(* ring.` + `rewrite Heq.`, because in EasyCrypt r2024.09 the         *)
+(* `rewrite h1 /=` reduces the target and the subsequent `rewrite`    *)
+(* of the concrete arithmetic identity has "nothing to rewrite".      *)
 (* ----------------------------------------------------------------- *)
 
 lemma dr_2026 : dr 2026 = 1.
@@ -258,10 +254,7 @@ proof.
   rewrite /dr.
   have h1 : ! (2026 <= 0) by done.
   rewrite h1 /=.
-  have Heq : 2026 - 1 = 2025 by ring.
-  rewrite Heq.
-  have Heq2 : 2025 %% 9 = 0 by done.
-  by rewrite Heq2 /=.
+  smt().
 qed.
 
 lemma dr_958 : dr 958 = 4.
@@ -269,10 +262,7 @@ proof.
   rewrite /dr.
   have h1 : ! (958 <= 0) by done.
   rewrite h1 /=.
-  have Heq : 958 - 1 = 957 by ring.
-  rewrite Heq.
-  have Heq2 : 957 %% 9 = 3 by done.
-  by rewrite Heq2 /=.
+  smt().
 qed.
 
 lemma dr_99999 : dr 99999 = 9.
@@ -280,10 +270,7 @@ proof.
   rewrite /dr.
   have h1 : ! (99999 <= 0) by done.
   rewrite h1 /=.
-  have Heq : 99999 - 1 = 99998 by ring.
-  rewrite Heq.
-  have Heq2 : 99998 %% 9 = 8 by done.
-  by rewrite Heq2 /=.
+  smt().
 qed.
 
 lemma dr_162 : dr 162 = 9.
@@ -291,10 +278,7 @@ proof.
   rewrite /dr.
   have h1 : ! (162 <= 0) by done.
   rewrite h1 /=.
-  have Heq : 162 - 1 = 161 by ring.
-  rewrite Heq.
-  have Heq2 : 161 %% 9 = 8 by done.
-  by rewrite Heq2 /=.
+  smt().
 qed.
 
 lemma dr_163 : dr 163 = 1.
@@ -302,10 +286,7 @@ proof.
   rewrite /dr.
   have h1 : ! (163 <= 0) by done.
   rewrite h1 /=.
-  have Heq : 163 - 1 = 162 by ring.
-  rewrite Heq.
-  have Heq2 : 162 %% 9 = 0 by done.
-  by rewrite Heq2 /=.
+  smt().
 qed.
 
 (* ----------------------------------------------------------------- *)
