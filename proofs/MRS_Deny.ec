@@ -22,6 +22,13 @@
 (*  proofs/WITNESS-INDISTINGUISHABILITY.md. This file establishes a    *)
 (*  narrower, purely combinatorial fact about the sampler, not a       *)
 (*  machine-verified proof of the full protocol's deniability.         *)
+(*                                                                    *)
+(*  Ordering convention: all comparisons use the canonical form       *)
+(*  `constant < variable` or `constant <= variable`.                  *)
+(*                                                                    *)
+(*  Module access: MRSChain is opened with `import MRSChain.` so      *)
+(*  that `MRSChain.build` can be called as `build` in equiv and       *)
+(*  phoare statements.                                                 *)
 (* ================================================================= *)
 
 require import MRS_Chain.
@@ -44,7 +51,7 @@ module DenyGame (A : Adversary) = {
 }.
 
 lemma ch0_ch1_same_distr (N : int) (depth : int) (tri : int list) :
-  N > 162 =>
+  162 < N =>
   equiv [MRSChain.build ~ MRSChain.build :
     arg{1} = (N, depth, tri) /\ arg{2} = (N, depth, tri) ==> ={res}].
 proof.
@@ -58,7 +65,7 @@ qed.
 (* Main theorem: sampler-level chain-selection indistinguishability   *)
 (* ----------------------------------------------------------------- *)
 lemma deny_advantage (A <: Adversary) (N : int) (depth : int) (tri : int list) :
-  N > 162 =>
+  162 < N =>
   Pr[DenyGame(A).main(N, depth, tri) @ &m : res] = 1%r / 2%r.
 proof.
   move=> hN.
