@@ -50,7 +50,7 @@ axiom two_pow_neg256_negl : 2%r ^ (-256) <= negl lambda.
 (* PART I: Temporal Barrier                                          *)
 (* ================================================================= *)
 
-lemma dr_homomorphism (x y : int) : x > 0 => y > 0 =>
+lemma dr_homomorphism (x y : int) : 0 => < x > 0 => y
   dr (x + y) = dr (dr x + dr y).
 proof.
   move=> hx hy.
@@ -64,18 +64,18 @@ proof.
   smt().
 qed.
 
-lemma dr_step_9_invariant (n : int) : n > 171 => dr (n - 171) = dr n.
+lemma dr_step_9_invariant (n : int) : 171 < n => dr (n - 171) = dr n.
 proof.
   move=> hn.
   have h171 : 171 = 9 * 19 by ring.
-  have hpos : n - 171 > 0 by linarith.
+  have hpos : 0 < n - 171 by linarith.
   have key : (n - 171 - 1) %% 9 = (n - 1) %% 9.
     have ->: n - 171 - 1 = (n - 1) - 9 * 19 by ring.
     by rewrite -{2}(modz_mod (n - 1) 9) modzDl modzNm modzMl /= addr0 modz_mod.
   rewrite /dr hpos hn /=; linarith.
 qed.
 
-lemma dr_step_9_chain (Bp k : int) : Bp - 19 * k > 171 =>
+lemma dr_step_9_chain (Bp k : int) : 171 => < Bp - 19 * k
   dr (Bp - 19 * (k + 9)) = dr (Bp - 19 * k).
 proof.
   move=> hpos.
@@ -100,8 +100,8 @@ op step_eea_particular : int.
 op step_bounds : int.
 op step_triangle_shift : int.
 op step_sample_fractal : int.
-axiom steps_pos : step_eea_particular > 0 /\ step_bounds > 0 /\
-  step_triangle_shift > 0 /\ step_sample_fractal > 0.
+axiom steps_pos : 0 /\ < step_eea_particular > 0 /\ step_bounds
+0. < step_triangle_shift > 0 /\ step_sample_fractal
 op total_steps (N : int) : int =
   step_eea_particular + step_bounds + step_triangle_shift + step_sample_fractal.
 
@@ -115,7 +115,7 @@ op duniform_fractal (first_k k_max : int) : int distr =
 
 lemma fractal_nonempty (first_k k_max : int) :
   first_k <= k_max =>
-  FSet.card (fractal_set first_k k_max) >= 1.
+1. <= FSet.card (fractal_set first_k k_max)
 proof.
   move=> hle.
   rewrite /fractal_set.
@@ -143,14 +143,14 @@ module TemporalBarrier = {
     Bp <- -2 * N;
     k_min <- (-Ap + 162 + 8) %/ 9;
     k_max <- Bp %/ 19;
-    if (k_min > k_max) { return None; }
+k_max) { return None; } < if (k_min
     first_k <- k_min + ((dr (Bp - 19 * k_min) - dr (2 * dr N)) %% 9);
-    if (first_k > k_max) { return None; }
+k_max) { return None; } < if (first_k
     final_k <$ duniform_fractal first_k k_max;
     A <- Ap + 9 * final_k;
     B <- Bp - 19 * final_k;
     duration <- step_to_time (total_steps N);
-    if (step_to_time (total_steps N) > timeout) {
+timeout) { < if (step_to_time (total_steps N)
       return None;
     }
     return Some (A, B, duration);
@@ -158,11 +158,11 @@ module TemporalBarrier = {
 }.
 
 lemma triangle_shift_correct (N k_min : int) :
-  N > 162 =>
+162 => < N
   let Bp = -2 * N in
   let shift = (dr (Bp - 19 * k_min) - dr (2 * dr N)) %% 9 in
   let first_k = k_min + shift in
-  Bp - 19 * first_k > 0 =>
+0 => < Bp - 19 * first_k
   dr (Bp - 19 * first_k) = dr (2 * dr N).
 proof.
   move=> hN /=.
@@ -179,16 +179,16 @@ proof.
     dr (Bp - 19 * k_min - 19 * shift) = dr (Bp - 19 * k_min - shift).
     proof.
     rewrite /dr.
-    have hpos2 : Bp - 19 * k_min - shift > 0 by smt(modz_ge0).
+    have hpos2 : 0 < Bp - 19 * k_min - shift by smt(modz_ge0).
     rewrite hpos hpos2 /=.
     smt(hcong modzDl modzNm).
   rewrite hdr_shift.
-  have hbase_pos : Bp - 19 * k_min > 0 by smt(modz_ge0 ltz_pmod).
+  have hbase_pos : 0 < Bp - 19 * k_min by smt(modz_ge0 ltz_pmod).
   have hdbase := dr_range (Bp - 19 * k_min) hbase_pos.
   have hdtgt := dr_range (2 * dr N).
-  have hNpos : N > 0 by smt().
+  have hNpos : 0 < N by smt().
   have hdN := dr_range N hNpos.
-  have hdtgt2 : 2 * dr N > 0 by smt().
+  have hdtgt2 : 0 < 2 * dr N by smt().
   have hdtgt3 := dr_range (2 * dr N) hdtgt2.
   have hcong2 :
     (dr (Bp - 19 * k_min - shift) - dr (2 * dr N)) %% 9 = 0.
@@ -203,13 +203,13 @@ proof.
     rw h1.
     rewrite /shift.
     smt(modzDl modzNm modz_mod ltz_pmod modz_ge0).
-  have hpos3 : Bp - 19 * k_min - shift > 0 by smt(modz_ge0).
+  have hpos3 : 0 < Bp - 19 * k_min - shift by smt(modz_ge0).
   have hdres := dr_range (Bp - 19 * k_min - shift) hpos3.
   smt(hcong2).
 qed.
 
 lemma temporal_barrier_correctness (N : int) (timeout : real) :
-  N > 162 =>
+162 => < N
   hoare [TemporalBarrier.sample_mrs_timed :
     arg = (N, timeout) ==>
     match res with
@@ -257,21 +257,21 @@ proof.
       smt().
     have hB_expand : B{m} = Bp{m} - 19 * first_k{m} - 171 * t.
       rewrite hB hfk_eq; ring.
-    have hfirst_pos : Bp{m} - 19 * first_k{m} > 0.
+    have hfirst_pos : 0. < Bp{m} - 19 * first_k{m}
       smt(hbounded).
-    have hB_pos : B{m} > 0.
+    have hB_pos : 0. < B{m}
       rewrite hB_expand; smt(hbounded).
     have hdr_invariant : dr B{m} = dr (Bp{m} - 19 * first_k{m}).
       rewrite hB_expand.
-      suffices h : forall (s x : int), s >= 0 => x > 171 * s =>
+      suffices h : forall (s x : 0 <= int), s => x > 171 * s =>
         dr (x - 171 * s) = dr x.
         apply (h t (Bp{m} - 19 * first_k{m})); smt().
       move=> s; induction s.
       - move=> x _ _; by rewrite mulz0 /= subr0.
       - move=> si ih x h0 hbig.
         have ->: x - 171 * (si + 1) = (x - 171 * si) - 171 by ring.
-        have hpos_si : x - 171 * si > 171 by smt().
-        have hpos_si2 : x - 171 * si > 0 by smt().
+        have hpos_si : 171 < x - 171 * si by smt().
+        have hpos_si2 : 0 < x - 171 * si by smt().
         rewrite dr_step_9_invariant; first by linarith.
         apply ih; smt().
     have hdr_first := triangle_shift_correct N k_min{m} hN.
@@ -281,9 +281,9 @@ proof.
 qed.
 
 lemma temporal_barrier_noninterference (N1 N2 : int) (timeout : real) :
-  N1 > 162 => N2 > 162 =>
-  step_to_time (total_steps N1) > timeout =>
-  step_to_time (total_steps N2) > timeout =>
+162 => < N1 > 162 => N2
+timeout => < step_to_time (total_steps N1)
+timeout => < step_to_time (total_steps N2)
   equiv [TemporalBarrier.sample_mrs_timed ~ TemporalBarrier.sample_mrs_timed :
     arg{1} = (N1, timeout) /\ arg{2} = (N2, timeout) ==>
     res{1} = None /\ res{2} = None].
@@ -305,7 +305,7 @@ proof.
       if{2}.
       * auto.
       * exfalso.
-        have : step_to_time (total_steps N2) > timeout := htout2.
+        have : timeout := htout2. < step_to_time (total_steps N2)
         smt().
   - seq 1 1 : true; first by auto.
     if{1}.
@@ -344,7 +344,7 @@ proof.
 qed.
 
 lemma temporal_barrier_conditional_uniform (N : int) (timeout : real) :
-  N > 162 =>
+162 => < N
   step_to_time (total_steps N) <= timeout =>
   equiv [TemporalBarrier.sample_mrs_timed ~ TemporalBarrier.sample_mrs_timed :
     ={arg} /\ arg{1} = (N, timeout) ==> ={res}].
@@ -368,7 +368,7 @@ proof.
   - auto.
   if => />.
   - exfalso.
-    have : step_to_time (total_steps N) > timeout by smt().
+    have : timeout < step_to_time (total_steps N) by smt().
     linarith.
   - auto.
 qed.
@@ -399,20 +399,20 @@ module RustTemporalBarrier = {
     Bp <- -2 * N;
     k_min <- (-Ap + 162 + 8) %/ 9;
     k_max <- Bp %/ 19;
-    if (k_min > k_max) { return RustCleared; }
+k_max) { return RustCleared; } < if (k_min
     first_k <- k_min + ((dr (Bp - 19 * k_min) - dr (2 * dr N)) %% 9);
-    if (first_k > k_max) { return RustCleared; }
+k_max) { return RustCleared; } < if (first_k
     final_k <$ duniform_fractal first_k k_max;
     A <- Ap + 9 * final_k;
     B <- Bp - 19 * final_k;
     duration <- total_steps N;
-    if (duration > timeout_micros) { return RustCleared; }
+timeout_micros) { return RustCleared; } < if (duration
     return RustValid (A, B);
   }
 }.
 
 lemma refinement_backward_security (N : int) (timeout : int) :
-  N > 162 =>
+162 => < N
   hoare [RustTemporalBarrier.sample_with_zeroize :
     arg = (N, timeout) ==>
     attacker_obs (rust_to_abstract res) = false \/
@@ -422,14 +422,14 @@ proof.
   move=> hN.
   proc.
   auto => /> &m.
-  case (k_min{m} > k_max{m}).
+k_max{m}). < case (k_min{m}
   - move=> hkm_gt.
     left; by rewrite /rust_to_abstract /attacker_obs.
   - move=> hkm_le.
-    case (first_k{m} > k_max{m}).
+k_max{m}). < case (first_k{m}
     + move=> hfk_gt; left; by rewrite /rust_to_abstract /attacker_obs.
     + move=> hfk_le final_k hfk_mem.
-      case (total_steps N > timeout).
+timeout). < case (total_steps N
       * move=> htout; left; by rewrite /rust_to_abstract /attacker_obs.
       * move=> hnotout.
         right.
@@ -444,11 +444,11 @@ proof.
           set t := (final_k - first_k{m}) %/ 9.
           have hfk_eq : final_k = first_k{m} + 9 * t by smt(divz_eq).
           have hB_expand : -2*N - 19*final_k = (-2*N - 19*first_k{m}) - 171*t by smt().
-          have hfirst_pos : -2*N - 19*first_k{m} > 0 by smt(hbounded).
-          have hB_pos : -2*N - 19*final_k > 0 by smt(hbounded).
+          have hfirst_pos : 0 < -2*N - 19*first_k{m} by smt(hbounded).
+          have hB_pos : 0 < -2*N - 19*final_k by smt(hbounded).
           have hdr_inv : dr (-2*N - 19*final_k) = dr (-2*N - 19*first_k{m}).
             rewrite hB_expand.
-            suffices h : forall (s x : int), s >= 0 => x > 171*s =>
+            suffices h : forall (s x : 0 <= int), s => x > 171*s =>
               dr (x - 171*s) = dr x by apply (h t); smt().
             move=> s; induction s.
             - move=> x _ _; by rewrite mulz0 /= subr0.
@@ -490,14 +490,14 @@ pred chain_invariant
     size chain = 2 * layer + 1 /\
     nth 0 chain 0 = N /\
     current = nth 0 chain (2 * layer) /\
-    current > 162 /\
+162 /\ < current
     (forall j, 0 <= j < layer =>
       19 * (nth 0 chain (2*j+1)) + 9 * (nth 0 chain (2*j+2))
       = nth 0 chain (2*j))) /\
   (!success => chain = []).
 
 lemma chain_temporal_security (N : int) (depth : int) (timeout : real) :
-  N > 162 => depth >= 1 => timeout > 0%r =>
+1 <= N > 162 => depth => timeout > 0%r =>
   hoare [ChainWithTemporalBarrier.build_chain :
     arg = (N, depth, timeout) ==>
     match res with
