@@ -6,19 +6,19 @@
 (*  The anchor A_0 is defined as the digital root of N:               *)
 (*      A_0 = dr(N) = 1 + ((N - 1) mod 9)      for N > 0              *)
 (*                                                                    *)
-(*  Its range is 1..9. It is never 0. Consequently A = 0 is not a     *)
-(*  valid start for a representation, and the largest non-represent-  *)
-(*  able N is 162.                                                    *)
-(*                                                                    *)
 (*  Tactic availability: `linarith`, `nlinarith` and `ltz_pmod` are  *)
-(*  not available in all EasyCrypt versions. All arithmetic goals in  *)
-(*  this file are discharged by `smt()`, optionally with a small set  *)
-(*  of standard modular lemmas. Where `smt()` would have to chain    *)
-(*  several non-trivial steps, the proof is decomposed explicitly.   *)
+(*  not available in all EasyCrypt versions. Arithmetic goals are    *)
+(*  discharged by `smt()`, optionally with a small set of standard   *)
+(*  modular lemmas. Where `smt()` would need to chain several non-   *)
+(*  trivial steps, the proof is decomposed explicitly.               *)
 (*                                                                    *)
 (*  Parser note: `(by tactic)` is not accepted as a term argument in *)
 (*  all EasyCrypt versions. Every such use is rewritten as an        *)
 (*  explicit `have h : <goal> by tactic.` followed by a reference.   *)
+(*                                                                    *)
+(*  Division note: `divz_ge0` is applied as a term with explicit     *)
+(*  arguments when the surrounding context is delicate, rather than  *)
+(*  as a bare tactic, to give `smt()` the exact hypotheses it needs. *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -150,19 +150,13 @@ proof.
   smt(modzDl).
 qed.
 
-(* Direct proof of key_ineq: instead of asking smt() to chain the
-   fact that a0 N = 9 implies N %% 9 = 0 implies N >= 171, we
-   establish each intermediate step explicitly. The core fact is
-   that 162 < N and N %% 9 = 0 force N %/ 9 >= 18, hence
-   N = 9 * (N %/ 9) >= 162 + 9 = 171. *)
 lemma key_ineq (N : int) : 162 < N => 19 * (a0 N) <= N.
 proof.
   move=> hN.
   have hNpos : 0 < N by smt().
   have [hlo hhi] := a0_range N hNpos.
   case (a0 N = 9) => [heq | hne].
-  - (* Case a0 N = 9: N is a multiple of 9 greater than 162. *)
-    have hcong := a0_cong9 N hNpos.
+  - have hcong := a0_cong9 N hNpos.
     have hmod : N %% 9 = 0 by rewrite heq in hcong; smt(modzDl modzNm).
     have hdiv : N = 9 * (N %/ 9) by smt(divz_eq).
     have hq_ge : 18 < N %/ 9.
@@ -175,14 +169,13 @@ proof.
       smt().
     rewrite heq.
     smt().
-  - (* Case a0 N <= 8. *)
-    have hle : a0 N <= 8 by smt().
-    (* We need 19 * a0 N <= N. Since a0 N <= 8 and N > 162, it
-       suffices to show 19 * 8 <= N, i.e. 152 <= N, which follows
-       from N > 162. *)
+  - have hle : a0 N <= 8 by smt().
     smt().
 qed.
 
+(* B0_ge0: divz_ge0 is applied as a term with explicit arguments,
+   so smt() receives exactly the hypothesis 0 <= N - 19 * a0 N it
+   needs, without having to derive it from the surrounding context. *)
 lemma B0_ge0 (N : int) : 162 < N => 0 <= B0 N.
 proof.
   move=> hN.
@@ -190,17 +183,19 @@ proof.
   have h_ineq := key_ineq N hN.
   have hNpos : 0 < N by smt().
   have h_div  := N_minus_19a0_mod9 N hNpos.
-  apply divz_ge0.
-  - smt().
-  - done.
+  have hnn : 0 <= N - 19 * a0 N by smt().
+  have hpos9 : 0 < 9 by done.
+  exact (divz_ge0 (N - 19 * a0 N) 9 hnn hpos9).
 qed.
 
+(* kmax_ge0: same pattern as B0_ge0. *)
 lemma kmax_ge0 (N : int) : 162 < N => 0 <= kmax N.
 proof.
   move=> hN.
   rewrite /kmax.
-  apply divz_ge0; first by apply B0_ge0.
-  done.
+  have hB0 : 0 <= B0 N by apply B0_ge0.
+  have hpos19 : 0 < 19 by done.
+  exact (divz_ge0 (B0 N) 19 hB0 hpos19).
 qed.
 
 lemma a0_B0_eq (N : int) : 0 < N => 19 * a0 N + 9 * B0 N = N.
@@ -227,6 +222,8 @@ proof.
   smt().
 qed.
 
+(* B_ge0: use divz_eq to decompose B0 N as 19 * (B0 N %/ 19) +
+   B0 N %% 19, then conclude 19 * k <= B0 N from k <= B0 N %/ 19. *)
 lemma B_ge0 (N k : int) :
   162 < N =>
   0 <= k <= kmax N =>
@@ -236,10 +233,10 @@ proof.
   rewrite /kmax in hk.
   have h_B0 := B0_ge0 N hN.
   have hk2 : k <= B0 N %/ 19 by smt().
-  have hdiv : B0 N = 19 * (B0 N %/ 19) + B0 N %% 19 by smt(divz_eq modz_ge0).
-  have : 19 * k <= B0 N.
-    have := divz_eq (B0 N) 19.
-    smt(modz_ge0).
+  have hdecomp : B0 N = 19 * (B0 N %/ 19) + B0 N %% 19 by smt(divz_eq).
+  have hmod_ge0 : 0 <= B0 N %% 19 by smt(modz_ge0).
+  have h19k_le : 19 * k <= 19 * (B0 N %/ 19) by smt().
+  have h19k_le_B0 : 19 * k <= B0 N by smt().
   smt().
 qed.
 
@@ -301,9 +298,9 @@ proof.
   have k_le_kmax : k <= kmax N.
     rewrite /kmax.
     have hB : 0 <= B0 N - 19 * k by rewrite -B_eq; smt().
-    apply (lez_trans (B0 N %/ 19)).
-    - smt(divz_ge0 B0_ge0).
-    - done.
+    have hpos19 : 0 < 19 by done.
+    have := divz_ge0 (B0 N - 19 * k) 19 hB hpos19.
+    smt().
   exists k.
   split; first by split.
   split; exact.
