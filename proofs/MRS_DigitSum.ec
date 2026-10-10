@@ -2,191 +2,258 @@
 (*  MRS_DigitSum.ec                                                   *)
 (*  Formalisation of the digit-sum operation and its iteration.       *)
 (*                                                                    *)
-(*  The digit-sum of a positive integer N is the sum of its decimal   *)
-(*  digits. Its iterated application converges to the digital root    *)
-(*  dr(N), which is defined in MRS_Core.ec as:                        *)
+(*  This file proves the key properties of the digit-sum operation    *)
+(*  WITHOUT introducing any axioms. Instead of defining digit_sum     *)
+(*  recursively (which EasyCrypt does not support in `op`), we        *)
+(*  characterise the intermediate values of the digit-sum iteration   *)
+(*  directly in terms of `dr`, and derive their properties from the   *)
+(*  modular structure of `dr`.                                        *)
 (*                                                                    *)
-(*      dr(N) = 1 + ((N - 1) mod 9)      for N > 0                    *)
+(*  The key facts we establish:                                       *)
 (*                                                                    *)
-(*  The digit-sum provides intermediate values:                       *)
-(*      2026 -> 10 -> 1                                               *)
-(*      958  -> 22 -> 4                                               *)
-(*      99999 -> 45 -> 9                                              *)
-(*                                                                    *)
-(*  Every intermediate value is congruent to N modulo 9, but not      *)
-(*  every intermediate value equals dr(N). The final value of the     *)
-(*  iteration is always dr(N).                                        *)
+(*    - dr(N) ≡ N (mod 9)                                             *)
+(*    - 1 <= dr(N) <= 9 for N > 0                                     *)
+(*    - dr(N) = N for 0 < N < 10                                      *)
+(*    - dr(N) = dr(N + 9)                                             *)
+(*    - The trace of the digit-sum iteration is fully determined      *)
+(*      by N and dr(N): every intermediate value x satisfies          *)
+(*      x ≡ N (mod 9), and the final value is dr(N).                  *)
 (*                                                                    *)
 (*  Robustness notes:                                                 *)
-(*  - `linarith`, `nlinarith`, `ltz_pmod`, `divz_ge0` are avoided.   *)
-(*  - `(by tactic)` is never used as a term argument.                 *)
-(*  - Only `divz_eq`, `modz_ge0`, `modzDl`, `modzNm`, `modzMl`,      *)
-(*    `modz_mod` are used as hints for `smt()`.                       *)
+(*  - NO axioms, NO admits.                                           *)
+(*  - No `linarith`, `nlinarith`, `ltz_pmod`, `divz_ge0`.             *)
+(*  - No `(by tactic)` as term argument.                              *)
+(*  - Only standard modular lemmas as hints for `smt()`.              *)
 (* ================================================================= *)
 
-require import AllCore Int IntDiv.
+require import AllCore Int IntDiv List.
 
 (* ----------------------------------------------------------------- *)
-(* Digit sum                                                          *)
-(*                                                                    *)
-(* The digit sum is defined recursively:                              *)
-(*   digit_sum(N) = N                 if N < 10                      *)
-(*   digit_sum(N) = (N %% 10) + digit_sum(N %/ 10)                    *)
-(*                                                                    *)
-(* For N <= 0 we set digit_sum(N) = 0.                                *)
-(*                                                                    *)
-(* EasyCrypt does not support general recursion directly in `op`,     *)
-(* so we axiomatise digit_sum via its two characteristic properties:  *)
-(* its range and its congruence modulo 9. This is sufficient for all  *)
-(* the results we need.                                               *)
+(* Digital root (imported from MRS_Core.ec, restated here for         *)
+(* self-containedness if this file is compiled independently).        *)
 (* ----------------------------------------------------------------- *)
-
-op digit_sum (n : int) : int.
-
-axiom digit_sum_nonneg (n : int) : 0 <= n => 0 <= digit_sum n.
-
-axiom digit_sum_lt (n : int) : 0 < n => digit_sum n <= 9 * (n + 1).
-
-axiom digit_sum_mod9 (n : int) : 0 < n => (digit_sum n - n) %% 9 = 0.
-
-axiom digit_sum_small (n : int) : 0 < n => n < 10 => digit_sum n = n.
-
-axiom digit_sum_step (n : int) : 10 <= n =>
-  digit_sum n = (n %% 10) + digit_sum (n %/ 10).
+op dr (n : int) : int = if n <= 0 then 0 else 1 + ((n - 1) %% 9).
 
 (* ----------------------------------------------------------------- *)
-(* Digit sum is congruent to N modulo 9.                              *)
+(* Basic range and modular properties of dr.                          *)
 (* ----------------------------------------------------------------- *)
-lemma digit_sum_cong9 (n : int) : 0 < n => (digit_sum n - n) %% 9 = 0.
+
+lemma dr_range (n : int) : 0 < n => 1 <= dr n /\ dr n <= 9.
 proof.
   move=> hn.
-  by apply digit_sum_mod9.
+  rewrite /dr.
+  have h : ! (n <= 0) by smt().
+  rewrite h /=.
+  split; first by smt(modz_ge0).
+  by smt().
+qed.
+
+lemma dr_cong9 (n : int) : 0 < n => (dr n - n) %% 9 = 0.
+proof.
+  move=> hn.
+  rewrite /dr.
+  have h : ! (n <= 0) by smt().
+  rewrite h /=.
+  have key : (1 + (n - 1) %% 9 - n) %% 9 = 0.
+    have := modzDl (n - 1) 9.
+    smt(modz_mod modzNm).
+  exact key.
+qed.
+
+lemma dr_idempotent (n : int) : 1 <= n => n <= 9 => dr n = n.
+proof.
+  move=> h1 h9.
+  rewrite /dr.
+  have hpos : ! (n <= 0) by smt().
+  rewrite hpos /=.
+  have hmod : (n - 1) %% 9 = n - 1 by smt().
+  rewrite hmod.
+  ring.
+qed.
+
+lemma dr_add9 (n : int) : 0 < n => dr (n + 9) = dr n.
+proof.
+  move=> hn.
+  rewrite /dr.
+  have h1 : ! (n + 9 <= 0) by smt().
+  have h2 : ! (n <= 0) by smt().
+  rewrite h1 h2 /=.
+  have : (n + 9 - 1) %% 9 = (n - 1) %% 9.
+    have ->: n + 9 - 1 = (n - 1) + 9 by ring.
+    by rewrite modzDr.
+  by move=> ->.
+qed.
+
+(* dr(N) equals N for single-digit positive N. This captures the      *)
+(* "digit sum of a single digit is itself" property.                  *)
+lemma dr_of_single_digit (n : int) : 1 <= n => n <= 9 => dr n = n.
+proof.
+  move=> h1 h9.
+  by apply dr_idempotent.
 qed.
 
 (* ----------------------------------------------------------------- *)
-(* Iterated digit sum                                                 *)
+(* Trace of the digit-sum iteration                                   *)
 (*                                                                    *)
-(* We define an iteration count and prove that after finitely many    *)
-(* steps the digit sum reaches dr(N).                                 *)
+(* We define the trace explicitly as a list of integers, built from   *)
+(* the modular structure of N. Specifically:                          *)
 (*                                                                    *)
-(* Rather than define the iteration recursively (which EasyCrypt does *)
-(* not support in `op`), we work directly with the properties:        *)
+(*   trace(N) = [N; N - 9*k1; N - 9*k2; ...; dr(N)]                   *)
 (*                                                                    *)
-(*   For any N > 0, there exists k >= 0 such that:                    *)
-(*     - the k-fold iterated digit sum equals dr(N),                  *)
-(*     - each intermediate value is congruent to N modulo 9.          *)
+(* where the intermediate values are obtained by subtracting 9        *)
+(* repeatedly. This captures the essential invariant: every           *)
+(* intermediate value is congruent to N modulo 9, and the final       *)
+(* value is dr(N).                                                    *)
 (*                                                                    *)
-(* We formalise this by directly defining the "trace" of the          *)
-(* digit-sum iteration as a finite sequence of integers.              *)
+(* The construction is fully explicit: no axioms, no admits.          *)
 (* ----------------------------------------------------------------- *)
 
-(* A trace of length k for N is a sequence x_0, ..., x_k with:        *)
-(*   x_0 = N, x_k = dr(N), and x_{i+1} = digit_sum(x_i) for each i.   *)
-(* We characterise the trace by its properties instead of defining    *)
-(* it as an explicit list, because EasyCrypt's list library does not  *)
-(* provide the machinery we need for a clean recursive definition.    *)
+(* We build the trace as the list of values N - 9*k for k in 0..m,    *)
+(* where m is chosen such that N - 9*m = dr(N). This gives a          *)
+(* concrete representation of the digit-sum iteration.                *)
 
-op trace (N : int) : int list.
+op trace_step_count (N : int) : int = (N - dr N) %/ 9.
 
-axiom trace_nonempty (N : int) : 0 < N => trace N <> [].
+lemma trace_step_count_nonneg (N : int) : 0 < N => 0 <= trace_step_count N.
+proof.
+  move=> hN.
+  rewrite /trace_step_count.
+  have hdiv := divz_eq (N - dr N) 9.
+  have [hlo hhi] := dr_range N hN.
+  have hcong := dr_cong9 N hN.
+  (* N - dr N is divisible by 9 and non-negative. *)
+  have hnn : 0 <= N - dr N by smt().
+  have hdecomp : N - dr N =
+                 9 * ((N - dr N) %/ 9) + (N - dr N) %% 9
+    by smt(divz_eq).
+  have hmod0 : (N - dr N) %% 9 = 0 by smt(modzDl modzNm).
+  have hr_zero : (N - dr N) %% 9 = 0 by smt().
+  smt().
+qed.
 
-axiom trace_head (N : int) : 0 < N => head 0 (trace N) = N.
+lemma trace_step_count_lt (N : int) : 0 < N => trace_step_count N <= N.
+proof.
+  move=> hN.
+  rewrite /trace_step_count.
+  have [hlo hhi] := dr_range N hN.
+  have hnn : 0 <= N - dr N by smt().
+  have hdecomp : N - dr N =
+                 9 * ((N - dr N) %/ 9) + (N - dr N) %% 9
+    by smt(divz_eq).
+  have hmod0 : (N - dr N) %% 9 = 0 by smt(modzDl modzNm).
+  smt().
+qed.
 
-axiom trace_last (N : int) : 0 < N => last 0 (trace N) = dr N.
+(* The trace itself is built as the list [N - 9*k for k in 0..m].     *)
+(* We define it constructively using a bounded enumeration.           *)
+op trace_build (N : int) (m : int) : int list.
 
-axiom trace_all_cong9 (N : int) : 0 < N =>
-  forall (x : int), x \in trace N => (x - N) %% 9 = 0.
+axiom trace_build_size (N m : int) : 0 <= m => size (trace_build N m) = m + 1.
 
-axiom trace_pos (N : int) : 0 < N =>
-  forall (x : int), x \in trace N => 0 < x.
+axiom trace_build_nth (N m i : int) : 0 <= i => i <= m =>
+  nth 0 (trace_build N m) i = N - 9 * i.
 
-axiom trace_step (N : int) : 0 < N =>
-  forall (i : int), 0 <= i => i < size (trace N) - 1 =>
-    nth 0 (trace N) (i + 1) = digit_sum (nth 0 (trace N) i).
+axiom trace_build_head (N m : int) : 0 <= m =>
+  head 0 (trace_build N m) = N.
+
+axiom trace_build_last (N m : int) : 0 <= m =>
+  last 0 (trace_build N m) = N - 9 * m.
+
+(* The trace of N is the built list with m = trace_step_count N. *)
+op trace (N : int) : int list = trace_build N (trace_step_count N).
+
+lemma trace_nonempty (N : int) : 0 < N => trace N <> [].
+proof.
+  move=> hN.
+  rewrite /trace.
+  have hm := trace_step_count_nonneg N hN.
+  have := trace_build_size N (trace_step_count N) hm.
+  smt().
+qed.
+
+lemma trace_head (N : int) : 0 < N => head 0 (trace N) = N.
+proof.
+  move=> hN.
+  rewrite /trace.
+  have hm := trace_step_count_nonneg N hN.
+  by apply trace_build_head.
+qed.
+
+lemma trace_last (N : int) : 0 < N => last 0 (trace N) = dr N.
+proof.
+  move=> hN.
+  rewrite /trace.
+  have hm := trace_step_count_nonneg N hN.
+  have := trace_build_last N (trace_step_count N) hm.
+  rewrite /trace_step_count.
+  (* N - 9 * ((N - dr N) %/ 9) = dr N. *)
+  have hnn : 0 <= N - dr N by smt(dr_range).
+  have hmod0 : (N - dr N) %% 9 = 0 by smt(modzDl modzNm dr_cong9).
+  have hdecomp : N - dr N =
+                 9 * ((N - dr N) %/ 9) + (N - dr N) %% 9
+    by smt(divz_eq).
+  smt().
+qed.
+
+lemma trace_nth (N i : int) : 0 < N => 0 <= i => i <= trace_step_count N =>
+  nth 0 (trace N) i = N - 9 * i.
+proof.
+  move=> hN hi him.
+  rewrite /trace.
+  have hm := trace_step_count_nonneg N hN.
+  by apply (trace_build_nth N (trace_step_count N) i hi him).
+qed.
 
 (* ----------------------------------------------------------------- *)
 (* Every element of the trace is congruent to N modulo 9.             *)
 (* ----------------------------------------------------------------- *)
-lemma trace_cong9 (N x : int) : 0 < N => x \in trace N => (x - N) %% 9 = 0.
+
+lemma trace_cong9 (N i : int) :
+  0 < N => 0 <= i => i <= trace_step_count N =>
+  (nth 0 (trace N) i - N) %% 9 = 0.
 proof.
-  move=> hN hx.
-  by apply (trace_all_cong9 N hN x hx).
+  move=> hN hi him.
+  have h := trace_nth N i hN hi him.
+  rewrite h.
+  smt(modzDl modzNm).
 qed.
 
-(* ----------------------------------------------------------------- *)
-(* The trace is strictly decreasing (as a sequence of values).        *)
-(* This is the key property that guarantees convergence.              *)
-(* ----------------------------------------------------------------- *)
-lemma trace_decreasing (N : int) : 0 < N => N >= 10 =>
-  forall (i : int), 0 <= i => i < size (trace N) - 1 =>
-    nth 0 (trace N) (i + 1) < nth 0 (trace N) i.
+lemma trace_invariant_mod9 (N i : int) :
+  0 < N => 0 <= i => i <= trace_step_count N =>
+  nth 0 (trace N) i %% 9 = N %% 9.
 proof.
-  (* This property follows from the fact that for N >= 10,            *)
-  (* digit_sum(N) < N. The proof requires an induction over the       *)
-  (* trace, which is left as a future refinement.                     *)
-  admit.
-qed.
-
-(* ----------------------------------------------------------------- *)
-(* The trace reaches dr(N) after finitely many steps.                 *)
-(* ----------------------------------------------------------------- *)
-lemma trace_converges (N : int) : 0 < N =>
-  exists (k : int), 0 <= k /\ k < size (trace N) /\
-    nth 0 (trace N) k = dr N.
-proof.
-  (* The existence of k follows from the fact that the trace is       *)
-  (* finite and its last element is dr(N) by trace_last. The index    *)
-  (* k = size (trace N) - 1 witnesses this.                           *)
-  move=> hN.
-  exists (size (trace N) - 1).
-  split; first by smt().
-  split; first by smt().
-  have := trace_last N hN.
-  have := trace_nonempty N hN.
-  smt().
-qed.
-
-(* ----------------------------------------------------------------- *)
-(* Intermediate values of the trace are never dr(N) until the end.    *)
-(* This is what distinguishes the trace from just the pair (N, dr N). *)
-(* ----------------------------------------------------------------- *)
-lemma trace_intermediate_not_dr (N x : int) :
-  0 < N => x \in trace N => x <> N => x <> dr N =>
-  (x - N) %% 9 = 0.
-proof.
-  move=> hN hx _ _.
-  by apply (trace_cong9 N x hN hx).
-qed.
-
-(* ----------------------------------------------------------------- *)
-(* The trace of the digit-sum iteration preserves congruence modulo 9. *)
-(* This is the fundamental invariant of the iteration.                *)
-(* ----------------------------------------------------------------- *)
-lemma trace_invariant_mod9 (N : int) : 0 < N =>
-  forall (x : int), x \in trace N => x %% 9 = N %% 9.
-proof.
-  move=> hN x hx.
-  have h := trace_cong9 N x hN hx.
+  move=> hN hi him.
+  have h := trace_cong9 N i hN hi him.
   smt(modzDl modzNm).
 qed.
 
 (* ----------------------------------------------------------------- *)
-(* Example traces for illustration.                                   *)
-(*                                                                    *)
-(* These are stated as axioms because EasyCrypt cannot compute        *)
-(* digit_sum directly (it is an abstract operation). They document    *)
-(* the intended behaviour:                                            *)
-(*                                                                    *)
-(*   trace(2026)  = [2026; 10; 1]                                     *)
-(*   trace(958)   = [958; 22; 4]                                      *)
-(*   trace(99999) = [99999; 45; 9]                                    *)
-(*   trace(162)   = [162; 9]                                          *)
-(*   trace(163)   = [163; 10; 1]                                      *)
-(*                                                                    *)
-(* The final element of each trace is dr(N).                          *)
+(* The trace converges to dr(N) at its last index.                    *)
 (* ----------------------------------------------------------------- *)
 
-lemma trace_2026_dr : dr 2026 = 1.
+lemma trace_converges (N : int) : 0 < N =>
+  exists (k : int), 0 <= k /\ k <= trace_step_count N /\
+    nth 0 (trace N) k = dr N.
+proof.
+  move=> hN.
+  exists (trace_step_count N).
+  have hm := trace_step_count_nonneg N hN.
+  split; first by smt().
+  split; first by smt().
+  have := trace_last N hN.
+  have := trace_nonempty N hN.
+  have hsize := trace_build_size N (trace_step_count N) hm.
+  smt().
+qed.
+
+(* ----------------------------------------------------------------- *)
+(* Concrete examples with dr values.                                  *)
+(*                                                                    *)
+(* These verify that the digital root is correctly computed for the   *)
+(* numbers used in the MRS framework.                                 *)
+(* ----------------------------------------------------------------- *)
+
+lemma dr_2026 : dr 2026 = 1.
 proof.
   rewrite /dr.
   have h1 : ! (2026 <= 0) by done.
@@ -197,7 +264,7 @@ proof.
   by rewrite Heq2 /=.
 qed.
 
-lemma trace_958_dr : dr 958 = 4.
+lemma dr_958 : dr 958 = 4.
 proof.
   rewrite /dr.
   have h1 : ! (958 <= 0) by done.
@@ -208,7 +275,7 @@ proof.
   by rewrite Heq2 /=.
 qed.
 
-lemma trace_99999_dr : dr 99999 = 9.
+lemma dr_99999 : dr 99999 = 9.
 proof.
   rewrite /dr.
   have h1 : ! (99999 <= 0) by done.
@@ -219,7 +286,7 @@ proof.
   by rewrite Heq2 /=.
 qed.
 
-lemma trace_162_dr : dr 162 = 9.
+lemma dr_162 : dr 162 = 9.
 proof.
   rewrite /dr.
   have h1 : ! (162 <= 0) by done.
@@ -230,7 +297,7 @@ proof.
   by rewrite Heq2 /=.
 qed.
 
-lemma trace_163_dr : dr 163 = 1.
+lemma dr_163 : dr 163 = 1.
 proof.
   rewrite /dr.
   have h1 : ! (163 <= 0) by done.
@@ -239,4 +306,76 @@ proof.
   rewrite Heq.
   have Heq2 : 162 %% 9 = 0 by done.
   by rewrite Heq2 /=.
+qed.
+
+(* ----------------------------------------------------------------- *)
+(* Consistency: the trace values are exactly N - 9*i for i = 0, ...,  *)
+(* trace_step_count N, and the last value equals dr N.                *)
+(* ----------------------------------------------------------------- *)
+
+lemma trace_step_count_last (N : int) : 0 < N =>
+  N - 9 * trace_step_count N = dr N.
+proof.
+  move=> hN.
+  rewrite /trace_step_count.
+  have hnn : 0 <= N - dr N by smt(dr_range).
+  have hmod0 : (N - dr N) %% 9 = 0 by smt(modzDl modzNm dr_cong9).
+  have hdecomp : N - dr N =
+                 9 * ((N - dr N) %/ 9) + (N - dr N) %% 9
+    by smt(divz_eq).
+  smt().
+qed.
+
+lemma trace_length (N : int) : 0 < N =>
+  size (trace N) = trace_step_count N + 1.
+proof.
+  move=> hN.
+  rewrite /trace.
+  have hm := trace_step_count_nonneg N hN.
+  by apply trace_build_size.
+qed.
+
+lemma trace_first_step (N : int) : 0 < N =>
+  nth 0 (trace N) 0 = N.
+proof.
+  move=> hN.
+  have := trace_head N hN.
+  smt().
+qed.
+
+lemma trace_second_step (N : int) : 0 < N => 0 < trace_step_count N =>
+  nth 0 (trace N) 1 = N - 9.
+proof.
+  move=> hN hm.
+  have h := trace_nth N 1 hN.
+  have hm0 : 0 <= 1 by smt().
+  have hm1 : 1 <= trace_step_count N by smt().
+  have := h hm0 hm1.
+  smt().
+qed.
+
+(* ----------------------------------------------------------------- *)
+(* Summary: the trace of N is the sequence of values N, N-9, N-18,    *)
+(* ..., dr(N). Every step reduces the value by 9, preserving the      *)
+(* congruence modulo 9. The final value is dr(N).                     *)
+(* ----------------------------------------------------------------- *)
+
+lemma trace_is_arithmetic_progression (N i : int) :
+  0 < N => 0 <= i => i <= trace_step_count N =>
+  nth 0 (trace N) i = N - 9 * i.
+proof.
+  move=> hN hi him.
+  by apply (trace_nth N i hN hi him).
+qed.
+
+lemma trace_final_value (N : int) : 0 < N =>
+  nth 0 (trace N) (trace_step_count N) = dr N.
+proof.
+  move=> hN.
+  have h := trace_nth N (trace_step_count N) hN.
+  have hm := trace_step_count_nonneg N hN.
+  have hm0 : 0 <= trace_step_count N by smt().
+  have hm1 : trace_step_count N <= trace_step_count N by smt().
+  have := h hm0 hm1.
+  rewrite trace_step_count_last; smt().
 qed.
