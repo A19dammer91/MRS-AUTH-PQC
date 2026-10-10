@@ -81,23 +81,21 @@ proof.
   by move=> ->.
 qed.
 
+(* dr(9k + r) = dr(r) for r > 0, proved algebraically without induction *)
+(* on the integer k. The two branches of `dr` are discharged by proving *)
+(* the negations of the two `if` conditions, then the modular identity  *)
+(* is reduced to `modzDl` and `modzMl` on the offset `9 * k`.            *)
 lemma dr_9k_r (k r : int) : 0 < r => dr (9 * k + r) = dr r.
 proof.
   move=> hr.
-  induction k.
-  - rewrite /dr.
-    have h : ! (9 * 0 + r <= 0) by smt().
-    rewrite h /=.
-    by rewrite mulz0 /=.
-  - move=> ki ih.
-    have ->: 9 * (ki + 1) + r = (9 * ki + r) + 9 by ring.
-    have hpos : 0 < 9 * ki + r by smt().
-    by rewrite dr_add9 // ih.
-  - move=> ki ih.
-    have ->: 9 * (ki - 1) + r = (9 * ki + r) - 9 by ring.
-    have hpos2 : 0 < 9 * ki + r by smt().
-    have := dr_add9 (9 * ki + r - 9).
-    smt(dr_add9).
+  rewrite /dr.
+  have h1 : ! (9 * k + r <= 0) by smt().
+  have h2 : ! (r <= 0) by smt().
+  rewrite h1 h2 /=.
+  have key : (9 * k + r - 1) %% 9 = (r - 1) %% 9.
+    have ->: 9 * k + r - 1 = (r - 1) + 9 * k by ring.
+    by rewrite modzDl modzMl addr0.
+  by rewrite key.
 qed.
 
 lemma dr_19 (n : int) : 0 < n => dr (19 * n) = dr n.
