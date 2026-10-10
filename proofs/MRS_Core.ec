@@ -19,6 +19,11 @@
 (*  operators are avoided because the EasyCrypt parser requires the   *)
 (*  correct ordering namespace to be in scope for them, which is      *)
 (*  fragile across stdlib versions.                                   *)
+(*                                                                    *)
+(*  Rewrite convention: to reduce `if c <= 0 then ... else ...` when  *)
+(*  the hypothesis is `0 < c`, prove the negation explicitly first    *)
+(*  (`have h : ! (c <= 0) by smt().`) and rewrite with `h`. EasyCrypt *)
+(*  does not automatically use `0 < c` to discharge `c <= 0`.         *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -34,7 +39,9 @@ op dr (n : int) : int = if n <= 0 then 0 else 1 + ((n - 1) %% 9).
 lemma dr_range (n : int) : 0 < n => 1 <= dr n /\ dr n <= 9.
 proof.
   move=> hn.
-  rewrite /dr hn /=.
+  rewrite /dr.
+  have h : ! (n <= 0) by smt().
+  rewrite h /=.
   split; first by smt(modz_ge0).
   by smt(ltz_pmod).
 qed.
@@ -42,7 +49,9 @@ qed.
 lemma dr_mod9 (n : int) : 0 < n => dr n = n - 9 * ((n - 1) %/ 9).
 proof.
   move=> hn.
-  rewrite /dr hn /=.
+  rewrite /dr.
+  have h : ! (n <= 0) by smt().
+  rewrite h /=.
   have := divz_eq (n - 1) 9.
   smt().
 qed.
@@ -50,7 +59,9 @@ qed.
 lemma dr_cong9 (n : int) : 0 < n => (dr n - n) %% 9 = 0.
 proof.
   move=> hn.
-  rewrite /dr hn /=.
+  rewrite /dr.
+  have h : ! (n <= 0) by smt().
+  rewrite h /=.
   have key : (1 + (n - 1) %% 9 - n) %% 9 = 0.
     have := modzDl (n - 1) 9.
     smt(modz_mod modzNm).
@@ -61,8 +72,9 @@ lemma dr_add9 (n : int) : 0 < n => dr (n + 9) = dr n.
 proof.
   move=> hn.
   rewrite /dr.
-  have h1 : 0 < n + 9 by smt().
-  rewrite h1 hn /=.
+  have h1 : ! (n + 9 <= 0) by smt().
+  have h2 : ! (n <= 0) by smt().
+  rewrite h1 h2 /=.
   have : (n + 9 - 1) %% 9 = (n - 1) %% 9.
     have ->: n + 9 - 1 = (n - 1) + 9 by ring.
     by rewrite modzDr.
@@ -73,7 +85,10 @@ lemma dr_9k_r (k r : int) : 0 < r => dr (9 * k + r) = dr r.
 proof.
   move=> hr.
   induction k.
-  - by rewrite /= /dr hr /= mulz0 /=.
+  - rewrite /dr.
+    have h : ! (9 * 0 + r <= 0) by smt().
+    rewrite h /=.
+    by rewrite mulz0 /=.
   - move=> ki ih.
     have ->: 9 * (ki + 1) + r = (9 * ki + r) + 9 by ring.
     have hpos : 0 < 9 * ki + r by smt().
@@ -103,7 +118,7 @@ lemma dr_idempotent (n : int) : 1 <= n => n <= 9 => dr n = n.
 proof.
   move=> h1 h9.
   rewrite /dr.
-  have hpos : 0 < n by smt().
+  have hpos : ! (n <= 0) by smt().
   rewrite hpos /=.
   smt(modz_mod ltz_pmod modz_ge0).
 qed.
@@ -314,13 +329,17 @@ lemma dr_triangle_B (N k : int) :
   dr (B0 N - 19 * k) = dr (2 * dr N).
 proof.
   move=> hN hk hcong hpos.
-  rewrite /dr hpos /=.
+  rewrite /dr.
+  have h1 : ! (B0 N - 19 * k <= 0) by smt().
+  rewrite h1 /=.
   have htgt : 0 < dr (2 * dr N).
     have hNpos : 0 < N by smt().
-    have [h1 h2] := dr_range N hNpos.
+    have [h1' h2] := dr_range N hNpos.
     have h2pos : 0 < 2 * (if N <= 0 then 0 else 1 + (N-1) %% 9) by smt().
     smt(dr_range modz_ge0 ltz_pmod).
-  rewrite /dr htgt /=.
+  rewrite /dr.
+  have h2 : ! (2 * dr N <= 0) by smt().
+  rewrite h2 /=.
   have lhs_range : 1 <= B0 N - 19*k /\ B0 N - 19*k <= 9 * (kmax N + 1).
     split; first by linarith.
     smt(B0_ge0 kmax_ge0).
