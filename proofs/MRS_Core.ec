@@ -20,11 +20,13 @@
 (*  - `linarith`, `nlinarith`, `ltz_pmod`, `divz_ge0` are avoided.   *)
 (*  - `ring_simplify` is avoided.                                     *)
 (*  - `(by tactic)` is never used as a term argument.                 *)
+(*  - `smt(/pred_name)` is NOT used: it is a parse error in r2024.09. *)
+(*    Instead, `pred` hypotheses are expanded via the portable        *)
+(*    pattern:                                                        *)
+(*        move: h. rewrite /pred_name. move=> [..].                   *)
+(*    which uses only core tactics available in every version.        *)
 (*  - `case ... => [...]` is avoided when the goal is a disjunction;  *)
 (*    explicit `case ...` + `move=> ...` is used instead.             *)
-(*  - `pred` hypotheses are handled via `smt(/pred_name)` as a hint;  *)
-(*    `rewrite /pred_name in h.` and pattern-matching in `move=>`     *)
-(*    do not reliably expand `pred` definitions in r2024.09.          *)
 (*  - Concrete `dr` computations use `smt()` directly; the pattern    *)
 (*    `have Heq : .. by ring.` + `rewrite Heq.` fails when the goal   *)
 (*    is already reduced by `rewrite h1 /=`.                          *)
@@ -318,16 +320,29 @@ qed.
 
 pred is_rep (N A B : int) = 1 <= A /\ 0 <= B /\ 19*A + 9*B = N.
 
-(* is_rep is expanded via smt(/is_rep) as a hint. This works in      *)
-(* EasyCrypt r2024.09; the pattern-based approaches do not.          *)
+(* is_rep is expanded via `move: hrep. rewrite /is_rep. move=> [pat].`.  *)
+(* This uses only core EasyCrypt tactics and works in every version,    *)
+(* including r2024.09 where `smt(/is_rep)` is a parse error.            *)
 lemma rep_uniq (N : int) (A B : int) :
   162 < N => is_rep N A B =>
   exists k, 0 <= k <= kmax N /\ A = a0 N + 9*k /\ B = B0 N - 19*k.
 proof.
   move=> hN hrep.
-  have Apos : 1 <= A by smt(/is_rep).
-  have Bpos : 0 <= B by smt(/is_rep).
-  have eq : 19*A + 9*B = N by smt(/is_rep).
+  have Apos : 1 <= A.
+    move: hrep.
+    rewrite /is_rep.
+    move=> [hA _].
+    exact hA.
+  have Bpos : 0 <= B.
+    move: hrep.
+    rewrite /is_rep.
+    move=> [_ [hB _]].
+    exact hB.
+  have eq : 19*A + 9*B = N.
+    move: hrep.
+    rewrite /is_rep.
+    move=> [_ [_ hEq]].
+    exact hEq.
   have hNpos : 0 < N by smt().
   have A_mod : A %% 9 = N %% 9.
     have Heq : N = 19*A + 9*B by smt().
@@ -438,9 +453,21 @@ qed.
 lemma frobenius_162_not_rep (A B : int) : ~ is_rep 162 A B.
 proof.
   move=> hrep.
-  have hA : 1 <= A by smt(/is_rep).
-  have hB : 0 <= B by smt(/is_rep).
-  have hEq : 19*A + 9*B = 162 by smt(/is_rep).
+  have hA : 1 <= A.
+    move: hrep.
+    rewrite /is_rep.
+    move=> [h _].
+    exact h.
+  have hB : 0 <= B.
+    move: hrep.
+    rewrite /is_rep.
+    move=> [_ [h _]].
+    exact h.
+  have hEq : 19*A + 9*B = 162.
+    move: hrep.
+    rewrite /is_rep.
+    move=> [_ [_ h]].
+    exact h.
   have hmod : A %% 9 = 0.
     have : (19*A + 9*B) %% 9 = 162 %% 9 by rewrite hEq.
     have h162 : 162 %% 9 = 0 by done.
