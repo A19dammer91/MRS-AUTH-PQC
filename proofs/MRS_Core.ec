@@ -368,12 +368,9 @@ proof.
     smt().
   exists ((A - a0 N) %/ 9).
 split.
-- split.
-  + exact k_ge0.
-  + exact k_le_kmax.
-- split.
-  + exact A_eq.
-  + exact B_eq.
+- smt().
+- split; smt().
+qed.
 
 (* ----------------------------------------------------------------- *)
 (* dr properties for representations                                   *)
