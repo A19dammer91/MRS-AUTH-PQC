@@ -15,15 +15,15 @@
 (*  is what the deniability construction relies on.                   *)
 (*                                                                    *)
 (*  Ordering convention: all comparisons use the canonical form       *)
-(*  `constant < variable` or `constant <= variable`. The `>` and `>=` *)
-(*  operators are avoided because the EasyCrypt parser requires the   *)
-(*  correct ordering namespace to be in scope for them, which is      *)
-(*  fragile across stdlib versions.                                   *)
+(*  `constant < variable` or `constant <= variable`.                  *)
 (*                                                                    *)
 (*  Rewrite convention: to reduce `if c <= 0 then ... else ...` when  *)
 (*  the hypothesis is `0 < c`, prove the negation explicitly first    *)
-(*  (`have h : ! (c <= 0) by smt().`) and rewrite with `h`. EasyCrypt *)
-(*  does not automatically use `0 < c` to discharge `c <= 0`.         *)
+(*  (`have h : ! (c <= 0) by smt().`) and rewrite with `h`.           *)
+(*                                                                    *)
+(*  Tactic convention: `by apply L.` requires that L closes the goal  *)
+(*  completely. When L leaves a side condition, use `apply L. by [].` *)
+(*  or `apply L => //.` instead.                                      *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -81,10 +81,10 @@ proof.
   by move=> ->.
 qed.
 
-(* dr(9k + r) = dr(r) for r > 0, proved algebraically without induction *)
-(* on the integer k. The two branches of `dr` are discharged by proving *)
-(* the negations of the two `if` conditions, then the modular identity  *)
-(* is reduced to `modzDl` and `modzMl` on the offset `9 * k`.            *)
+(* dr(9k + r) = dr(r) for r > 0, proved algebraically without induction
+   on the integer k. The two branches of `dr` are discharged by proving
+   the negations of the two `if` conditions, then the modular identity
+   is reduced to `modzDl` and `modzMl` on the offset `9 * k`. *)
 lemma dr_9k_r (k r : int) : 0 < r => dr (9 * k + r) = dr r.
 proof.
   move=> hr.
@@ -98,18 +98,21 @@ proof.
   by rewrite key.
 qed.
 
+(* Uses `apply dr_9k_r => //.` instead of `by apply dr_9k_r.` because
+   dr_9k_r leaves a side condition (`0 < r`) that `by` cannot discharge
+   on its own even though it is available in the local hypotheses. *)
 lemma dr_19 (n : int) : 0 < n => dr (19 * n) = dr n.
 proof.
   move=> hn.
   have ->: 19 * n = 9 * (2 * n) + n by ring.
-  by apply dr_9k_r.
+  apply dr_9k_r => //.
 qed.
 
 lemma dr_19A_9B (n m : int) : 0 < n => dr (19 * n + 9 * m) = dr n.
 proof.
   move=> hn.
   have ->: 19 * n + 9 * m = 9 * (2 * n + m) + n by ring.
-  by apply dr_9k_r.
+  apply dr_9k_r => //.
 qed.
 
 lemma dr_idempotent (n : int) : 1 <= n => n <= 9 => dr n = n.
@@ -306,7 +309,7 @@ proof.
   move=> hN.
   rewrite /a0.
   have [hlo hhi] := dr_range N hN.
-  by apply dr_idempotent.
+  apply dr_idempotent => //.
 qed.
 
 lemma dr_rep_A (N k : int) : 0 < N => 0 <= k => dr (a0 N + 9 * k) = dr N.
