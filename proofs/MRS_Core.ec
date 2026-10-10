@@ -22,8 +22,8 @@
 (*  (`have h : ! (c <= 0) by smt().`) and rewrite with `h`.           *)
 (*                                                                    *)
 (*  Tactic convention: `by apply L.` requires that L closes the goal  *)
-(*  completely. When L leaves a side condition, use `apply L. by [].` *)
-(*  or `apply L => //.` instead.                                      *)
+(*  completely. When L leaves a side condition, use `apply L => //.`  *)
+(*  or `apply L. by [].` instead.                                     *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -98,9 +98,9 @@ proof.
   by rewrite key.
 qed.
 
-(* Uses `apply dr_9k_r => //.` instead of `by apply dr_9k_r.` because
-   dr_9k_r leaves a side condition (`0 < r`) that `by` cannot discharge
-   on its own even though it is available in the local hypotheses. *)
+(* `apply dr_9k_r => //.` instead of `by apply dr_9k_r.` because
+   dr_9k_r leaves the side condition `0 < r`, which is available
+   in the local context but cannot be discharged by `by` itself. *)
 lemma dr_19 (n : int) : 0 < n => dr (19 * n) = dr n.
 proof.
   move=> hn.
