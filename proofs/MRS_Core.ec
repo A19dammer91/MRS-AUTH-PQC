@@ -13,18 +13,18 @@
 (*      a0 N = 9           if N %% 9 = 0                              *)
 (*  so in all cases a0 N ≡ N (mod 9) and 1 <= a0 N <= 9.              *)
 (*                                                                    *)
-(*  Robustness notes:                                                 *)
+(*  Robustness principles applied throughout:                         *)
 (*  - NO axioms, NO admits.                                           *)
 (*  - `linarith`, `nlinarith`, `ltz_pmod`, `divz_ge0` are avoided.   *)
-(*  - `ring_simplify` is avoided (not available in all versions);     *)
-(*    explicit `have Heq : ... by ring.` + `rewrite Heq` is used.     *)
+(*  - `ring_simplify` is avoided; explicit `have Heq : ... by ring.`  *)
+(*    followed by `rewrite Heq` is used instead.                      *)
 (*  - `(by tactic)` is never used as a term argument.                 *)
 (*  - `case ... => [...]` is avoided when the goal is a disjunction;  *)
 (*    explicit `case ...` + `move=> ...` is used instead.             *)
-(*  - `pred` hypotheses (like `is_rep N A B`) are introduced as a     *)
-(*    single hypothesis and then split via `have [..] := h.`, since   *)
-(*    the `move=> .. [..]` pattern does not expand `pred` definitions *)
-(*    in all EasyCrypt versions.                                      *)
+(*  - `pred` hypotheses are introduced as a single hypothesis via     *)
+(*    `move=> h.` and then split via `have [..] := h.`; the           *)
+(*    `move=> .. [..]` pattern does not expand `pred` definitions     *)
+(*    reliably across EasyCrypt versions.                             *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -149,7 +149,8 @@ lemma a0_eq_mod9_or_9 (N : int) : 0 < N => a0 N = N %% 9 \/ a0 N = 9.
 proof.
   move=> hNpos.
   have ha0 := a0_cong9 N hNpos.
-  have [hlo hhi] := a0_range N hNpos.
+  have hrange := a0_range N hNpos.
+  have [hlo hhi] := hrange.
   have hmod_ge0 : 0 <= N %% 9 by smt(modz_ge0).
   case (N %% 9 = 0).
   - move=> hmod0.
@@ -175,7 +176,8 @@ lemma key_ineq (N : int) : 162 < N => 19 * (a0 N) <= N.
 proof.
   move=> hN.
   have hNpos : 0 < N by smt().
-  have [hlo hhi] := a0_range N hNpos.
+  have hrange := a0_range N hNpos.
+  have [hlo hhi] := hrange.
   case (a0 N = 9).
   - move=> heq.
     have hcong := a0_cong9 N hNpos.
@@ -198,7 +200,8 @@ lemma B0_ge0 (N : int) : 162 < N => 0 <= B0 N.
 proof.
   move=> hN.
   have hNpos : 0 < N by smt().
-  have [hlo hhi] := a0_range N hNpos.
+  have hrange := a0_range N hNpos.
+  have [hlo hhi] := hrange.
   have hdiv := divz_eq N 9.
   case (N %% 9 = 0).
   - move=> hmod0.
@@ -298,7 +301,8 @@ lemma A_pos (N k : int) :
 proof.
   move=> hN hk.
   have hNpos : 0 < N by smt().
-  have [hlo _] := a0_range N hNpos.
+  have hrange := a0_range N hNpos.
+  have [hlo _] := hrange.
   smt().
 qed.
 
@@ -308,10 +312,9 @@ qed.
 
 pred is_rep (N A B : int) = 1 <= A /\ 0 <= B /\ 19*A + 9*B = N.
 
-(* The `pred` is_rep is introduced as a single hypothesis and then    *)
-(* split via `have [..] := hrep.`, because the `move=> .. [..]`       *)
-(* pattern does not expand `pred` definitions in all EasyCrypt        *)
-(* versions.                                                          *)
+(* NOTE: is_rep is introduced as a single hypothesis `hrep` and      *)
+(* then split via `have [..] := hrep.`; the `move=> .. [..]`          *)
+(* pattern does not expand `pred` definitions in all versions.       *)
 lemma rep_uniq (N : int) (A B : int) :
   162 < N => is_rep N A B =>
   exists k, 0 <= k <= kmax N /\ A = a0 N + 9*k /\ B = B0 N - 19*k.
@@ -330,7 +333,8 @@ proof.
     by rewrite Heq3 mul1z modz_mod.
   have ha0_eq_N : (a0 N - N) %% 9 = 0 by apply a0_cong9.
   have heq_mod : (A - a0 N) %% 9 = 0 by smt(modzDl modzNm).
-  have [hlo hhi] := a0_range N hNpos.
+  have hrange := a0_range N hNpos.
+  have [hlo hhi] := hrange.
   have hA_ge_a0 : a0 N <= A.
     case (a0 N <= A).
     + move=> _. done.
@@ -374,7 +378,8 @@ lemma dr_a0 (N : int) : 0 < N => dr (a0 N) = dr N.
 proof.
   move=> hN.
   rewrite /a0.
-  have [hlo hhi] := dr_range N hN.
+  have hrange := dr_range N hN.
+  have [hlo hhi] := hrange.
   apply dr_idempotent => //.
 qed.
 
@@ -403,7 +408,8 @@ proof.
   rewrite h1 /=.
   have htgt : 0 < dr (2 * dr N).
     have hNpos : 0 < N by smt().
-    have [h1' h2] := dr_range N hNpos.
+    have hrange := dr_range N hNpos.
+    have [h1' h2] := hrange.
     have h2pos : 0 < 2 * (if N <= 0 then 0 else 1 + (N-1) %% 9) by smt().
     smt(dr_range modz_ge0).
   rewrite /dr.
