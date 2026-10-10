@@ -10,6 +10,9 @@
 (*  with `import`. The top-level lemmas sample_basic_correct and      *)
 (*  sample_triangle_correct are reachable through `require import     *)
 (*  MRS_Core.` alone.                                                 *)
+(*                                                                    *)
+(*  Ordering convention: all comparisons use the canonical form       *)
+(*  `constant < variable` or `constant <= variable`.                  *)
 (* ================================================================= *)
 
 require import MRS_Core.
@@ -61,7 +64,7 @@ pred build_invariant
   size chain = 2 * layer + 1 /\
   nth 0 chain 0 = N /\
   current = nth 0 chain (2 * layer) /\
-  current > 162 /\
+  162 < current /\
   (forall j, 0 <= j < layer =>
      let X = nth 0 chain (2*j)     in
      let A = nth 0 chain (2*j + 1) in
@@ -90,7 +93,7 @@ proof. by rewrite size_cat /=. qed.
 (* Correctness of build                                               *)
 (* ----------------------------------------------------------------- *)
 lemma build_correct (N : int) (depth : int) (tri : int list) :
-  N > 162 => depth >= 0 =>
+  162 < N => 0 <= depth =>
   hoare [MRSChain.build :
     arg = (N, depth, tri) ==>
     let chain = res in
@@ -210,7 +213,7 @@ qed.
 (* Equivalence of build                                               *)
 (* ----------------------------------------------------------------- *)
 lemma build_equiv (N : int) (depth : int) (tri : int list) :
-  N > 162 =>
+  162 < N =>
   equiv [MRSChain.build ~ MRSChain.build :
     ={arg} ==> ={res}].
 proof.
