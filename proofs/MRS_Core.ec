@@ -4,42 +4,16 @@
 (*  system under the Positive Anchor Convention.                      *)
 (*                                                                    *)
 (*  The anchor A_0 is defined as the digital root of N:               *)
-(*                                                                    *)
 (*      A_0 = dr(N) = 1 + ((N - 1) mod 9)      for N > 0              *)
 (*                                                                    *)
 (*  Its range is 1..9. It is never 0. Consequently A = 0 is not a     *)
 (*  valid start for a representation, and the largest non-represent-  *)
-(*  able N is 162 (not the classical Sylvester bound 143, which       *)
-(*  assumes A >= 0). This is a deliberate design choice: it makes     *)
-(*  every representation carry a non-trivial "core" A >= 1, which     *)
-(*  is what the deniability construction relies on.                   *)
-(*                                                                    *)
-(*  Ordering convention: all comparisons use the canonical form       *)
-(*  `constant < variable` or `constant <= variable`.                  *)
-(*                                                                    *)
-(*  Rewrite convention: to reduce `if c <= 0 then ... else ...` when  *)
-(*  the hypothesis is `0 < c`, prove the negation explicitly first    *)
-(*  (`have h : ! (c <= 0) by smt().`) and rewrite with `h`.           *)
-(*                                                                    *)
-(*  Tactic convention: `by apply L.` requires that L closes the goal  *)
-(*  completely. When L leaves a side condition, use `apply L => //.`  *)
-(*  or `apply L; smt().` instead. Two tactics chained by `.` on the   *)
-(*  same line is a parse error in some EasyCrypt versions; write each *)
-(*  tactic on its own line.                                           *)
+(*  able N is 162. This is a deliberate design choice.                *)
 (*                                                                    *)
 (*  Tactic availability: `linarith`, `nlinarith` and `ltz_pmod` are  *)
 (*  not available in all EasyCrypt versions. All arithmetic goals in  *)
 (*  this file are discharged by `smt()`, optionally with a small set  *)
-(*  of standard modular lemmas. This maximises portability.           *)
-(*                                                                    *)
-(*  Rewrite-pattern convention: `rewrite H` fails with "nothing to    *)
-(*  rewrite" when the left-hand side of H sits inside a function      *)
-(*  argument (e.g. inside `(...) %% 9` or `dr (...)`). Two safe       *)
-(*  alternatives:                                                     *)
-(*    - `have H : ... by tactic.` + explicit `rewrite H` on the      *)
-(*      whole sub-expression, or                                       *)
-(*    - `have H : <sub-expression equality> by smt().` for simple     *)
-(*      modular identities.                                           *)
+(*  of standard modular lemmas.                                       *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -47,8 +21,7 @@ require import StdOrder.
 import IntOrder.
 
 (* ----------------------------------------------------------------- *)
-(* Digital root: 0 for n <= 0, otherwise 1 + ((n - 1) mod 9)          *)
-(* Range 1..9 for n > 0                                               *)
+(* Digital root                                                       *)
 (* ----------------------------------------------------------------- *)
 op dr (n : int) : int = if n <= 0 then 0 else 1 + ((n - 1) %% 9).
 
@@ -97,10 +70,6 @@ proof.
   by move=> ->.
 qed.
 
-(* dr(9k + r) = dr(r) for 0 <= k and 0 < r, proved algebraically
-   without induction on the integer k. The hypothesis `0 <= k` is
-   required so that the precondition `0 < 9 * k + r` (needed to
-   discharge the first `if` in `dr`) is provable for every input. *)
 lemma dr_9k_r (k r : int) : 0 <= k => 0 < r => dr (9 * k + r) = dr r.
 proof.
   move=> hk hr.
@@ -112,9 +81,6 @@ proof.
   by rewrite key.
 qed.
 
-(* Introduces the algebraic identity as a named hypothesis, then
-   rewrites with it explicitly. `have ->:` would fail here because
-   the left-hand side `19 * n` sits inside the argument of `dr`. *)
 lemma dr_19 (n : int) : 0 < n => dr (19 * n) = dr n.
 proof.
   move=> hn.
@@ -123,8 +89,6 @@ proof.
   apply dr_9k_r; smt().
 qed.
 
-(* Same pattern as dr_19. `0 <= m` is required so that `2 * n + m`
-   is non-negative, which is what `dr_9k_r` needs. *)
 lemma dr_19A_9B (n m : int) : 0 < n => 0 <= m => dr (19 * n + 9 * m) = dr n.
 proof.
   move=> hn hm.
@@ -147,10 +111,6 @@ qed.
 
 (* ----------------------------------------------------------------- *)
 (* Positive Anchor Convention                                        *)
-(*                                                                    *)
-(* A_0 = dr(N) is the smallest positive integer congruent to N mod 9. *)
-(* Because it is never 0, A = 0 (and the representations N = 9B with  *)
-(* A = 0) are excluded. This is a design choice of the framework.     *)
 (* ----------------------------------------------------------------- *)
 op a0 (N : int) : int = dr N.
 op B0 (N : int) : int = (N - 19 * a0 N) %/ 9.
@@ -174,9 +134,6 @@ proof.
   by apply dr_cong9.
 qed.
 
-(* The rewrite of Heq only applies to the outer expression, so the
-   intermediate identities for the summand and for 18 * a0 N are
-   introduced as named hypotheses and proved directly by smt(). *)
 lemma N_minus_19a0_mod9 (N : int) : 0 < N => (N - 19 * (a0 N)) %% 9 = 0.
 proof.
   move=> hN.
@@ -188,8 +145,6 @@ proof.
   smt(modzDl).
 qed.
 
-(* Two tactics on separate lines. `nlinarith` and `ltz_pmod` are not
-   available in all EasyCrypt versions; `smt()` closes the same goal. *)
 lemma key_ineq (N : int) : 162 < N => 19 * (a0 N) <= N.
 proof.
   move=> hN.
@@ -249,8 +204,6 @@ proof.
   smt().
 qed.
 
-(* `nlinarith`/`linarith` replaced by `smt()`: the goal is linear and
-   smt() handles the divz/modz relations that arise from `kmax`. *)
 lemma B_ge0 (N k : int) :
   162 < N =>
   0 <= k <= kmax N =>
