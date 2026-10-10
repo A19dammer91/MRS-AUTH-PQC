@@ -27,6 +27,10 @@
 (*  same line is a parse error in some EasyCrypt versions; write each *)
 (*  tactic on its own line.                                           *)
 (*                                                                    *)
+(*  Tactic availability: `nlinarith` is not available in all          *)
+(*  EasyCrypt versions. For linear arithmetic goals whose proof       *)
+(*  requires no non-linear reasoning, prefer `smt()` or `linarith`.   *)
+(*                                                                    *)
 (*  Rewrite-pattern convention: `rewrite H` fails with "nothing to    *)
 (*  rewrite" when the left-hand side of H sits inside a function      *)
 (*  argument (e.g. inside `(...) %% 9` or `dr (...)`). Two safe        *)
@@ -183,8 +187,8 @@ proof.
   smt(modzDl).
 qed.
 
-(* Two tactics on separate lines. `rewrite heq. linarith.` on a single
-   line is a parse error in this EasyCrypt version. *)
+(* Two tactics on separate lines. `nlinarith` is not available in all
+   EasyCrypt versions; `smt()` closes the same goal. *)
 lemma key_ineq (N : int) : 162 < N => 19 * (a0 N) <= N.
 proof.
   move=> hN.
@@ -199,7 +203,7 @@ proof.
     rewrite heq.
     linarith.
   - have hle : a0 N <= 8 by smt().
-    nlinarith.
+    smt().
 qed.
 
 lemma B0_ge0 (N : int) : 162 < N => 0 <= B0 N.
@@ -244,6 +248,8 @@ proof.
   linarith.
 qed.
 
+(* `nlinarith` replaced by `smt()`: the goal is linear and smt()
+   handles the divz/modz relations that arise from `kmax`. *)
 lemma B_ge0 (N k : int) :
   162 < N =>
   0 <= k <= kmax N =>
