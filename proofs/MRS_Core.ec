@@ -21,6 +21,10 @@
 (*  - `(by tactic)` is never used as a term argument.                 *)
 (*  - `case ... => [...]` is avoided when the goal is a disjunction;  *)
 (*    explicit `case ...` + `move=> ...` is used instead.             *)
+(*  - `pred` hypotheses (like `is_rep N A B`) are introduced as a     *)
+(*    single hypothesis and then split via `have [..] := h.`, since   *)
+(*    the `move=> .. [..]` pattern does not expand `pred` definitions *)
+(*    in all EasyCrypt versions.                                      *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -141,7 +145,6 @@ proof.
   by apply dr_cong9.
 qed.
 
-(* Explicit case analysis on N %% 9 = 0.                             *)
 lemma a0_eq_mod9_or_9 (N : int) : 0 < N => a0 N = N %% 9 \/ a0 N = 9.
 proof.
   move=> hNpos.
@@ -191,9 +194,6 @@ proof.
     smt().
 qed.
 
-(* ----------------------------------------------------------------- *)
-(* B0_ge0: case analysis on N %% 9 = 0 or not.                        *)
-(* ----------------------------------------------------------------- *)
 lemma B0_ge0 (N : int) : 162 < N => 0 <= B0 N.
 proof.
   move=> hN.
@@ -261,13 +261,6 @@ proof.
   smt().
 qed.
 
-(* ----------------------------------------------------------------- *)
-(* Linear invariant                                                    *)
-(*                                                                    *)
-(* `ring_simplify` is avoided; instead we explicitly state the       *)
-(* algebraic identity that reduces the left-hand side to              *)
-(* `19 * a0 N + 9 * B0 N`, and then close using `a0_B0_eq`.          *)
-(* ----------------------------------------------------------------- *)
 lemma linear_invariant N k :
   162 < N =>
   0 <= k <= kmax N =>
@@ -315,11 +308,16 @@ qed.
 
 pred is_rep (N A B : int) = 1 <= A /\ 0 <= B /\ 19*A + 9*B = N.
 
+(* The `pred` is_rep is introduced as a single hypothesis and then    *)
+(* split via `have [..] := hrep.`, because the `move=> .. [..]`       *)
+(* pattern does not expand `pred` definitions in all EasyCrypt        *)
+(* versions.                                                          *)
 lemma rep_uniq (N : int) (A B : int) :
   162 < N => is_rep N A B =>
   exists k, 0 <= k <= kmax N /\ A = a0 N + 9*k /\ B = B0 N - 19*k.
 proof.
-  move=> hN [Apos Bpos eq].
+  move=> hN hrep.
+  have [Apos Bpos eq] := hrep.
   have hNpos : 0 < N by smt().
   have A_mod : A %% 9 = N %% 9.
     have Heq : N = 19*A + 9*B by smt().
@@ -426,7 +424,8 @@ qed.
 
 lemma frobenius_162_not_rep (A B : int) : ~ is_rep 162 A B.
 proof.
-  move=> [hA hB hEq].
+  move=> hrep.
+  have [hA hB hEq] := hrep.
   have hmod : A %% 9 = 0.
     have : (19*A + 9*B) %% 9 = 162 %% 9 by rewrite hEq.
     have h162 : 162 %% 9 = 0 by done.
