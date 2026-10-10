@@ -27,10 +27,10 @@
 (*  same line is a parse error in some EasyCrypt versions; write each *)
 (*  tactic on its own line.                                           *)
 (*                                                                    *)
-(*  Tactic availability: `linarith` and `nlinarith` are not           *)
-(*  available in all EasyCrypt versions. For linear arithmetic goals  *)
-(*  prefer `smt()`, which is universally available and handles the    *)
-(*  modular and divisibility relations that arise in this file.       *)
+(*  Tactic availability: `linarith`, `nlinarith` and `ltz_pmod` are  *)
+(*  not available in all EasyCrypt versions. All arithmetic goals in  *)
+(*  this file are discharged by `smt()`, optionally with a small set  *)
+(*  of standard modular lemmas. This maximises portability.           *)
 (*                                                                    *)
 (*  Rewrite-pattern convention: `rewrite H` fails with "nothing to    *)
 (*  rewrite" when the left-hand side of H sits inside a function      *)
@@ -59,7 +59,7 @@ proof.
   have h : ! (n <= 0) by smt().
   rewrite h /=.
   split; first by smt(modz_ge0).
-  by smt(ltz_pmod).
+  by smt().
 qed.
 
 lemma dr_mod9 (n : int) : 0 < n => dr n = n - 9 * ((n - 1) %/ 9).
@@ -188,8 +188,8 @@ proof.
   smt(modzDl).
 qed.
 
-(* Two tactics on separate lines. `nlinarith` is not available in all
-   EasyCrypt versions; `smt()` closes the same goal. *)
+(* Two tactics on separate lines. `nlinarith` and `ltz_pmod` are not
+   available in all EasyCrypt versions; `smt()` closes the same goal. *)
 lemma key_ineq (N : int) : 162 < N => 19 * (a0 N) <= N.
 proof.
   move=> hN.
@@ -200,7 +200,7 @@ proof.
     have hmod : N %% 9 = 0.
       rewrite heq in hcong.
       smt(modzDl modzNm).
-    have hge : 171 <= N by smt(modz_ge0 ltz_pmod).
+    have hge : 171 <= N by smt(modz_ge0).
     rewrite heq.
     smt().
   - have hle : a0 N <= 8 by smt().
@@ -289,7 +289,7 @@ proof.
   move=> hN [Apos Bpos eq].
   have hNpos : 0 < N by smt().
   have A_mod : A %% 9 = N %% 9.
-    have Heq : N = 19*A + 9*B by linarith.
+    have Heq : N = 19*A + 9*B by smt().
     rewrite Heq.
     have Heq2 : (19*A + 9*B) %% 9 = (19*A) %% 9.
       by rewrite -{2}(modz_mod (9*B) 9) modzMl /= addr0.
@@ -315,13 +315,13 @@ proof.
     have := divz_eq (A - a0 N) 9.
     smt().
   have B_eq : B = B0 N - 19 * k.
-    have sum_eq : 19 * (a0 N + 9*k) + 9*B = N by rewrite -A_eq; linarith.
+    have sum_eq : 19 * (a0 N + 9*k) + 9*B = N by rewrite -A_eq; smt().
     have base_eq : 19 * a0 N + 9 * B0 N = N by apply a0_B0_eq.
-    have : 9 * B = 9 * (B0 N - 19 * k) by linarith.
+    have : 9 * B = 9 * (B0 N - 19 * k) by smt().
     smt(mulzI).
   have k_le_kmax : k <= kmax N.
     rewrite /kmax.
-    have hB : 0 <= B0 N - 19 * k by rewrite -B_eq; linarith.
+    have hB : 0 <= B0 N - 19 * k by rewrite -B_eq; smt().
     apply (lez_trans (B0 N %/ 19)).
     - smt(divz_ge0 B0_ge0).
     - done.
@@ -369,17 +369,17 @@ proof.
     have hNpos : 0 < N by smt().
     have [h1' h2] := dr_range N hNpos.
     have h2pos : 0 < 2 * (if N <= 0 then 0 else 1 + (N-1) %% 9) by smt().
-    smt(dr_range modz_ge0 ltz_pmod).
+    smt(dr_range modz_ge0).
   rewrite /dr.
   have h2 : ! (2 * dr N <= 0) by smt().
   rewrite h2 /=.
   have lhs_range : 1 <= B0 N - 19*k /\ B0 N - 19*k <= 9 * (kmax N + 1).
-    split; first by linarith.
+    split; first by smt().
     smt(B0_ge0 kmax_ge0).
   have cong2 : (B0 N - 19 * k - 1) %% 9 = (dr (2 * dr N) - 1) %% 9.
     have := hcong.
     smt(modzDl modzNm).
-  linarith.
+  smt().
 qed.
 
 (* ----------------------------------------------------------------- *)
@@ -395,7 +395,7 @@ proof.
     smt(modzDl modzNm modzMml).
   have hAle : A <= 8 by smt().
   have hAge : 1 <= A by exact hA.
-  smt(modz_ge0 ltz_pmod).
+  smt(modz_ge0).
 qed.
 
 lemma dr_163 : dr 163 = 1.
@@ -553,7 +553,7 @@ proof.
     have hk_lo : 0 <= k by smt(modz_ge0).
     have hk_hi : k <= kmax N.
       rewrite /k.
-      smt(modz_ge0 ltz_pmod kmax_ge0).
+      smt(modz_ge0 kmax_ge0).
     split; first by apply linear_invariant => //; smt().
     split.
     - apply dr_rep_A => //; smt().
