@@ -14,6 +14,11 @@
 (*  not available in all EasyCrypt versions. All arithmetic goals in  *)
 (*  this file are discharged by `smt()`, optionally with a small set  *)
 (*  of standard modular lemmas.                                       *)
+(*                                                                    *)
+(*  Parser note: `(by tactic)` is not accepted as a term argument in *)
+(*  all EasyCrypt versions. Every such use is rewritten here as an    *)
+(*  explicit `have h : <goal> by tactic.` followed by a reference to *)
+(*  `h`.                                                              *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -167,7 +172,8 @@ proof.
   move=> hN.
   rewrite /B0.
   have h_ineq := key_ineq N hN.
-  have h_div  := N_minus_19a0_mod9 N (by smt()).
+  have hNpos : 0 < N by smt().
+  have h_div  := N_minus_19a0_mod9 N hNpos.
   apply divz_ge0.
   - smt().
   - done.
@@ -199,7 +205,8 @@ lemma linear_invariant N k :
   19 * (a0 N + 9 * k) + 9 * (B0 N - 19 * k) = N.
 proof.
   move=> hN hk.
-  have base := a0_B0_eq N (by smt()).
+  have hNpos : 0 < N by smt().
+  have base := a0_B0_eq N hNpos.
   ring_simplify.
   smt().
 qed.
@@ -225,7 +232,8 @@ lemma A_pos (N k : int) :
   1 <= a0 N + 9 * k.
 proof.
   move=> hN hk.
-  have [hlo _] := a0_range N (by smt()).
+  have hNpos : 0 < N by smt().
+  have [hlo _] := a0_range N hNpos.
   smt().
 qed.
 
@@ -406,7 +414,8 @@ proof.
   move=> hN.
   have hB : 0 <= B0 N by apply B0_ge0.
   have hA : 1 <= a0 N by smt(a0_range).
-  have heq : 19 * a0 N + 9 * B0 N = N by apply a0_B0_eq; smt().
+  have hNpos : 0 < N by smt().
+  have heq : 19 * a0 N + 9 * B0 N = N by apply a0_B0_eq.
   smt().
 qed.
 
