@@ -23,7 +23,12 @@
 (*                                                                    *)
 (*  Tactic convention: `by apply L.` requires that L closes the goal  *)
 (*  completely. When L leaves a side condition, use `apply L => //.`  *)
-(*  or `apply L. by [].` instead.                                     *)
+(*  or `apply L; smt().` instead.                                     *)
+(*                                                                    *)
+(*  Hypothesis convention: `dr_9k_r` requires `0 <= k` as an explicit *)
+(*  hypothesis. The alternative (letting `k` range over all integers) *)
+(*  makes the pre-condition `0 < 9 * k + r` unprovable for negative   *)
+(*  `k`. Callers supply `0 <= k` from their own hypotheses.           *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -81,13 +86,15 @@ proof.
   by move=> ->.
 qed.
 
-(* dr(9k + r) = dr(r) for r > 0, proved algebraically without induction
-   on the integer k. The two branches of `dr` are discharged by proving
-   the negations of the two `if` conditions, then the modular identity
-   is reduced to `modzDl` and `modzMl` on the offset `9 * k`. *)
-lemma dr_9k_r (k r : int) : 0 < r => dr (9 * k + r) = dr r.
+(* dr(9k + r) = dr(r) for 0 <= k and 0 < r, proved algebraically
+   without induction on the integer k. The hypothesis `0 <= k` is
+   required so that the precondition `0 < 9 * k + r` (needed to
+   discharge the first `if` in `dr`) is provable for every input.
+   Without it, a negative k would make `9 * k + r` potentially
+   negative and the branch condition unsatisfiable. *)
+lemma dr_9k_r (k r : int) : 0 <= k => 0 < r => dr (9 * k + r) = dr r.
 proof.
-  move=> hr.
+  move=> hk hr.
   rewrite /dr.
   have h1 : ! (9 * k + r <= 0) by smt().
   have h2 : ! (r <= 0) by smt().
@@ -98,21 +105,20 @@ proof.
   by rewrite key.
 qed.
 
-(* `apply dr_9k_r => //.` instead of `by apply dr_9k_r.` because
-   dr_9k_r leaves the side condition `0 < r`, which is available
-   in the local context but cannot be discharged by `by` itself. *)
+(* `apply dr_9k_r; smt().` discharges the two side conditions
+   `0 <= 2 * n` and `0 < n` from the local hypothesis `hn`. *)
 lemma dr_19 (n : int) : 0 < n => dr (19 * n) = dr n.
 proof.
   move=> hn.
   have ->: 19 * n = 9 * (2 * n) + n by ring.
-  apply dr_9k_r => //.
+  apply dr_9k_r; smt().
 qed.
 
 lemma dr_19A_9B (n m : int) : 0 < n => dr (19 * n + 9 * m) = dr n.
 proof.
   move=> hn.
   have ->: 19 * n + 9 * m = 9 * (2 * n + m) + n by ring.
-  apply dr_9k_r => //.
+  apply dr_9k_r; smt().
 qed.
 
 lemma dr_idempotent (n : int) : 1 <= n => n <= 9 => dr n = n.
@@ -318,8 +324,7 @@ proof.
   have ha0 : 0 < a0 N by smt(a0_range).
   have hpos : 0 < a0 N + 9 * k by smt().
   have ->: a0 N + 9 * k = 9 * k + a0 N by ring.
-  rewrite dr_9k_r //.
-  exact (dr_a0 N hN).
+  rewrite dr_9k_r; smt().
 qed.
 
 lemma dr_triangle_B (N k : int) :
