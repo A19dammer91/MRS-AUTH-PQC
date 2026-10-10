@@ -25,21 +25,14 @@
 (*  completely. When L leaves a side condition, use `apply L => //.`  *)
 (*  or `apply L; smt().` instead.                                     *)
 (*                                                                    *)
-(*  Hypothesis convention:                                            *)
-(*   - `dr_9k_r` requires `0 <= k` and `0 < r` as explicit            *)
-(*     hypotheses, so that the precondition `0 < 9 * k + r` (needed   *)
-(*     to discharge the first `if` in `dr`) is provable for every     *)
-(*     input.                                                         *)
-(*   - `dr_19A_9B` requires `0 <= m` for the same reason: the         *)
-(*     identity is applied to the offset `9 * (2 * n + m) + n`, and   *)
-(*     `2 * n + m` must be non-negative to feed `dr_9k_r`.            *)
-(*                                                                    *)
-(*  Pattern convention: when the left-hand side of a `have ->:` does  *)
-(*  not appear verbatim in the goal (e.g. because it sits inside a    *)
-(*  function argument), `have ->:` reports "nothing to rewrite". In   *)
-(*  that case, introduce the equality as a named hypothesis with      *)
-(*  `have H : ... by tactic.` and then `rewrite H.` explicitly, or    *)
-(*  use `by smt().` when the equality is a simple modular identity.   *)
+(*  Rewrite-pattern convention: `rewrite H` fails with "nothing to    *)
+(*  rewrite" when the left-hand side of H sits inside a function      *)
+(*  argument (e.g. inside `(...) %% 9` or `dr (...)`). Two safe        *)
+(*  alternatives:                                                     *)
+(*    - `have H : ... by tactic.` + explicit `rewrite H` on the      *)
+(*      whole sub-expression, or                                       *)
+(*    - `have H : <sub-expression equality> by smt().` for simple     *)
+(*      modular identities.                                           *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -114,9 +107,7 @@ qed.
 
 (* Introduces the algebraic identity as a named hypothesis, then
    rewrites with it explicitly. `have ->:` would fail here because
-   the left-hand side `19 * n` sits inside the argument of `dr`,
-   and EasyCrypt's `have ->` pattern matcher does not descend into
-   function arguments. *)
+   the left-hand side `19 * n` sits inside the argument of `dr`. *)
 lemma dr_19 (n : int) : 0 < n => dr (19 * n) = dr n.
 proof.
   move=> hn.
@@ -126,9 +117,7 @@ proof.
 qed.
 
 (* Same pattern as dr_19. `0 <= m` is required so that `2 * n + m`
-   is non-negative, which is what `dr_9k_r` needs. Without it, a
-   negative `m` would make `2 * n + m` negative and the caller
-   cannot discharge the `0 <= k` side condition. *)
+   is non-negative, which is what `dr_9k_r` needs. *)
 lemma dr_19A_9B (n m : int) : 0 < n => 0 <= m => dr (19 * n + 9 * m) = dr n.
 proof.
   move=> hn hm.
@@ -178,6 +167,9 @@ proof.
   by apply dr_cong9.
 qed.
 
+(* The rewrite of Heq only applies to the outer expression, so the
+   intermediate identities for the summand and for 18 * a0 N are
+   introduced as named hypotheses and proved directly by smt(). *)
 lemma N_minus_19a0_mod9 (N : int) : 0 < N => (N - 19 * (a0 N)) %% 9 = 0.
 proof.
   move=> hN.
@@ -185,10 +177,7 @@ proof.
   have Heq : N - 19 * a0 N = N - a0 N - 18 * a0 N by ring.
   rewrite Heq.
   have h1 : (N - a0 N) %% 9 = 0 by smt(modzDl modzNm).
-  have h2 : (18 * a0 N) %% 9 = 0.
-    have Heq2 : 18 * a0 N = 9 * (2 * a0 N) by ring.
-    rewrite Heq2.
-    by rewrite modzMl.
+  have h2 : (18 * a0 N) %% 9 = 0 by smt().
   smt(modzDl).
 qed.
 
@@ -561,7 +550,9 @@ proof.
         smt(B_ge0 a0_range).
       apply dr_triangle_B => //.
       + smt().
-      + have Heq : (B0 N - 19 * k) %% 9 = (B0 N - 19 * ((B0 N - dr (2 * dr N) %% 9) %% 9 + 9*t)) %% 9 by done.
+      + have Heq : (B0 N - 19 * k) %% 9 =
+                   (B0 N - 19 * ((B0 N - dr (2 * dr N) %% 9) %% 9 + 9*t)) %% 9
+          by done.
         rewrite Heq.
         have Heq2 : 19 * (9 * t) %% 9 = 0.
           have Heq3 : 19 * (9 * t) = 9 * (19 * t) by ring.
