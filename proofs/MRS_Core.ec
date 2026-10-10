@@ -8,17 +8,17 @@
 (*                                                                    *)
 (*  Its range is 1..9. It is never 0. Consequently A = 0 is not a     *)
 (*  valid start for a representation, and the largest non-represent-  *)
-(*  able N is 162. This is a deliberate design choice.                *)
+(*  able N is 162.                                                    *)
 (*                                                                    *)
 (*  Tactic availability: `linarith`, `nlinarith` and `ltz_pmod` are  *)
 (*  not available in all EasyCrypt versions. All arithmetic goals in  *)
 (*  this file are discharged by `smt()`, optionally with a small set  *)
-(*  of standard modular lemmas.                                       *)
+(*  of standard modular lemmas. Where `smt()` would have to chain    *)
+(*  several non-trivial steps, the proof is decomposed explicitly.   *)
 (*                                                                    *)
 (*  Parser note: `(by tactic)` is not accepted as a term argument in *)
-(*  all EasyCrypt versions. Every such use is rewritten here as an    *)
-(*  explicit `have h : <goal> by tactic.` followed by a reference to *)
-(*  `h`.                                                              *)
+(*  all EasyCrypt versions. Every such use is rewritten as an        *)
+(*  explicit `have h : <goal> by tactic.` followed by a reference.   *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -150,20 +150,36 @@ proof.
   smt(modzDl).
 qed.
 
+(* Direct proof of key_ineq: instead of asking smt() to chain the
+   fact that a0 N = 9 implies N %% 9 = 0 implies N >= 171, we
+   establish each intermediate step explicitly. The core fact is
+   that 162 < N and N %% 9 = 0 force N %/ 9 >= 18, hence
+   N = 9 * (N %/ 9) >= 162 + 9 = 171. *)
 lemma key_ineq (N : int) : 162 < N => 19 * (a0 N) <= N.
 proof.
   move=> hN.
   have hNpos : 0 < N by smt().
   have [hlo hhi] := a0_range N hNpos.
   case (a0 N = 9) => [heq | hne].
-  - have hcong := a0_cong9 N hNpos.
-    have hmod : N %% 9 = 0.
-      rewrite heq in hcong.
-      smt(modzDl modzNm).
-    have hge : 171 <= N by smt(modz_ge0).
+  - (* Case a0 N = 9: N is a multiple of 9 greater than 162. *)
+    have hcong := a0_cong9 N hNpos.
+    have hmod : N %% 9 = 0 by rewrite heq in hcong; smt(modzDl modzNm).
+    have hdiv : N = 9 * (N %/ 9) by smt(divz_eq).
+    have hq_ge : 18 < N %/ 9.
+      have : 162 < 9 * (N %/ 9).
+        by rewrite -hdiv.
+      smt().
+    have hq_ge' : 19 <= N %/ 9 by smt().
+    have hge : 171 <= N.
+      have : 9 * 19 <= 9 * (N %/ 9) by smt().
+      smt().
     rewrite heq.
     smt().
-  - have hle : a0 N <= 8 by smt().
+  - (* Case a0 N <= 8. *)
+    have hle : a0 N <= 8 by smt().
+    (* We need 19 * a0 N <= N. Since a0 N <= 8 and N > 162, it
+       suffices to show 19 * 8 <= N, i.e. 152 <= N, which follows
+       from N > 162. *)
     smt().
 qed.
 
@@ -220,6 +236,7 @@ proof.
   rewrite /kmax in hk.
   have h_B0 := B0_ge0 N hN.
   have hk2 : k <= B0 N %/ 19 by smt().
+  have hdiv : B0 N = 19 * (B0 N %/ 19) + B0 N %% 19 by smt(divz_eq modz_ge0).
   have : 19 * k <= B0 N.
     have := divz_eq (B0 N) 19.
     smt(modz_ge0).
@@ -277,6 +294,7 @@ proof.
     smt().
   have B_eq : B = B0 N - 19 * k.
     have sum_eq : 19 * (a0 N + 9*k) + 9*B = N by rewrite -A_eq; smt().
+    have hNpos' : 0 < N by smt().
     have base_eq : 19 * a0 N + 9 * B0 N = N by apply a0_B0_eq.
     have : 9 * B = 9 * (B0 N - 19 * k) by smt().
     smt(mulzI).
