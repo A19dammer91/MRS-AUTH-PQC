@@ -20,12 +20,11 @@
 (*  - `linarith`, `nlinarith`, `ltz_pmod`, `divz_ge0` are avoided.   *)
 (*  - `ring_simplify` is avoided.                                     *)
 (*  - `(by tactic)` is never used as a term argument.                 *)
-(*  - `smt(/pred_name)` is NOT used: it is a parse error in r2024.09. *)
+(*  - `smt(/pred_name)` is NOT used (parse error in r2024.09).        *)
 (*  - `rewrite /pred_name` in a goal is NOT used: in r2024.09 the     *)
 (*    pred is expanded automatically by `move: h.` on a hypothesis.   *)
-(*    The portable pattern for a pred hypothesis h is therefore:      *)
-(*        move: h. move=> [pat].                                      *)
-(*    with no rewrite step in between.                                *)
+(*  - Long `rewrite Heq` chains are fragile in r2024.09; modular      *)
+(*    arithmetic is delegated to `smt(modzDl modzMl modz_mod)`.       *)
 (*  - `case ... => [...]` is avoided when the goal is a disjunction;  *)
 (*    explicit `case ...` + `move=> ...` is used instead.             *)
 (*  - Concrete `dr` computations use `smt()` directly.                *)
@@ -320,8 +319,9 @@ qed.
 pred is_rep (N A B : int) = 1 <= A /\ 0 <= B /\ 19*A + 9*B = N.
 
 (* is_rep is expanded automatically by `move: hrep.` in r2024.09.    *)
-(* No `rewrite /is_rep` step is needed; in fact it fails with         *)
-(* "nothing to rewrite" because the pred has already been expanded.   *)
+(* The chain `have Heq : N = 19*A + 9*B` + `rewrite Heq`             *)
+(* followed by `smt(modzDl modzMl modz_mod)` closes the modular       *)
+(* arithmetic without fragile intermediate rewrites.                  *)
 lemma rep_uniq (N : int) (A B : int) :
   162 < N => is_rep N A B =>
   exists k, 0 <= k <= kmax N /\ A = a0 N + 9*k /\ B = B0 N - 19*k.
@@ -343,12 +343,7 @@ proof.
   have A_mod : A %% 9 = N %% 9.
     have Heq : N = 19*A + 9*B by smt().
     rewrite Heq.
-    have Heq2 : (19*A + 9*B) %% 9 = (19*A) %% 9.
-      by rewrite -{2}(modz_mod (9*B) 9) modzMl /= addr0.
-    rewrite Heq2.
-    rewrite -(modzMml 19 A 9).
-    have Heq3 : 19 %% 9 = 1 by done.
-    by rewrite Heq3 mul1z modz_mod.
+    smt(modzDl modzMl modz_mod).
   have ha0_eq_N : (a0 N - N) %% 9 = 0 by apply a0_cong9.
   have heq_mod : (A - a0 N) %% 9 = 0 by smt(modzDl modzNm).
   have hrange := a0_range N hNpos.
