@@ -25,8 +25,12 @@
 (*    pred is expanded automatically by `move: h.` on a hypothesis.   *)
 (*  - Long `rewrite Heq` chains are fragile in r2024.09; modular      *)
 (*    arithmetic is delegated to `smt(modzDl modzMl modz_mod)`.       *)
-(*  - `case ... => [...]` is avoided when the goal is a disjunction;  *)
-(*    explicit `case ...` + `move=> ...` is used instead.             *)
+(*  - `case (cond).` without `=>` pattern is a parse error in         *)
+(*    r2024.09; the robust form is `case (cond) => [hyp_true |        *)
+(*    hyp_false].` everywhere.                                        *)
+(*  - `case ... => [...]` is safe for equality and inequality        *)
+(*    conditions; only disjunction goals use the explicit              *)
+(*    `case ...` + `move=>` form.                                     *)
 (*  - Concrete `dr` computations use `smt()` directly.                *)
 (*  - Conjunctive lemmas are bound to a name before splitting:        *)
 (*    `have hrange := L.` followed by `have [..] := hrange.` instead  *)
@@ -158,12 +162,10 @@ proof.
   have hrange := a0_range N hNpos.
   have [hlo hhi] := hrange.
   have hmod_ge0 : 0 <= N %% 9 by smt(modz_ge0).
-  case (N %% 9 = 0).
-  - move=> hmod0.
-    right.
+  case (N %% 9 = 0) => [hmod0 | hmod_ne].
+  - right.
     smt().
-  - move=> hmod_ne.
-    left.
+  - left.
     smt().
 qed.
 
@@ -184,9 +186,8 @@ proof.
   have hNpos : 0 < N by smt().
   have hrange := a0_range N hNpos.
   have [hlo hhi] := hrange.
-  case (a0 N = 9).
-  - move=> heq.
-    have hcong := a0_cong9 N hNpos.
+  case (a0 N = 9) => [heq | hne].
+  - have hcong := a0_cong9 N hNpos.
     have hmod : N %% 9 = 0 by rewrite heq in hcong; smt(modzDl modzNm).
     have hdiv : N = 9 * (N %/ 9) by smt(divz_eq).
     have hq_ge : 18 < N %/ 9.
@@ -197,8 +198,7 @@ proof.
       smt().
     rewrite heq.
     smt().
-  - move=> hne.
-    have hle : a0 N <= 8 by smt().
+  - have hle : a0 N <= 8 by smt().
     smt().
 qed.
 
@@ -209,9 +209,8 @@ proof.
   have hrange := a0_range N hNpos.
   have [hlo hhi] := hrange.
   have hdiv := divz_eq N 9.
-  case (N %% 9 = 0).
-  - move=> hmod0.
-    have ha0_9 : a0 N = 9.
+  case (N %% 9 = 0) => [hmod0 | hmod_ne].
+  - have ha0_9 : a0 N = 9.
       have h := a0_eq_mod9_or_9 N hNpos.
       case h => [hleft | hright].
       + smt().
@@ -228,8 +227,7 @@ proof.
     have hr_ge0 : 0 <= (N - 19 * 9) %% 9 by smt(modz_ge0).
     have hr_lt : (N - 19 * 9) %% 9 < 9 by smt(modz_ge0 divz_eq).
     smt().
-  - move=> hmod_ne.
-    have ha0_mod : a0 N = N %% 9.
+  - have ha0_mod : a0 N = N %% 9.
       have h := a0_eq_mod9_or_9 N hNpos.
       case h => [hleft | hright].
       + exact hleft.
@@ -318,10 +316,6 @@ qed.
 
 pred is_rep (N A B : int) = 1 <= A /\ 0 <= B /\ 19*A + 9*B = N.
 
-(* is_rep is expanded automatically by `move: hrep.` in r2024.09.    *)
-(* The chain `have Heq : N = 19*A + 9*B` + `rewrite Heq`             *)
-(* followed by `smt(modzDl modzMl modz_mod)` closes the modular       *)
-(* arithmetic without fragile intermediate rewrites.                  *)
 lemma rep_uniq (N : int) (A B : int) :
   162 < N => is_rep N A B =>
   exists k, 0 <= k <= kmax N /\ A = a0 N + 9*k /\ B = B0 N - 19*k.
@@ -349,10 +343,9 @@ proof.
   have hrange := a0_range N hNpos.
   have [hlo hhi] := hrange.
   have hA_ge_a0 : a0 N <= A.
-    case (a0 N <= A).
-    + move=> _. done.
-    + move=> hlt.
-      have hlt' : A < a0 N by smt().
+    case (a0 N <= A) => [hle | hlt].
+    - exact hle.
+    - have hlt' : A < a0 N by smt().
       have h1 : A - a0 N < 0 by smt().
       have h2 : -9 < A - a0 N by smt().
       have := modz_ge0 (A - a0 N) 9.
