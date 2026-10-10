@@ -17,8 +17,10 @@
 (*  - NO axioms, NO admits.                                           *)
 (*  - `linarith`, `nlinarith`, `ltz_pmod`, `divz_ge0` are avoided.   *)
 (*  - `(by tactic)` is never used as a term argument.                 *)
-(*  - Only `divz_eq`, `modz_ge0`, `modzDl`, `modzNm`, `modzMl`,      *)
-(*    `modz_mod` are used as hints for `smt()`.                       *)
+(*  - `case ... => [...]` is avoided when the goal is a disjunction;  *)
+(*    explicit `case ...` + `move=> ...` is used instead, because     *)
+(*    the compact pattern-matching form is not reliable across        *)
+(*    EasyCrypt versions when the goal is a `\/`.                     *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -139,15 +141,24 @@ proof.
   by apply dr_cong9.
 qed.
 
+(* Explicit case analysis: `case ...` followed by `move=> ...` in    *)
+(* each branch, instead of `case ... => [...]`. This works in every  *)
+(* EasyCrypt version when the goal is a disjunction.                  *)
 lemma a0_eq_mod9_or_9 (N : int) : 0 < N => a0 N = N %% 9 \/ a0 N = 9.
 proof.
   move=> hNpos.
   have ha0 := a0_cong9 N hNpos.
   have [hlo hhi] := a0_range N hNpos.
-  have := modz_ge0 N 9.
-  case (N %% 9 = 0) => [hmod0 | hmod_ne].
-  - right. smt().
-  - left. smt().
+  have hmod_ge0 : 0 <= N %% 9 by smt(modz_ge0).
+  case (N %% 9 = 0).
+  - (* Subgoal 1: N %% 9 = 0, so a0 N ≡ 0 (mod 9) and 1 <= a0 N <= 9, hence a0 N = 9. *)
+    move=> hmod0.
+    right.
+    smt().
+  - (* Subgoal 2: N %% 9 <> 0, so a0 N ≡ N (mod 9) and a0 N is in 1..9, hence a0 N = N %% 9. *)
+    move=> hmod_ne.
+    left.
+    smt().
 qed.
 
 lemma N_minus_19a0_mod9 (N : int) : 0 < N => (N - 19 * (a0 N)) %% 9 = 0.
@@ -161,36 +172,50 @@ proof.
   smt(modzDl).
 qed.
 
+(* key_ineq: N > 162 and a0 N = 9 force N >= 171. *)
 lemma key_ineq (N : int) : 162 < N => 19 * (a0 N) <= N.
 proof.
   move=> hN.
   have hNpos : 0 < N by smt().
   have [hlo hhi] := a0_range N hNpos.
-  case (a0 N = 9) => [heq | hne].
-  - have hcong := a0_cong9 N hNpos.
+  case (a0 N = 9).
+  - (* Subgoal: a0 N = 9. Then N %% 9 = 0, so N = 9 * (N %/ 9), and N > 162 gives N %/ 9 >= 19, hence N >= 171. *)
+    move=> heq.
+    have hcong := a0_cong9 N hNpos.
     have hmod : N %% 9 = 0 by rewrite heq in hcong; smt(modzDl modzNm).
     have hdiv : N = 9 * (N %/ 9) by smt(divz_eq).
     have hq_ge : 18 < N %/ 9.
-      have : 162 < 9 * (N %/ 9).
-        by rewrite -hdiv.
+      have : 162 < 9 * (N %/ 9) by rewrite -hdiv.
       smt().
     have hge : 171 <= N.
       have : 9 * 19 <= 9 * (N %/ 9) by smt().
       smt().
     rewrite heq.
     smt().
-  - have hle : a0 N <= 8 by smt().
+  - (* Subgoal: a0 N <> 9, so a0 N <= 8. Then 19 * a0 N <= 152 <= N. *)
+    move=> hne.
+    have hle : a0 N <= 8 by smt().
     smt().
 qed.
 
+(* ----------------------------------------------------------------- *)
+(* B0_ge0: case analysis on N %% 9 = 0 or not.                        *)
+(* ----------------------------------------------------------------- *)
 lemma B0_ge0 (N : int) : 162 < N => 0 <= B0 N.
 proof.
   move=> hN.
   have hNpos : 0 < N by smt().
   have [hlo hhi] := a0_range N hNpos.
   have hdiv := divz_eq N 9.
-  case (N %% 9 = 0) => [hmod0 | hmod_ne].
-  - have ha0_9 : a0 N = 9 by smt(a0_eq_mod9_or_9).
+  case (N %% 9 = 0).
+  - (* Case 1: N %% 9 = 0, so a0 N = 9. *)
+    move=> hmod0.
+    have ha0_9 : a0 N = 9.
+      have h := a0_eq_mod9_or_9 N hNpos.
+      case h => [hleft | hright].
+      + (* a0 N = N %% 9 = 0 contradicts a0 N >= 1. *)
+        smt().
+      + exact hright.
     rewrite /B0 ha0_9.
     have hN_eq : N = 9 * (N %/ 9) by smt().
     have hq_ge : 19 <= N %/ 9.
@@ -203,7 +228,14 @@ proof.
     have hr_ge0 : 0 <= (N - 19 * 9) %% 9 by smt(modz_ge0).
     have hr_lt : (N - 19 * 9) %% 9 < 9 by smt(modz_ge0 divz_eq).
     smt().
-  - have ha0_mod : a0 N = N %% 9 by smt(a0_eq_mod9_or_9).
+  - (* Case 2: N %% 9 <> 0, so a0 N = N %% 9. *)
+    move=> hmod_ne.
+    have ha0_mod : a0 N = N %% 9.
+      have h := a0_eq_mod9_or_9 N hNpos.
+      case h => [hleft | hright].
+      + exact hleft.
+      + (* a0 N = 9 and N %% 9 <> 0 contradicts a0 N ≡ N (mod 9). *)
+        smt().
     rewrite /B0 ha0_mod.
     have hN_eq : N = 9 * (N %/ 9) + N %% 9 by smt().
     have hmod_ge0 : 0 <= N %% 9 by smt(modz_ge0).
@@ -240,6 +272,9 @@ proof.
   smt().
 qed.
 
+(* ----------------------------------------------------------------- *)
+(* Linear invariant                                                    *)
+(* ----------------------------------------------------------------- *)
 lemma linear_invariant N k :
   162 < N =>
   0 <= k <= kmax N =>
@@ -304,13 +339,14 @@ proof.
   have heq_mod : (A - a0 N) %% 9 = 0 by smt(modzDl modzNm).
   have [hlo hhi] := a0_range N hNpos.
   have hA_ge_a0 : a0 N <= A.
-    case (a0 N <= A) => //.
-    move=> hlt.
-    have hlt' : A < a0 N by smt().
-    have h1 : A - a0 N < 0 by smt().
-    have h2 : -9 < A - a0 N by smt().
-    have := modz_ge0 (A - a0 N) 9.
-    smt().
+    case (a0 N <= A).
+    + move=> _. done.
+    + move=> hlt.
+      have hlt' : A < a0 N by smt().
+      have h1 : A - a0 N < 0 by smt().
+      have h2 : -9 < A - a0 N by smt().
+      have := modz_ge0 (A - a0 N) 9.
+      smt().
   set k := (A - a0 N) %/ 9.
   have k_ge0 : 0 <= k by smt().
   have A_eq : A = a0 N + 9 * k.
