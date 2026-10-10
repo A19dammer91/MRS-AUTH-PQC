@@ -343,31 +343,30 @@ proof.
   have hrange := a0_range N hNpos.
   have [hlo hhi] := hrange.
   have hA_ge_a0 : a0 N <= A by smt().
-  set k := (A - a0 N) %/ 9.
-  have k_ge0 : 0 <= k by smt().
-  have A_eq : A = a0 N + 9 * k.
-    rewrite /k.
-    have := divz_eq (A - a0 N) 9.
-    smt().
-  have B_eq : B = B0 N - 19 * k.
-    have sum_eq : 19 * (a0 N + 9*k) + 9*B = N by rewrite -A_eq; smt().
-    have hNpos' : 0 < N by smt().
-    have base_eq : 19 * a0 N + 9 * B0 N = N by apply a0_B0_eq.
-    have : 9 * B = 9 * (B0 N - 19 * k) by smt().
-    smt(mulzI).
-  have k_le_kmax : k <= kmax N.
-    rewrite /kmax.
-    have hB : 0 <= B0 N - 19 * k by rewrite -B_eq; smt().
-    have hdecomp : B0 N - 19 * k =
-                   19 * ((B0 N - 19 * k) %/ 19) + (B0 N - 19 * k) %% 19
-      by smt(divz_eq).
-    have hmod_ge0 : 0 <= (B0 N - 19 * k) %% 19 by smt(modz_ge0).
-    have hmod_lt : (B0 N - 19 * k) %% 19 < 19 by smt(modz_ge0 divz_eq).
-    smt().
-  exists k.
-  split; first by split.
-  split; exact.
-qed.
+have k_ge0 : 0 <= (A - a0 N) %/ 9 by smt().
+have A_eq : A = a0 N + 9 * ((A - a0 N) %/ 9).
+  have := divz_eq (A - a0 N) 9.
+  smt().
+have B_eq : B = B0 N - 19 * ((A - a0 N) %/ 9).
+  have sum_eq : 19 * (a0 N + 9*((A - a0 N) %/ 9)) + 9*B = N
+    by rewrite -A_eq; smt().
+  have hNpos' : 0 < N by smt().
+  have base_eq : 19 * a0 N + 9 * B0 N = N by apply a0_B0_eq.
+  have : 9 * B = 9 * (B0 N - 19 * ((A - a0 N) %/ 9)) by smt().
+  smt(mulzI).
+have k_le_kmax : (A - a0 N) %/ 9 <= kmax N.
+  rewrite /kmax.
+  have hB : 0 <= B0 N - 19 * ((A - a0 N) %/ 9) by rewrite -B_eq; smt().
+  have hdecomp : B0 N - 19 * ((A - a0 N) %/ 9) =
+                 19 * ((B0 N - 19 * ((A - a0 N) %/ 9)) %/ 19) +
+                 (B0 N - 19 * ((A - a0 N) %/ 9)) %% 19
+    by smt(divz_eq).
+  have hmod_ge0 : 0 <= (B0 N - 19 * ((A - a0 N) %/ 9)) %% 19 by smt(modz_ge0).
+  have hmod_lt : (B0 N - 19 * ((A - a0 N) %/ 9)) %% 19 < 19 by smt(modz_ge0 divz_eq).
+  smt().
+exists ((A - a0 N) %/ 9).
+split; first by split.
+split; exact.
 
 (* ----------------------------------------------------------------- *)
 (* dr properties for representations                                   *)
