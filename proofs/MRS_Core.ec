@@ -417,9 +417,8 @@ proof.
   rewrite /dr.
   have h2 : ! (2 * dr N <= 0) by smt().
   rewrite h2 /=.
-  have lhs_range : 1 <= B0 N - 19*k /\ B0 N - 19*k <= 9 * (kmax N + 1).
-    split; first by smt().
-    smt(B0_ge0 kmax_ge0).
+  have lhs_ge1 : 1 <= B0 N - 19*k by smt().
+have lhs_pos : 0 < B0 N - 19*k by smt().
   have cong2 : (B0 N - 19 * k - 1) %% 9 = (dr (2 * dr N) - 1) %% 9.
     have := hcong.
     smt(modzDl modzNm).
