@@ -21,10 +21,10 @@
 (*  - `(by tactic)` is never used as a term argument.                 *)
 (*  - `case ... => [...]` is avoided when the goal is a disjunction;  *)
 (*    explicit `case ...` + `move=> ...` is used instead.             *)
-(*  - `pred` hypotheses are introduced as a single hypothesis via     *)
-(*    `move=> h.` and then split via `have [..] := h.`; the           *)
-(*    `move=> .. [..]` pattern does not expand `pred` definitions     *)
-(*    reliably across EasyCrypt versions.                             *)
+(*  - `pred` hypotheses are expanded explicitly via                    *)
+(*    `rewrite /pred_name in h.` followed by `have .. by smt().`,     *)
+(*    instead of relying on pattern-matching in `move=>` or           *)
+(*    `have [..] := ..`, which is not portable across versions.       *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -312,15 +312,17 @@ qed.
 
 pred is_rep (N A B : int) = 1 <= A /\ 0 <= B /\ 19*A + 9*B = N.
 
-(* NOTE: is_rep is introduced as a single hypothesis `hrep` and      *)
-(* then split via `have [..] := hrep.`; the `move=> .. [..]`          *)
-(* pattern does not expand `pred` definitions in all versions.       *)
+(* The pred is_rep is expanded explicitly via `rewrite /is_rep in hrep.` *)
+(* This works in every EasyCrypt version: it is core functionality.       *)
 lemma rep_uniq (N : int) (A B : int) :
   162 < N => is_rep N A B =>
   exists k, 0 <= k <= kmax N /\ A = a0 N + 9*k /\ B = B0 N - 19*k.
 proof.
   move=> hN hrep.
-  have [Apos Bpos eq] := hrep.
+  rewrite /is_rep in hrep.
+  have Apos : 1 <= A by smt().
+  have Bpos : 0 <= B by smt().
+  have eq : 19*A + 9*B = N by smt().
   have hNpos : 0 < N by smt().
   have A_mod : A %% 9 = N %% 9.
     have Heq : N = 19*A + 9*B by smt().
@@ -431,7 +433,10 @@ qed.
 lemma frobenius_162_not_rep (A B : int) : ~ is_rep 162 A B.
 proof.
   move=> hrep.
-  have [hA hB hEq] := hrep.
+  rewrite /is_rep in hrep.
+  have hA : 1 <= A by smt().
+  have hB : 0 <= B by smt().
+  have hEq : 19*A + 9*B = 162 by smt().
   have hmod : A %% 9 = 0.
     have : (19*A + 9*B) %% 9 = 162 %% 9 by rewrite hEq.
     have h162 : 162 %% 9 = 0 by done.
