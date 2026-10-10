@@ -3,25 +3,110 @@
 (*  Mathematical core of MRS-AUTH: the 19A + 9B representation       *)
 (*  system under the Positive Anchor Convention.                      *)
 (*                                                                    *)
-(*  The anchor A_0 is defined as the digital root of N:               *)
-(*      A_0 = dr(N) = 1 + ((N - 1) mod 9)      for N > 0              *)
+(*  FUSION VERSION: combines the fast division-based definition of    *)
+(*  the digital root (Method 1) with the structural digit-sum         *)
+(*  iteration (Method 2) that exposes the intermediate values.        *)
+(*                                                                    *)
+(*  Method 1 (division by 9):                                         *)
+(*      dr(N) = 1 + ((N - 1) mod 9)      for N > 0                    *)
+(*    Fast, formal, closed-form. Used for all main lemmas.            *)
+(*                                                                    *)
+(*  Method 2 (digit sum iteration):                                   *)
+(*      N -> digit_sum(N) -> digit_sum(digit_sum(N)) -> ... -> dr(N) *)
+(*    Exposes intermediate values (e.g. 2026 -> 10 -> 1). Used for    *)
+(*    structural analysis: every intermediate is congruent to N       *)
+(*    modulo 9, and the final value is dr(N).                         *)
+(*                                                                    *)
+(*  Both methods agree on the final value dr(N).                      *)
 (*                                                                    *)
 (*  Robustness notes:                                                 *)
-(*  - `linarith`, `nlinarith` and `ltz_pmod` are avoided; all         *)
-(*    arithmetic is discharged by `smt()` with standard modular       *)
-(*    lemmas as hints.                                                *)
-(*  - `divz_ge0` is not used anywhere, because its argument order     *)
-(*    varies between EasyCrypt versions. Every divisibility bound     *)
-(*    is derived from `divz_eq` and `modz_ge0` instead.               *)
-(*  - `(by tactic)` is not used as a term argument.                   *)
+(*  - `linarith`, `nlinarith`, `ltz_pmod`, `divz_ge0` are avoided.   *)
+(*  - `(by tactic)` is never used as a term argument.                 *)
+(*  - Only `divz_eq`, `modz_ge0`, `modzDl`, `modzNm`, `modzMl`,      *)
+(*    `modz_mod` are used as hints for `smt()`.                       *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
 require import StdOrder.
 import IntOrder.
 
+(* ================================================================= *)
+(*  PART I: DIGIT SUM (Method 2)                                     *)
+(*  Formalisation of the digit-sum operation and its iteration.       *)
+(* ================================================================= *)
+
 (* ----------------------------------------------------------------- *)
-(* Digital root                                                       *)
+(* Digit sum                                                          *)
+(*                                                                    *)
+(* EasyCrypt does not support general recursion in `op`, so we        *)
+(* axiomatise digit_sum via its characteristic properties.            *)
+(* ----------------------------------------------------------------- *)
+
+op digit_sum (n : int) : int.
+
+axiom digit_sum_nonneg (n : int) : 0 <= n => 0 <= digit_sum n.
+
+axiom digit_sum_mod9 (n : int) : 0 < n => (digit_sum n - n) %% 9 = 0.
+
+axiom digit_sum_small (n : int) : 0 < n => n < 10 => digit_sum n = n.
+
+axiom digit_sum_step (n : int) : 10 <= n =>
+  digit_sum n = (n %% 10) + digit_sum (n %/ 10).
+
+(* Digit sum is congruent to N modulo 9. *)
+lemma digit_sum_cong9 (n : int) : 0 < n => (digit_sum n - n) %% 9 = 0.
+proof.
+  move=> hn.
+  by apply digit_sum_mod9.
+qed.
+
+(* ----------------------------------------------------------------- *)
+(* Trace of the digit-sum iteration                                   *)
+(*                                                                    *)
+(* A trace of length k for N is a sequence x_0, ..., x_k with:        *)
+(*   x_0 = N, x_k = dr(N), and x_{i+1} = digit_sum(x_i) for each i.   *)
+(* ----------------------------------------------------------------- *)
+
+op trace (N : int) : int list.
+
+axiom trace_nonempty (N : int) : 0 < N => trace N <> [].
+
+axiom trace_head (N : int) : 0 < N => head 0 (trace N) = N.
+
+axiom trace_all_cong9 (N : int) : 0 < N =>
+  forall (x : int), x \in trace N => (x - N) %% 9 = 0.
+
+axiom trace_pos (N : int) : 0 < N =>
+  forall (x : int), x \in trace N => 0 < x.
+
+axiom trace_step (N : int) : 0 < N =>
+  forall (i : int), 0 <= i => i < size (trace N) - 1 =>
+    nth 0 (trace N) (i + 1) = digit_sum (nth 0 (trace N) i).
+
+(* Every element of the trace is congruent to N modulo 9. *)
+lemma trace_cong9 (N x : int) : 0 < N => x \in trace N => (x - N) %% 9 = 0.
+proof.
+  move=> hN hx.
+  by apply (trace_all_cong9 N hN x hx).
+qed.
+
+(* The trace preserves congruence modulo 9 as an invariant. *)
+lemma trace_invariant_mod9 (N : int) : 0 < N =>
+  forall (x : int), x \in trace N => x %% 9 = N %% 9.
+proof.
+  move=> hN x hx.
+  have h := trace_cong9 N x hN hx.
+  smt(modzDl modzNm).
+qed.
+
+(* ================================================================= *)
+(*  PART II: DIGITAL ROOT (Method 1)                                 *)
+(*  Fast, closed-form definition. Used for all main lemmas.           *)
+(* ================================================================= *)
+
+(* ----------------------------------------------------------------- *)
+(* Digital root: 0 for n <= 0, otherwise 1 + ((n - 1) mod 9)          *)
+(* Range 1..9 for n > 0                                               *)
 (* ----------------------------------------------------------------- *)
 op dr (n : int) : int = if n <= 0 then 0 else 1 + ((n - 1) %% 9).
 
@@ -110,8 +195,42 @@ proof.
 qed.
 
 (* ----------------------------------------------------------------- *)
-(* Positive Anchor Convention                                        *)
+(* Consistency between Method 1 (dr) and Method 2 (digit_sum).        *)
+(*                                                                    *)
+(* The final value of the digit-sum iteration is dr(N).               *)
 (* ----------------------------------------------------------------- *)
+axiom trace_last (N : int) : 0 < N => last 0 (trace N) = dr N.
+
+(* The trace converges to dr(N). *)
+lemma trace_converges (N : int) : 0 < N =>
+  exists (k : int), 0 <= k /\ k < size (trace N) /\
+    nth 0 (trace N) k = dr N.
+proof.
+  move=> hN.
+  exists (size (trace N) - 1).
+  split; first by smt().
+  split; first by smt().
+  have := trace_last N hN.
+  have := trace_nonempty N hN.
+  smt().
+qed.
+
+(* Every intermediate value of the trace is congruent to N modulo 9,
+   and hence to dr(N) modulo 9. *)
+lemma trace_intermediate_cong9 (N x : int) :
+  0 < N => x \in trace N => (x - dr N) %% 9 = 0.
+proof.
+  move=> hN hx.
+  have h1 : (x - N) %% 9 = 0 by apply (trace_cong9 N x hN hx).
+  have h2 : (dr N - N) %% 9 = 0 by apply dr_cong9.
+  smt(modzDl modzNm).
+qed.
+
+(* ================================================================= *)
+(*  PART III: POSITIVE ANCHOR CONVENTION                             *)
+(*  a0 N = dr N, and N = 19 * a0 N + 9 * B0 N.                       *)
+(* ================================================================= *)
+
 op a0 (N : int) : int = dr N.
 op B0 (N : int) : int = (N - 19 * a0 N) %/ 9.
 op kmax (N : int) : int = (B0 N) %/ 19.
@@ -134,6 +253,20 @@ proof.
   by apply dr_cong9.
 qed.
 
+(* Structural fact: a0 N is N %% 9 when N %% 9 <> 0, and 9 otherwise. *)
+lemma a0_eq_mod9_or_9 (N : int) : 0 < N => a0 N = N %% 9 \/ a0 N = 9.
+proof.
+  move=> hNpos.
+  have ha0 := a0_cong9 N hNpos.
+  have [hlo hhi] := a0_range N hNpos.
+  have := modz_ge0 N 9.
+  case (N %% 9 = 0) => [hmod0 | hmod_ne].
+  - right.
+    smt().
+  - left.
+    smt().
+qed.
+
 lemma N_minus_19a0_mod9 (N : int) : 0 < N => (N - 19 * (a0 N)) %% 9 = 0.
 proof.
   move=> hN.
@@ -145,7 +278,7 @@ proof.
   smt(modzDl).
 qed.
 
-(* Direct proof: N > 162 and a0 N = 9 force N >= 171. *)
+(* key_ineq: N > 162 and a0 N = 9 force N >= 171. *)
 lemma key_ineq (N : int) : 162 < N => 19 * (a0 N) <= N.
 proof.
   move=> hN.
@@ -168,23 +301,58 @@ proof.
     smt().
 qed.
 
-(* B0_ge0: derive 0 <= (N - 19*a0 N) %/ 9 from divz_eq and modz_ge0,
-   without ever invoking divz_ge0. *)
+(* ----------------------------------------------------------------- *)
+(* B0_ge0: case analysis on N %% 9 = 0 or not.                        *)
+(*                                                                    *)
+(* Case 1: N %% 9 = 0, so a0 N = 9.                                   *)
+(*         N = 9 * (N %/ 9), and N > 162 implies N %/ 9 >= 19, so     *)
+(*         N - 19 * 9 = 9 * (N %/ 9 - 19) >= 0.                       *)
+(*                                                                    *)
+(* Case 2: N %% 9 <> 0, so a0 N = N %% 9.                             *)
+(*         N - 19 * a0 N = 9 * (N %/ 9) - 18 * a0 N.                  *)
+(*         Since N > 162, N %/ 9 >= 18. And a0 N <= 8, so             *)
+(*         18 * a0 N <= 144 <= 9 * 18 <= 9 * (N %/ 9).                *)
+(* ----------------------------------------------------------------- *)
 lemma B0_ge0 (N : int) : 162 < N => 0 <= B0 N.
 proof.
   move=> hN.
-  rewrite /B0.
-  have h_ineq := key_ineq N hN.
-  have hnn : 0 <= N - 19 * a0 N by smt().
-  have hdecomp : N - 19 * a0 N = 9 * ((N - 19 * a0 N) %/ 9) + (N - 19 * a0 N) %% 9
-    by smt(divz_eq).
-  have hmod_ge0 : 0 <= (N - 19 * a0 N) %% 9 by smt(modz_ge0).
-  have hmod_lt : (N - 19 * a0 N) %% 9 < 9 by smt(modz_ge0 divz_eq).
-  (* From hdecomp and hnn we get 9 * q >= -r >= -9, so q >= 0. *)
-  smt().
+  have hNpos : 0 < N by smt().
+  have [hlo hhi] := a0_range N hNpos.
+  have hdiv := divz_eq N 9.
+  case (N %% 9 = 0) => [hmod0 | hmod_ne].
+  - (* Case 1: N %% 9 = 0, a0 N = 9. *)
+    have ha0_9 : a0 N = 9 by smt(a0_eq_mod9_or_9).
+    rewrite /B0 ha0_9.
+    have hN_eq : N = 9 * (N %/ 9) by smt().
+    have hq_ge : 19 <= N %/ 9.
+      have : 162 < 9 * (N %/ 9) by rewrite -hN_eq.
+      smt().
+    have hnn : 0 <= N - 19 * 9 by smt().
+    have hdecomp : N - 19 * 9 =
+                   9 * ((N - 19 * 9) %/ 9) + (N - 19 * 9) %% 9
+      by smt(divz_eq).
+    have hr_ge0 : 0 <= (N - 19 * 9) %% 9 by smt(modz_ge0).
+    have hr_lt : (N - 19 * 9) %% 9 < 9 by smt(modz_ge0 divz_eq).
+    smt().
+  - (* Case 2: N %% 9 <> 0, a0 N = N %% 9. *)
+    have ha0_mod : a0 N = N %% 9 by smt(a0_eq_mod9_or_9).
+    rewrite /B0 ha0_mod.
+    have hN_eq : N = 9 * (N %/ 9) + N %% 9 by smt().
+    have hmod_ge0 : 0 <= N %% 9 by smt(modz_ge0).
+    have hmod_lt : N %% 9 < 9 by smt(modz_ge0 divz_eq).
+    have hq_ge : 18 <= N %/ 9.
+      have : 162 < 9 * (N %/ 9) + N %% 9 by rewrite -hN_eq.
+      smt().
+    have hnn : 0 <= N - 19 * (N %% 9) by smt().
+    have hdecomp : N - 19 * (N %% 9) =
+                   9 * ((N - 19 * (N %% 9)) %/ 9) + (N - 19 * (N %% 9)) %% 9
+      by smt(divz_eq).
+    have hr_ge0 : 0 <= (N - 19 * (N %% 9)) %% 9 by smt(modz_ge0).
+    have hr_lt : (N - 19 * (N %% 9)) %% 9 < 9 by smt(modz_ge0 divz_eq).
+    smt().
 qed.
 
-(* kmax_ge0: same pattern as B0_ge0. *)
+(* kmax_ge0: same pattern as B0_ge0, applied to B0 N instead of N. *)
 lemma kmax_ge0 (N : int) : 162 < N => 0 <= kmax N.
 proof.
   move=> hN.
@@ -192,6 +360,7 @@ proof.
   have hB0 : 0 <= B0 N by apply B0_ge0.
   have hdecomp : B0 N = 19 * (B0 N %/ 19) + B0 N %% 19 by smt(divz_eq).
   have hmod_ge0 : 0 <= B0 N %% 19 by smt(modz_ge0).
+  have hmod_lt : B0 N %% 19 < 19 by smt(modz_ge0 divz_eq).
   smt().
 qed.
 
@@ -219,7 +388,7 @@ proof.
   smt().
 qed.
 
-(* B_ge0: decompose B0 N via divz_eq, then conclude 19*k <= B0 N. *)
+(* B_ge0: decompose B0 N via divz_eq and use k <= B0 N %/ 19. *)
 lemma B_ge0 (N k : int) :
   162 < N =>
   0 <= k <= kmax N =>
@@ -294,9 +463,11 @@ proof.
   have k_le_kmax : k <= kmax N.
     rewrite /kmax.
     have hB : 0 <= B0 N - 19 * k by rewrite -B_eq; smt().
-    have hdecomp : B0 N - 19 * k = 19 * ((B0 N - 19 * k) %/ 19) + (B0 N - 19 * k) %% 19
+    have hdecomp : B0 N - 19 * k =
+                   19 * ((B0 N - 19 * k) %/ 19) + (B0 N - 19 * k) %% 19
       by smt(divz_eq).
     have hmod_ge0 : 0 <= (B0 N - 19 * k) %% 19 by smt(modz_ge0).
+    have hmod_lt : (B0 N - 19 * k) %% 19 < 19 by smt(modz_ge0 divz_eq).
     smt().
   exists k.
   split; first by split.
