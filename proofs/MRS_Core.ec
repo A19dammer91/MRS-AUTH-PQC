@@ -23,7 +23,9 @@
 (*                                                                    *)
 (*  Tactic convention: `by apply L.` requires that L closes the goal  *)
 (*  completely. When L leaves a side condition, use `apply L => //.`  *)
-(*  or `apply L; smt().` instead.                                     *)
+(*  or `apply L; smt().` instead. Two tactics chained by `.` on the   *)
+(*  same line is a parse error in some EasyCrypt versions; write each *)
+(*  tactic on its own line.                                           *)
 (*                                                                    *)
 (*  Rewrite-pattern convention: `rewrite H` fails with "nothing to    *)
 (*  rewrite" when the left-hand side of H sits inside a function      *)
@@ -181,6 +183,8 @@ proof.
   smt(modzDl).
 qed.
 
+(* Two tactics on separate lines. `rewrite heq. linarith.` on a single
+   line is a parse error in this EasyCrypt version. *)
 lemma key_ineq (N : int) : 162 < N => 19 * (a0 N) <= N.
 proof.
   move=> hN.
@@ -192,7 +196,8 @@ proof.
       rewrite heq in hcong.
       smt(modzDl modzNm).
     have hge : 171 <= N by smt(modz_ge0 ltz_pmod).
-    rewrite heq. linarith.
+    rewrite heq.
+    linarith.
   - have hle : a0 N <= 8 by smt().
     nlinarith.
 qed.
