@@ -1,0 +1,101 @@
+name: Swap ordering in EasyCrypt proofs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  swap:
+    name: Apply canonical ordering
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Apply ordering transformation
+        working-directory: proofs
+        run: |
+          python3 - << 'PYEOF'
+          import re
+          from pathlib import Path
+
+          SUFFIX_MARKERS = [' by ', ' => ', ' ==>']
+
+          def swap_comparison(line):
+              stripped = line.lstrip()
+              if stripped.startswith('(*') or stripped.startswith('//') or stripped.startswith('*'):
+                  return line, False
+              if stripped.startswith('type ') or stripped.startswith('op '):
+                  return line, False
+              for op, new_op in [(' >= ', ' <= '), (' > ', ' < ')]:
+                  if op not in line:
+                      continue
+                  idx = line.rfind(op)
+                  left_part = line[:idx].rstrip()
+                  right_part = line[idx + len(op):].lstrip()
+                  colon_idx = left_part.rfind(':')
+                  if colon_idx != -1:
+                      prefix = left_part[:colon_idx + 1]
+                      lhs = left_part[colon_idx + 1:].strip()
+                  else:
+                      prefix = ''
+                      lhs = left_part.strip()
+                  suffix = ''
+                  for marker in SUFFIX_MARKERS:
+                      m_idx = right_part.find(marker)
+                      if m_idx != -1:
+                          suffix = right_part[m_idx:]
+                          right_part = right_part[:m_idx].rstrip()
+                          break
+                  rhs = right_part.strip()
+                  if not lhs or not rhs:
+                      return line, False
+                  if prefix:
+                      new_line = f'{prefix} {rhs} {new_op.strip()} {lhs}{suffix}'
+                  else:
+                      new_line = f'{rhs} {new_op.strip()} {lhs}{suffix}'
+                  return new_line, True
+              return line, False
+
+          total = 0
+          for path in Path('.').glob('*.ec'):
+              original = path.read_text()
+              lines = original.split('\n')
+              new_lines = []
+              changes = 0
+              for line in lines:
+                  new_line, changed = swap_comparison(line)
+                  if changed:
+                      changes += 1
+                  new_lines.append(new_line)
+              if changes > 0:
+                  path.write_text('\n'.join(new_lines))
+                  print(f'{path}: {changes} lines modified')
+                  total += changes
+          print(f'Total: {total} lines modified')
+          PYEOF
+
+      - name: Show diff
+        working-directory: proofs
+        run: |
+          git --no-pager diff --stat
+
+      - name: Commit and push
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git add proofs/*.ec
+          git commit -m "Apply canonical ordering across proof files"
+          git push origin main
