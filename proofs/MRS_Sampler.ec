@@ -23,6 +23,13 @@
 (*  monotonicity, positivity) are proven there. Remaining axioms in  *)
 (*  this file are the interface contracts with the other proof       *)
 (*  files and with the RNG model; they are marked explicitly.        *)
+(*                                                                    *)
+(*  Ordering convention: all comparisons use the canonical form       *)
+(*  `constant < variable` or `constant <= variable`.                  *)
+(*                                                                    *)
+(*  Module access: MRSRep is referenced via dot notation              *)
+(*  (MRSRep.sample_basic, MRSRep.sample_triangle). The `import        *)
+(*  MRSRep.` line is not used because modules are not theories.       *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -30,7 +37,6 @@ require import StdOrder StdBigop.
 import IntOrder RealOrder.
 
 require import MRS_Core MRS_Chain MRS_FloorSum.
-import MRSRep.
 
 (* ================================================================= *)
 (* Sampler constants                                                 *)
@@ -59,15 +65,15 @@ type layer_params = {
 }.
 
 op mk_params (n : int) : layer_params =
-  let a0 = a0 n in
-  let b0 = B0 n in
-  let kmax = kmax n in
+  let a0_val = a0 n in
+  let b0_val = B0 n in
+  let kmax_val = kmax n in
   let tgt  = dr (2 * dr n) in
-  let k0   = (b0 + 9 - tgt) %% 9 in
-  let tmax = (kmax - k0) %/ 9 in
-  {| lp_a0 = a0; lp_b0 = b0; lp_k0 = k0; lp_tmax = tmax;
+  let k0_val = (b0_val + 9 - tgt) %% 9 in
+  let tmax_val = (kmax_val - k0_val) %/ 9 in
+  {| lp_a0 = a0_val; lp_b0 = b0_val; lp_k0 = k0_val; lp_tmax = tmax_val;
      lp_eprime = 0;
-     lp_valid = (19 * a0 <= n) /\ (k0 <= kmax) |}.
+     lp_valid = (19 * a0_val <= n) /\ (k0_val <= kmax_val) |}.
 
 lemma mk_params_a0 (n : int) : (mk_params n).`lp_a0 = a0 n.
 proof. by rewrite /mk_params. qed.
@@ -120,7 +126,7 @@ lemma a_at_b_at_linear (p : layer_params) (t : int) :
 proof. by rewrite /a_at /b_at; ring. qed.
 
 lemma a_at_b_at_eq_N (N : int) (p : layer_params) (t : int) :
-  N > 0 => p = mk_params N =>
+  0 < N => p = mk_params N =>
   19 * a_at p t + 9 * b_at p t = N.
 proof.
   move=> hN hp.
@@ -203,7 +209,7 @@ axiom select_t_spec (p : layer_params) (t_filter : int) (r : int) :
   0 <= r => r < total_weight p t_filter =>
   t_filter <= select_t p t_filter r /\
   select_t p t_filter r <= p.`lp_tmax /\
-  prefix_weight p t_filter (select_t p t_filter r) > r /\
+  r < prefix_weight p t_filter (select_t p t_filter r) /\
   (t_filter < select_t p t_filter r =>
      prefix_weight p t_filter (select_t p t_filter r - 1) <= r).
 
@@ -221,7 +227,7 @@ qed.
 lemma select_t_prefix_gt (p : layer_params) (t_filter : int) (r : int) :
   p.`lp_valid => t_filter <= p.`lp_tmax => 171 <= p.`lp_eprime =>
   0 <= r => r < total_weight p t_filter =>
-  prefix_weight p t_filter (select_t p t_filter r) > r.
+  r < prefix_weight p t_filter (select_t p t_filter r).
 proof.
   move=> hp hle he hr hrng.
   have [_ [_ [h _]]] := select_t_spec p t_filter r hp hle he hr hrng.
@@ -233,7 +239,7 @@ lemma select_t_is_smallest
   p.`lp_valid => t_filter <= p.`lp_tmax => 171 <= p.`lp_eprime =>
   0 <= r => r < total_weight p t_filter =>
   t_filter <= t => t <= p.`lp_tmax =>
-  prefix_weight p t_filter t > r =>
+  r < prefix_weight p t_filter t =>
   select_t p t_filter r <= t.
 proof.
   move=> hp hle he hr hrng ht_lo ht_hi hpref.
@@ -253,7 +259,7 @@ lemma select_t_exists (p : layer_params) (t_filter : int) (r : int) :
   p.`lp_valid => t_filter <= p.`lp_tmax => 171 <= p.`lp_eprime =>
   0 <= r => r < total_weight p t_filter =>
   exists t, t_filter <= t /\ t <= p.`lp_tmax /\
-            prefix_weight p t_filter t > r.
+            r < prefix_weight p t_filter t.
 proof.
   move=> hp hle he hr hrng.
   exists (select_t p t_filter r).
@@ -300,7 +306,7 @@ proof.
 qed.
 
 lemma attempt_layer_is_representation (N : int) (p : layer_params) (r : int) :
-  N > 0 => p = mk_params N =>
+  0 < N => p = mk_params N =>
   p.`lp_valid => 171 <= p.`lp_eprime =>
   0 <= r => r < total_weight p p.`lp_k0 =>
   19 * (attempt_layer p r).`ar_layer.a
@@ -322,7 +328,7 @@ axiom sample_three_draw_count (root_n : int) (r1 r2 r3 : int) :
   size (sample_three_attempt root_n r1 r2 r3) = 2 * DEPTH + 1.
 
 axiom sample_three_correct (root_n : int) :
-  root_n > 162 =>
+  162 < root_n =>
   let p0 = mk_params root_n in
   p0.`lp_valid => 171 <= p0.`lp_eprime =>
   forall r1, 0 <= r1 < total_weight p0 p0.`lp_k0 =>
@@ -430,7 +436,7 @@ axiom failure_decreases :
 (* ================================================================= *)
 
 lemma sampler_produces_correct_chain (root_n : int) :
-  root_n > 162 =>
+  162 < root_n =>
   let p0 = mk_params root_n in
   p0.`lp_valid => 171 <= p0.`lp_eprime =>
   forall r1, 0 <= r1 < total_weight p0 p0.`lp_k0 =>
