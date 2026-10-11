@@ -71,7 +71,6 @@
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real List.
-require import Pervasive.
 require import MRS_Distr.
 
 (* ----------------------------------------------------------------- *)
