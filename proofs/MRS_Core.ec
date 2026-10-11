@@ -70,7 +70,7 @@
 (*  - Whitespace uses spaces only, never tabs.                        *)
 (* ================================================================= *)
 
-require import AllCore Int IntDiv Real Distr List.
+require import AllCore Int IntDiv Real List.
 require import MRS_Distr.
 
 (* ----------------------------------------------------------------- *)
