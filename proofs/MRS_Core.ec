@@ -37,8 +37,6 @@
 (*  - `~` is NOT used for negation: `!` or `P => false`.              *)
 (*  - `case (cond).` without `=>` pattern is avoided.                 *)
 (*  - `set k := ...` is avoided; concrete terms are substituted.      *)
-(*  - Equivalence proofs use the safe pattern:                        *)
-(*      rnd. / skip => /=. / move=> &1 &2 H. / smt.                   *)
 (*  - Whitespace uses spaces only, never tabs.                        *)
 (*  - Module variable names carry no digits.                          *)
 (*  - Module variable declarations carry explicit type annotations.   *)
@@ -606,32 +604,17 @@ proof.
 qed.
 
 (* ----------------------------------------------------------------- *)
-(* Equivalence and correctness of sample_basic                        *)
+(* Correctness of sample_basic                                        *)
 (*                                                                    *)
-(* Sampling uses `duniform_int`, a concrete `int distr` built from    *)
-(* EasyCrypt's built-in `duniform` applied to the list [0; ...; N].   *)
-(* There are no axioms involved, so the equivalence proof does not    *)
-(* trigger the ecUtils.ml anomaly.                                    *)
+(* `sample_basic_correct` establishes that the sampled (A, B)         *)
+(* satisfies 19*A + 9*B = N and dr(A) = dr(N). This is the core       *)
+(* property needed by downstream modules.                             *)
 (*                                                                    *)
-(* The equivalence proof follows the canonical pattern:               *)
-(*   1. `proc.` to enter the procedures.                              *)
-(*   2. `seq 1 1` to isolate the sampling step from the return step.  *)
-(*   3. In the sampling step, `rnd.` followed by `skip => /=.`.       *)
-(*   4. In the return step, `skip => /=.` reduces to a tuple          *)
-(*      equality, which `smt.` closes using the hypothesis on kvl.    *)
-(* ----------------------------------------------------------------- *)
-
-(* ----------------------------------------------------------------- *)
-(* Equivalence and correctness of sample_basic                        *)
-(*                                                                    *)
-(* `sample_basic_correct` is the core property: it shows that the     *)
-(* sampled (A, B) satisfies 19*A + 9*B = N and dr(A) = dr(N).         *)
-(*                                                                    *)
-(* `sample_basic_equiv` and `sample_triangle_equiv` are reflexivity   *)
-(* tests: they compare a procedure with itself. They are of low       *)
-(* practical value and are therefore commented out. They can be       *)
-(* re-activated later when there is time to work on the tuple-level   *)
-(* equivalence proofs.                                                *)
+(* The equivalence lemmas `sample_basic_equiv` and                    *)
+(* `sample_triangle_equiv` are reflexivity tests (procedure vs.       *)
+(* itself). They are of low practical value and are therefore kept    *)
+(* as comments. They can be re-activated later when there is time     *)
+(* to work on the tuple-level equivalence proofs.                     *)
 (* ----------------------------------------------------------------- *)
 
 lemma sample_basic_correct (N : int) :
@@ -644,8 +627,6 @@ proof.
   move=> hN.
   proc.
   conseq />.
-  move=> kvl.
-  split.
   - apply linear_invariant => //.
     smt(kmax_ge0).
   - apply dr_rep_A => //.
@@ -653,10 +634,10 @@ proof.
 qed.
 
 (*
-   The following two lemmas are reflexivity tests. They are kept here
-   as comments for future reference. They are not used by any other
-   file in the suite. To re-activate them, remove the comment markers
-   and provide the missing equivalence proofs.
+   The following two lemmas are reflexivity tests. They are kept
+   here as comments for future reference. They are not used by any
+   other file in the suite. To re-activate them, remove the comment
+   markers and provide the missing equivalence proofs.
 
 lemma sample_basic_equiv (N : int) :
   162 < N =>
