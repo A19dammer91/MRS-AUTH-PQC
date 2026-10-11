@@ -68,14 +68,12 @@ jobs:
         working-directory: proofs
         run: |
           # (1) Forbid any occurrence of the admit tactic.
-          #     This is the ONLY hard failure in this step.
           if grep -nE '^[[:space:]]*admit[[:space:]]*\.?[[:space:]]*$' MRS_*.ec; then
             echo "::error::admit found in proofs"
             exit 1
           fi
 
           # (2) Report the axiom count for each file.
-          #     This is INFORMATIONAL ONLY. We never fail here.
           if [ ! -f .axiom-baseline ]; then
             echo "::warning::.axiom-baseline not found in proofs/ — skipping axiom report"
             exit 0
@@ -86,25 +84,19 @@ jobs:
           echo "=========================================="
 
           while IFS= read -r line; do
-            # Skip empty lines.
             [ -z "$line" ] && continue
-
-            # Skip comment lines.
             case "$line" in
               \#*) continue ;;
             esac
 
-            # Split the line into file and expected count.
             file=$(echo "$line" | awk '{print $1}')
             expected=$(echo "$line" | awk '{print $2}')
 
-            # Sanity check: both must be non-empty.
             if [ -z "$file" ] || [ -z "$expected" ]; then
               echo "::warning::skipping malformed line: $line"
               continue
             fi
 
-            # If the file does not exist, skip with a warning.
             if [ ! -f "$file" ]; then
               echo "::warning::$file not found in proofs/ — skipping"
               continue
@@ -135,8 +127,10 @@ jobs:
               MRS_FloorSum.ec \
               MRS_DigitSum.ec \
               MRS_Distr.ec \
-              MRS_General.ec \
+              MRS_Framework.ec \
+              MRS_Extensions.ec \
               MRS_Core.ec \
+              MRS_Equiv.ec \
               MRS_Encoding.ec \
               MRS_Chain.ec \
               MRS_Sampler.ec \
