@@ -64,6 +64,49 @@ jobs:
           opam exec -- easycrypt why3config
           opam exec -- easycrypt config
 
+      - name: Locate distribution operators in EasyCrypt library
+        run: |
+          echo "=========================================="
+          echo "=== Files containing 'op dbool' ==="
+          echo "=========================================="
+          find ~/.opam -name "*.ec" 2>/dev/null | xargs grep -l "op dbool" 2>/dev/null | head -20
+          echo ""
+          echo "=========================================="
+          echo "=== Files containing 'op dunit' ==="
+          echo "=========================================="
+          find ~/.opam -name "*.ec" 2>/dev/null | xargs grep -l "op dunit" 2>/dev/null | head -20
+          echo ""
+          echo "=========================================="
+          echo "=== Files containing 'op dmap' ==="
+          echo "=========================================="
+          find ~/.opam -name "*.ec" 2>/dev/null | xargs grep -l "op dmap" 2>/dev/null | head -20
+          echo ""
+          echo "=========================================="
+          echo "=== Files containing 'op dinter' ==="
+          echo "=========================================="
+          find ~/.opam -name "*.ec" 2>/dev/null | xargs grep -l "op dinter" 2>/dev/null | head -20
+          echo ""
+          echo "=========================================="
+          echo "=== Exact definitions (any of these) ==="
+          echo "=========================================="
+          grep -rn "op dbool\|op dunit\|op dmap\|op dinter\|op dunif" ~/.opam/ 2>/dev/null | head -30
+          echo ""
+          echo "=========================================="
+          echo "=== All files with 'Distr' in the name ==="
+          echo "=========================================="
+          find ~/.opam -name "*Distr*.ec" 2>/dev/null | head -30
+          echo ""
+          echo "=========================================="
+          echo "=== All files with 'Bool' or 'bool' in the name ==="
+          echo "=========================================="
+          find ~/.opam \( -name "*Bool*.ec" -o -name "*bool*.ec" \) 2>/dev/null | head -30
+          echo ""
+          echo "=========================================="
+          echo "=== All files with 'Interval' in the name ==="
+          echo "=========================================="
+          find ~/.opam -name "*Interval*.ec" 2>/dev/null | head -30
+          echo ""
+
       - name: Forbid admit and enforce axiom baseline
         working-directory: proofs
         run: |
