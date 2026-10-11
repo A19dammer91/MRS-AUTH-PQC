@@ -24,7 +24,7 @@ op dpoint (n : int) : idistr =
 
 lemma dpoint_mu_eq (n x : int) :
   (dpoint n).`mu x = if x = n then 1%r else 0%r.
-proof. done. qed.
+proof. by rewrite /dpoint. qed.
 
 lemma dpoint_mu_ge0 (n x : int) :
   0%r <= (dpoint n).`mu x.
@@ -42,7 +42,7 @@ op dconvex (p : real) (d1 d2 : idistr) : idistr =
 
 lemma dconvex_mu (p : real) (d1 d2 : idistr) (x : int) :
   (dconvex p d1 d2).`mu x = p * d1.`mu x + (1%r - p) * d2.`mu x.
-proof. done. qed.
+proof. by rewrite /dconvex. qed.
 
 lemma dconvex_mu_ge0 (p : real) (d1 d2 : idistr) (x : int) :
   0%r <= p => p <= 1%r =>
@@ -138,7 +138,7 @@ proof.
 qed.
 
 (* ----------------------------------------------------------------- *)
-(* Compatibility layer                                                *)
+(* Compatibility: mu as a named operator                              *)
 (* ----------------------------------------------------------------- *)
 
-abbrev mu (d : idistr) (x : int) : real = d.`mu x.
+op mu (d : idistr) (x : int) : real = d.`mu x.
