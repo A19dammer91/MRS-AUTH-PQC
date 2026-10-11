@@ -37,6 +37,8 @@
 (*  - `~` is NOT used for negation: `!` or `P => false`.              *)
 (*  - `case (cond).` without `=>` pattern is avoided.                 *)
 (*  - `set k := ...` is avoided; concrete terms are substituted.      *)
+(*  - Equivalence proofs use the safe pattern:                        *)
+(*      rnd. / skip => /=. / move=> &1 &2 H. / by [] or smt.          *)
 (*  - Whitespace uses spaces only, never tabs.                        *)
 (*  - Module variable names carry no digits.                          *)
 (*  - Module variable declarations carry explicit type annotations.   *)
@@ -606,15 +608,14 @@ qed.
 (* ----------------------------------------------------------------- *)
 (* Correctness of sample_basic                                        *)
 (*                                                                    *)
-(* `sample_basic_correct` establishes that the sampled (A, B)         *)
-(* satisfies 19*A + 9*B = N and dr(A) = dr(N). This is the core       *)
-(* property needed by downstream modules.                             *)
-(*                                                                    *)
-(* The equivalence lemmas `sample_basic_equiv` and                    *)
-(* `sample_triangle_equiv` are reflexivity tests (procedure vs.       *)
-(* itself). They are of low practical value and are therefore kept    *)
-(* as comments. They can be re-activated later when there is time     *)
-(* to work on the tuple-level equivalence proofs.                     *)
+(* The proof proceeds in three steps:                                 *)
+(*   1. `proc.` enters the procedure.                                 *)
+(*   2. `conseq />.` reduces the goal to the conjunction of the       *)
+(*      invariant and the digital-root property. It splits into two   *)
+(*      subgoals, each of the form `forall kvl, ...`.                 *)
+(*   3. In each subgoal, `move=> kvl.` introduces the sampled value,  *)
+(*      and the corresponding lemma (`linear_invariant` or            *)
+(*      `dr_rep_A`) is applied.                                       *)
 (* ----------------------------------------------------------------- *)
 
 lemma sample_basic_correct (N : int) :
@@ -635,11 +636,16 @@ proof.
     smt().
 qed.
 
-(*
-   The following two lemmas are reflexivity tests. They are kept
-   here as comments for future reference. They are not used by any
-   other file in the suite. To re-activate them, remove the comment
-   markers and provide the missing equivalence proofs.
+(* ----------------------------------------------------------------- *)
+(* Equivalence of sample_basic with itself                            *)
+(*                                                                    *)
+(* Reflexivity test. The proof uses the safe pattern:                 *)
+(*   `rnd.` to discharge the sampling step (the two distributions    *)
+(*   are syntactically identical, so EasyCrypt closes the sampling    *)
+(*   goal automatically), followed by `skip => /=.` and `by [].` for *)
+(*   the sampling branch, and `skip => /=.` and `smt()` for the       *)
+(*   return branch.                                                   *)
+(* ----------------------------------------------------------------- *)
 
 lemma sample_basic_equiv (N : int) :
   162 < N =>
@@ -656,6 +662,14 @@ proof.
     move=> &1 &2 H.
     smt().
 qed.
+
+(* ----------------------------------------------------------------- *)
+(* Equivalence of sample_triangle with itself                         *)
+(*                                                                    *)
+(* Same pattern as sample_basic_equiv, but with an extra sequencing   *)
+(* step to handle the two deterministic assignments before and after  *)
+(* the sampling.                                                      *)
+(* ----------------------------------------------------------------- *)
 
 lemma sample_triangle_equiv (N : int) :
   162 < N =>
@@ -676,4 +690,3 @@ proof.
       move=> &1 &2 H.
       smt().
 qed.
-*)
