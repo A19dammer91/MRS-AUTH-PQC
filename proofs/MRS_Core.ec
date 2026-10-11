@@ -665,9 +665,7 @@ lemma sample_basic_correct (N : int) :
 proof.
   move=> hN.
   proc.
-  skip.
-  move=> kvl.
-  split.
+  conseq />.
   - apply linear_invariant => //.
     smt(kmax_ge0).
   - apply dr_rep_A => //.
