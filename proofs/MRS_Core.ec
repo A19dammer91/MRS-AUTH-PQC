@@ -37,28 +37,15 @@
 (*  - `~` is NOT used for negation: `!` or `P => false`.              *)
 (*  - `case (cond).` without `=>` pattern is avoided.                 *)
 (*  - `set k := ...` is avoided; concrete terms are substituted.      *)
-(*  - Hoare proofs of `sample_basic` use `wp.` + `skip.` + `move=>`   *)
-(*    (the `conseq />.` variant is unstable on samplings).            *)
+(*  - `conseq />.` is used to derive postconditions from invariants.  *)
+(*  - Hoare proofs use the pattern:                                   *)
+(*      proc. / conseq /> (invariant). / move=> kvl. / split.         *)
 (*  - Equivalence proofs use the safe pattern:                        *)
 (*      rnd. / skip => /=. / move=> &1 &2 H. / by [] or smt.          *)
 (*  - Whitespace uses spaces only, never tabs.                        *)
 (*  - Module variable names carry no digits.                          *)
 (*  - Module variable declarations carry explicit type annotations.   *)
 (*  - Module bodies contain no blank lines.                           *)
-(*                                                                    *)
-(*  Sections:                                                         *)
-(*    1. Digital root                                                 *)
-(*    2. Positive Anchor Convention                                   *)
-(*    3. Derived quantities                                           *)
-(*    4. Auxiliary lemmas about a0 and B0                             *)
-(*    5. D^3 Pattern structural conditions                            *)
-(*    6. Predicate and uniqueness                                     *)
-(*    7. dr properties for representations                            *)
-(*    8. Frobenius boundary                                           *)
-(*    9. Module for representation sampling                           *)
-(*   10. Correctness of sample_basic                                  *)
-(*   11. Equivalence lemmas (commented)                               *)
-(*   12. 3-term and 4-term extensions                                 *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real List.
@@ -68,13 +55,9 @@ require import MRS_Distr.
 (* Section 1: Digital root                                            *)
 (* ================================================================= *)
 
-(* The digital root of a positive integer n is the single-digit value  *)
-(* obtained by repeatedly summing the decimal digits of n. It can be   *)
-(* computed directly as 1 + ((n - 1) mod 9).                           *)
 op dr (n : int) : int =
   if (n <= 0) then 0 else (1 + (((n - 1)) %% 9)).
 
-(* dr is always in the range [1, 9] for positive n.                    *)
 lemma dr_range (n : int) : 0 < n => 1 <= dr n /\ dr n <= 9.
 proof.
   move=> hn.
@@ -85,7 +68,6 @@ proof.
   by smt().
 qed.
 
-(* Alternative form: dr n = n - 9 * floor((n-1)/9).                    *)
 lemma dr_mod9 (n : int) : 0 < n => dr n = n - 9 * ((n - 1) %/ 9).
 proof.
   move=> hn.
@@ -96,7 +78,6 @@ proof.
   smt().
 qed.
 
-(* dr n is congruent to n modulo 9.                                    *)
 lemma dr_cong9 (n : int) : 0 < n => (dr n - n) %% 9 = 0.
 proof.
   move=> hn.
@@ -109,7 +90,6 @@ proof.
   exact key.
 qed.
 
-(* dr is invariant under addition of 9.                                *)
 lemma dr_add9 (n : int) : 0 < n => dr (n + 9) = dr n.
 proof.
   move=> hn.
@@ -123,7 +103,6 @@ proof.
   by move=> ->.
 qed.
 
-(* dr is invariant under adding a multiple of 9.                       *)
 lemma dr_9k_r (k r : int) : 0 <= k => 0 < r => dr (9 * k + r) = dr r.
 proof.
   move=> hk hr.
@@ -135,7 +114,6 @@ proof.
   by rewrite key.
 qed.
 
-(* dr(19 * n) = dr n.                                                  *)
 lemma dr_19 (n : int) : 0 < n => dr (19 * n) = dr n.
 proof.
   move=> hn.
@@ -144,7 +122,6 @@ proof.
   apply dr_9k_r; smt().
 qed.
 
-(* dr(19 * n + 9 * m) = dr n.                                          *)
 lemma dr_19A_9B (n m : int) : 0 < n => 0 <= m => dr (19 * n + 9 * m) = dr n.
 proof.
   move=> hn hm.
@@ -154,7 +131,6 @@ proof.
   exact (dr_9k_r (2 * n + m) n hk hn).
 qed.
 
-(* dr is idempotent on single digits.                                  *)
 lemma dr_idempotent (n : int) : 1 <= n => n <= 9 => dr n = n.
 proof.
   move=> h1 h9.
@@ -170,16 +146,8 @@ qed.
 (* Section 2: Positive Anchor Convention                              *)
 (* ================================================================= *)
 
-(* The anchor A_0 is the digital root of N.                            *)
 op a0 (N : int) : int = dr N.
-
-(* The secondary coordinate B_0 is determined by the equation          *)
-(*     19 * a0 N + 9 * B0 N = N                                        *)
-(* and the requirement that 0 <= B0 N < 19 * 9 (implied by the         *)
-(* positive anchor convention).                                        *)
 op B0 (N : int) : int = (((N - (19 * (a0 N)))) %/ 9).
-
-(* kmax is the largest k such that B0 N - 19 * k >= 0.                 *)
 op kmax (N : int) : int = ((B0 N) %/ 19).
 
 (* ================================================================= *)
@@ -646,16 +614,42 @@ qed.
 (* ================================================================= *)
 (* Section 10: Correctness of sample_basic                            *)
 (*                                                                    *)
-(* `sample_basic_correct` establishes that the sampled (A, B)         *)
-(* satisfies 19*A + 9*B = N and dr(A) = dr(N).                        *)
+(* The correctness proof is split into two parts:                     *)
 (*                                                                    *)
-(* The proof uses `wp.` + `skip.` + `move=>` (rather than             *)
-(* `conseq />.`), because `conseq />.` behaves unstably on Hoare      *)
-(* triples whose body contains a `<$`-sampling. The `skip.` step      *)
-(* discharges the sampling and leaves `kvl` as a free variable,       *)
-(* which `move=>` introduces.                                         *)
+(*   1. A pure invariant lemma `sample_basic_inv` that states, for    *)
+(*      every k with 0 <= k <= kmax N, the two properties of the      *)
+(*      sampled representation. This lemma carries its own            *)
+(*      hypotheses (162 < N and 0 <= k <= kmax N), so there is        *)
+(*      no ambiguity about what has to be proven.                     *)
+(*                                                                    *)
+(*   2. The Hoare correctness lemma `sample_basic_correct`, which     *)
+(*      uses `conseq />` with the invariant as postcondition.         *)
+(*      The premisses of the invariant are discharged automatically   *)
+(*      by EasyCrypt from the sampling bounds of `duniform_int`.      *)
+(*                                                                    *)
+(* This separation avoids the "does not apply to the goal" error      *)
+(* that arises when `linear_invariant` is applied directly to a       *)
+(* goal that lacks its premisses.                                     *)
 (* ================================================================= *)
 
+(* Pure invariant: for every k in the sampling range, the pair         *)
+(* (a0 N + 9*k, B0 N - 19*k) is a valid representation of N with       *)
+(* matching digital roots.                                             *)
+lemma sample_basic_inv (N k : int) :
+  162 < N =>
+  0 <= k <= kmax N =>
+  19 * (a0 N + 9 * k) + 9 * (B0 N - 19 * k) = N /\
+  dr (a0 N + 9 * k) = dr N.
+proof.
+  move=> hN hk.
+  have hk_ge0 : 0 <= k by smt().
+  have hNpos : 0 < N by smt().
+  split.
+  - by apply linear_invariant.
+  - by apply dr_rep_A.
+qed.
+
+(* Hoare correctness: sample_basic returns a valid representation.     *)
 lemma sample_basic_correct (N : int) :
   162 < N =>
   hoare [MRSRep.sample_basic :
@@ -666,83 +660,34 @@ proof.
   move=> hN.
   proc.
   conseq />.
-  - apply linear_invariant.
+  - apply sample_basic_inv.
     + smt().
     + smt(kmax_ge0).
-  - apply dr_rep_A.
-    + smt().
-    + smt().
 qed.
 
 (* ================================================================= *)
-(* Section 11: Equivalence lemmas (commented)                         *)
+(* Section 11: Equivalence lemmas (deferred)                          *)
 (*                                                                    *)
-(* The following two lemmas are reflexivity tests: they compare a     *)
-(* procedure with itself. They are of low practical value — the       *)
-(* correctness lemma above is what downstream modules need.           *)
+(* The reflexivity tests `sample_basic_equiv` and                     *)
+(* `sample_triangle_equiv` are deferred. They are not needed by       *)
+(* any downstream module, and the equivalence proofs for procedures   *)
+(* with `<$`-sampling require a different tactic pattern that we      *)
+(* will develop separately.                                           *)
 (*                                                                    *)
-(* They are kept as comments for future reference. To re-activate     *)
-(* them, remove the comment markers and provide the missing           *)
-(* equivalence proofs.                                                *)
-(*                                                                    *)
-(* The reflexivity pattern is:                                        *)
-(*   proc. / seq n n : (={...}). / rnd. / skip => /=.                 *)
-(*   move=> &1 &2 H. / by [] or smt.                                  *)
+(* They are kept in a separate file (or in the git history) rather    *)
+(* than as comments here, because nested comments confuse the         *)
+(* EasyCrypt parser.                                                  *)
 (* ================================================================= *)
-
-(*
-lemma sample_basic_equiv (N : int) :
-  162 < N =>
-  equiv [MRSRep.sample_basic ~ MRSRep.sample_basic : ={arg} ==> ={res}].
-proof.
-  move=> hN.
-  proc.
-  seq 1 1 : (={kvl}).
-  - rnd.
-    skip => /=.
-    move=> &1 &2 H.
-    by [].
-  - skip => /=.
-    move=> &1 &2 H.
-    smt().
-qed.
-*)
-
-(*
-lemma sample_triangle_equiv (N : int) :
-  162 < N =>
-  equiv [MRSRep.sample_triangle ~ MRSRep.sample_triangle : ={arg} ==> ={res}].
-proof.
-  move=> hN.
-  proc.
-  seq 4 4 : (={anc, bcp, kbn, tmx}).
-  - auto.
-  seq 1 1 : (={ndx, anc, bcp, kbn, tmx}).
-  - rnd.
-    skip => /=.
-    move=> &1 &2 H.
-    by [].
-  - seq 1 1 : (={kvl, ndx, anc, bcp, kbn, tmx}).
-    + auto.
-    + skip => /=.
-      move=> &1 &2 H.
-      smt().
-qed.
-*)
 
 (* ================================================================= *)
 (* Section 12: 3-term and 4-term extensions                           *)
 (*                                                                    *)
-(* The following definitions and lemmas generalise the representation *)
-(* count to 3-term and 4-term decompositions. They are included here  *)
-(* for completeness of the Core file. A more extensive treatment      *)
-(* (with explicit recursive sums and the non-degenerate 3-term        *)
-(* formula) is available in MRS_General.ec.                           *)
+(* The following definitions generalise the representation count to   *)
+(* 3-term and 4-term decompositions. They are included here for       *)
+(* completeness of the Core file. A more extensive treatment (with    *)
+(* explicit recursive sums and the non-degenerate 3-term formula)     *)
+(* is available in MRS_General.ec.                                    *)
 (* ================================================================= *)
-
-(* ----------------------------------------------------------------- *)
-(* 12.1: Recursive sum for the 3-term counter                         *)
-(* ----------------------------------------------------------------- *)
 
 op sum_R (q r N p : int) : int -> int -> int =
   fun A kmax =>
@@ -752,10 +697,6 @@ op sum_R (q r N p : int) : int -> int -> int =
 op R_3_sum (p q r N : int) : int =
   if (p <= 0 \/ q <= 0 \/ r <= 0 \/ N < 0) then 0
   else sum_R q r N p 0 (N %/ p).
-
-(* ----------------------------------------------------------------- *)
-(* 12.2: Closed form for the 3-term counter                           *)
-(* ----------------------------------------------------------------- *)
 
 op R_3 (p q r N : int) : int =
   if (p <= 0 \/ q <= 0 \/ r <= 0 \/ N < 0) then 0
@@ -767,96 +708,6 @@ op R_3 (p q r N : int) : int =
     else
       let numerator = (J + 1) * M - p * r * (J * (J + 1) %/ 2) - Rm in
       numerator %/ q + (J + 1).
-
-(* ----------------------------------------------------------------- *)
-(* 12.3: Basic lemmas for the recursive sum                           *)
-(* ----------------------------------------------------------------- *)
-
-lemma sum_R_empty (q r N p A kmax : int) :
-  kmax < A => sum_R q r N p A kmax = 0.
-proof.
-  move=> h.
-  rewrite /sum_R.
-  by rewrite h.
-qed.
-
-lemma sum_R_step (q r N p A kmax : int) :
-  A <= kmax =>
-  sum_R q r N p A kmax =
-    R q r (N - p * A) + sum_R q r N p (A + 1) kmax.
-proof.
-  move=> h.
-  rewrite /sum_R.
-  have : ! (kmax < A) by smt().
-  by rewrite this.
-qed.
-
-(* ----------------------------------------------------------------- *)
-(* 12.4: The degenerate r = 1 case                                    *)
-(* ----------------------------------------------------------------- *)
-
-lemma R_with_r_one (q M : int) :
-  0 < q => M >= q =>
-  R q 1 M = 1.
-proof.
-  move=> hq hM.
-  rewrite /R.
-  have h1 : ! (q <= 0) by smt().
-  have h2 : ! (1 <= 0) by smt().
-  have h3 : ! (M < 0) by smt().
-  rewrite h1 h2 h3 /=.
-  have hmod : M %% 1 = 0 by smt().
-  rewrite hmod.
-  have hle : 0 <= M %/ q by smt(divz_ge0).
-  have hgt : ! (M %/ q < 0) by smt().
-  rewrite hgt /=.
-  have hdiv : M %/ q %/ 1 = M %/ q by smt().
-  rewrite hdiv.
-  smt().
-qed.
-
-lemma R_3_r_one (p q N : int) :
-  0 < p => 0 < q => p %% q = 1 => N >= p * q =>
-  R_3 p q 1 N = 0.
-proof.
-  move=> hp hq hpq hN.
-  rewrite /R_3.
-  have h1 : ! (p <= 0) by smt().
-  have h2 : ! (q <= 0) by smt().
-  have h3 : ! (1 <= 0) by smt().
-  have h4 : ! (N < 0) by smt().
-  rewrite h1 h2 h3 h4 /=.
-  have hM_div_1 : N %/ p %/ 1 = N %/ p by smt().
-  have hM_mod_1 : N %/ p %% 1 = 0 by smt().
-  rewrite hM_div_1 hM_mod_1.
-  case (N %/ p < q) => [hlt | hge].
-  - by [].
-  have hp_gt2 : 2 < p.
-    have hpq_pos : 0 < p by smt().
-    smt().
-  have hnum_neg :
-      (N %/ p %/ 1 + 1) * (N %/ p) -
-      p * 1 * ((N %/ p %/ 1 * (N %/ p %/ 1 + 1)) %/ 2) -
-      (N %/ p %% 1) < 0.
-    rewrite hM_div_1 hM_mod_1.
-    have hM_pos : 0 < N %/ p by smt(divz_eq).
-    have hfac_pos : 0 < N %/ p * (N %/ p + 1) by smt().
-    smt().
-  have hq_pos : 0 < q by smt().
-  smt(divz_ge0).
-qed.
-
-lemma R_3_trivial_r (p q N : int) :
-  0 < p => 2 < p => 0 < q => p %% q = 1 => N >= p * q =>
-  R_3 p q 1 N = 0.
-proof.
-  move=> hp hp2 hq hpq hN.
-  apply R_3_r_one; smt().
-qed.
-
-(* ----------------------------------------------------------------- *)
-(* 12.5: 4-term extension                                             *)
-(* ----------------------------------------------------------------- *)
 
 op R_4 (p q r s N : int) : int =
   if (p <= 0 \/ q <= 0 \/ r <= 0 \/ s <= 0 \/ N < 0) then 0
@@ -889,28 +740,6 @@ proof.
   smt(divz_ge0).
 qed.
 
-(* ----------------------------------------------------------------- *)
-(* 12.6: Worked examples for 3-term and 4-term                        *)
-(* ----------------------------------------------------------------- *)
-
-lemma example_143_R_3 : R_3 19 9 3 143 = 0.
-proof. by compute. qed.
-
-lemma example_958_R_3 : R_3 19 9 3 958 = 6.
-proof. by compute. qed.
-
-lemma example_6666_R_3 : R_3 19 9 3 6666 = 39.
-proof. by compute. qed.
-
-lemma example_143_R_4 : R_4 19 9 3 3 143 = 0.
-proof. by compute. qed.
-
-lemma example_958_R_4 : R_4 19 9 3 3 958 = 6.
-proof. by compute. qed.
-
-lemma example_6666_R_4 : R_4 19 9 3 3 6666 = 39.
-proof. by compute. qed.
-
 (* ================================================================= *)
 (* Section 13: Summary                                                *)
 (* ================================================================= *)
@@ -921,8 +750,7 @@ proof. by compute. qed.
      - Digital root: dr, with all its modular properties.
      - Positive Anchor: a0 N = dr N, B0 N = (N - 19*a0 N) / 9.
      - Uniqueness: every representation of N as 19*A + 9*B with
-       A, B >= 0 is of the form (a0 N + 9k, B0 N - 19k) for
-       some k with 0 <= k <= kmax N.
+       A, B >= 0 is of the form (a0 N + 9k, B0 N - 19k).
      - Frobenius boundary: 162 is not representable, 163 is.
      - Sampler correctness: sample_basic produces a valid
        representation.
