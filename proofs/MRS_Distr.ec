@@ -2,9 +2,9 @@
 (*  MRS_Distr.ec                                                      *)
 (*  Axiomatic distribution theory for MRS-AUTH.                       *)
 (*                                                                    *)
-(*  In EasyCrypt r2024.09 the standard distribution operators are     *)
-(*  not present in the installed theory files, but the distribution   *)
-(*  type `int Pervasive.distr` IS available. We therefore use the     *)
+(*  EasyCrypt r2024.09 provides the type `int Pervasive.distr` but    *)
+(*  does not export a public `mu` operator or any uniform             *)
+(*  distribution over integer intervals. We therefore use the         *)
 (*  built-in type and axiomatise the missing operators `mu`,          *)
 (*  `duniform`, and `dpoint`.                                         *)
 (*                                                                    *)
@@ -12,14 +12,13 @@
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real.
-require import Pervasive.
 
 (* ----------------------------------------------------------------- *)
 (* The probability measure on integer distributions                   *)
 (*                                                                    *)
 (* The built-in type `int Pervasive.distr` is used directly; we only  *)
 (* axiomatise the probability measure `mu` and the two distributions  *)
-(* `duniform` and `dpoint`, which are not present in r2024.09.        *)
+(* `duniform` and `dpoint`.                                           *)
 (* ----------------------------------------------------------------- *)
 
 op mu : int distr -> int -> real.
