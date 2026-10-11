@@ -4,23 +4,21 @@
 (*                                                                    *)
 (*  All distributions are defined constructively. No axioms.          *)
 (*                                                                    *)
+(*  Two layers are exposed:                                           *)
+(*    - idistr        : constructive record type for specification    *)
+(*    - int distr     : EasyCrypt's built-in type for `<$` sampling   *)
+(*                                                                    *)
 (*  Axiom baseline: 0.                                                *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real.
+require import Distr.
 
-(* ----------------------------------------------------------------- *)
-(* The distribution type                                              *)
-(*                                                                    *)
-(* The probability mass function is stored in the field `mass`.       *)
-(* The operator `mu` is defined separately to avoid a name clash.     *)
-(* ----------------------------------------------------------------- *)
+(* ================================================================= *)
+(* Layer 1: Constructive specification                                *)
+(* ================================================================= *)
 
 type idistr = { mass : int -> real }.
-
-(* ----------------------------------------------------------------- *)
-(* Point mass distribution                                            *)
-(* ----------------------------------------------------------------- *)
 
 op dpoint (n : int) : idistr =
   {| mass = fun x => if x = n then 1%r else 0%r |}.
@@ -35,10 +33,6 @@ proof.
   rewrite dpoint_mu_eq.
   case (x = n) => [_ | _]; smt().
 qed.
-
-(* ----------------------------------------------------------------- *)
-(* Convex combination of two distributions                            *)
-(* ----------------------------------------------------------------- *)
 
 op dconvex (p : real) (d1 d2 : idistr) : idistr =
   {| mass = fun x => p * d1.`mass x + (1%r - p) * d2.`mass x |}.
@@ -58,10 +52,6 @@ proof.
   have h2 : 0%r <= (1%r - p) * d2.`mass x by smt().
   smt().
 qed.
-
-(* ----------------------------------------------------------------- *)
-(* Uniform distribution over [0, N]                                   *)
-(* ----------------------------------------------------------------- *)
 
 op duniform (N : int) : idistr =
   if N < 0 then dpoint 0
@@ -127,10 +117,6 @@ proof.
   by rewrite hx' hy'.
 qed.
 
-(* ----------------------------------------------------------------- *)
-(* Total mass of the uniform distribution                             *)
-(* ----------------------------------------------------------------- *)
-
 lemma duniform_total_mass_aux (N : int) :
   0 <= N =>
   (N + 1)%r * (1%r / (N + 1)%r) = 1%r.
@@ -139,10 +125,6 @@ proof.
   have hNp1_ne : (N + 1)%r <> 0%r by smt().
   field; smt().
 qed.
-
-(* ----------------------------------------------------------------- *)
-(* Compatibility: mu as a named operator                              *)
-(* ----------------------------------------------------------------- *)
 
 op mu (d : idistr) (x : int) : real = d.`mass x.
 
@@ -160,17 +142,9 @@ proof.
   by apply duniform_mu_eq.
 qed.
 
-(* ----------------------------------------------------------------- *)
-(* Bridge to EasyCrypt's built-in distr type                          *)
-(*                                                                    *)
-(* EasyCrypt's `<$` operator requires an `int distr`, not our own     *)
-(* `idistr`. We therefore expose a second operator `duniform_int`     *)
-(* that returns the built-in type. The two versions share the same    *)
-(* probability mass function; the lemma `duniform_int_mu` records     *)
-(* the correspondence.                                                *)
-(* ----------------------------------------------------------------- *)
-
-require import Distr.
+(* ================================================================= *)
+(* Layer 2: Bridge to EasyCrypt's built-in `int distr`                *)
+(* ================================================================= *)
 
 op duniform_int (N : int) : int distr = duniform N.
 
