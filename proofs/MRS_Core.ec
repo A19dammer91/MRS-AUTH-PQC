@@ -3,49 +3,15 @@
 (*  Mathematical core of MRS-AUTH: the 19A + 9B representation       *)
 (*  system under the Positive Anchor Convention.                      *)
 (*                                                                    *)
-(*  The anchor A_0 is defined as the digital root of N:               *)
-(*      A_0 = dr(N) = 1 + ((N - 1) mod 9)      for N > 0              *)
+(*  A_0 = dr(N) = 1 + ((N - 1) mod 9)      for N > 0                  *)
 (*                                                                    *)
-(*  D^3 PATTERN (Deterministic Data Decomposition)                   *)
-(*                                                                    *)
-(*  The MRS-AUTH system is an instance of the D^3 pattern. The        *)
-(*  coefficient set [19, 9, 3, 3, 1] satisfies the two structural     *)
-(*  conditions:                                                       *)
-(*                                                                    *)
+(*  D^3 coefficient set: [19, 9, 3, 3, 1].                            *)
 (*      Foundation:  19 = 1 (mod 9)                                   *)
 (*      Chain:       1 | 3 | 3 | 9                                    *)
 (*                                                                    *)
-(*  Together these conditions guarantee a unique, complete, and       *)
-(*  branch-free decomposition for all N above the break-even          *)
-(*  threshold. The five D^3 lemmas below establish these structural   *)
-(*  guarantees formally.                                              *)
+(*  Sampling uses `duniform_int` from MRS_Distr.ec.                   *)
 (*                                                                    *)
-(*  Distribution theory:                                              *)
-(*    Sampling uses `duniform_int` from MRS_Distr.ec. This is a       *)
-(*    concrete `int distr` built from `duniform` applied to the       *)
-(*    explicit list [0; 1; ...; N]. No axioms.                        *)
-(*                                                                    *)
-(*  Axiom baseline: 0.                                                *)
-(*                                                                    *)
-(*  Robustness principles (EasyCrypt r2024.09):                       *)
-(*  - NO axioms in this file, NO admits.                              *)
-(*  - `linarith`, `nlinarith`, `ltz_pmod`, `divz_ge0` are avoided.   *)
-(*  - `ring_simplify` is avoided.                                     *)
-(*  - `divides` is avoided; divisibility is an explicit identity.     *)
-(*  - `(by tactic)` is never used as a term argument.                 *)
-(*  - `smt(/pred_name)` is NOT used.                                  *)
-(*  - `~` is NOT used for negation: `!` or `P => false`.              *)
-(*  - `case (cond).` without `=>` pattern is avoided.                 *)
-(*  - `set k := ...` is avoided; concrete terms are substituted.      *)
-(*  - `conseq />.` is used to derive postconditions from invariants.  *)
-(*  - Hoare proofs use the pattern:                                   *)
-(*      proc. / conseq /> (invariant). / move=> kvl. / split.         *)
-(*  - Equivalence proofs use the safe pattern:                        *)
-(*      rnd. / skip => /=. / move=> &1 &2 H. / by [] or smt.          *)
-(*  - Whitespace uses spaces only, never tabs.                        *)
-(*  - Module variable names carry no digits.                          *)
-(*  - Module variable declarations carry explicit type annotations.   *)
-(*  - Module bodies contain no blank lines.                           *)
+(*  Axiom baseline: 0. NO admits.                                     *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real List.
@@ -151,7 +117,7 @@ op B0 (N : int) : int = (((N - (19 * (a0 N)))) %/ 9).
 op kmax (N : int) : int = ((B0 N) %/ 19).
 
 (* ================================================================= *)
-(* Section 3: Derived quantities for the MRS representation           *)
+(* Section 3: Derived quantities                                      *)
 (* ================================================================= *)
 
 op ddr (N : int) : int = dr (2 * (dr N)).
@@ -487,7 +453,7 @@ proof.
 qed.
 
 (* ================================================================= *)
-(* Section 8: Frobenius boundary under Positive Anchor                *)
+(* Section 8: Frobenius boundary                                      *)
 (* ================================================================= *)
 
 lemma frobenius_162_not_rep (A B : int) : is_rep 162 A B => false.
@@ -613,26 +579,9 @@ qed.
 
 (* ================================================================= *)
 (* Section 10: Correctness of sample_basic                            *)
-(*                                                                    *)
-(* The correctness proof is split into two parts:                     *)
-(*                                                                    *)
-(*   1. A pure invariant lemma `sample_basic_inv` that states, for    *)
-(*      every k with 0 <= k <= kmax N, the two properties of the      *)
-(*      sampled representation. This lemma carries its own            *)
-(*      hypotheses (162 < N and 0 <= k <= kmax N), so there is        *)
-(*      no ambiguity about what has to be proven.                     *)
-(*                                                                    *)
-(*   2. The Hoare correctness lemma `sample_basic_correct`, which     *)
-(*      uses `conseq />` with the invariant as postcondition.         *)
-(*      The premisses of the invariant are discharged automatically   *)
-(*      by EasyCrypt from the sampling bounds of `duniform_int`.      *)
-(*                                                                    *)
-(* This separation avoids the "does not apply to the goal" error      *)
-(* that arises when `linear_invariant` is applied directly to a       *)
-(* goal that lacks its premisses.                                     *)
 (* ================================================================= *)
 
-(* Pure invariant: for every k in the sampling range, the pair         *)
+(* Pure invariant: for every k in [0, kmax N], the pair                 *)
 (* (a0 N + 9*k, B0 N - 19*k) is a valid representation of N with       *)
 (* matching digital roots.                                             *)
 lemma sample_basic_inv (N k : int) :
@@ -642,8 +591,6 @@ lemma sample_basic_inv (N k : int) :
   dr (a0 N + 9 * k) = dr N.
 proof.
   move=> hN hk.
-  have hk_ge0 : 0 <= k by smt().
-  have hNpos : 0 < N by smt().
   split.
   - by apply linear_invariant.
   - by apply dr_rep_A.
@@ -660,33 +607,22 @@ proof.
   move=> hN.
   proc.
   conseq />.
-  - apply sample_basic_inv.
-    + smt().
-    + smt(kmax_ge0).
+  move=> kvl.
+  apply sample_basic_inv.
+  - smt().
+  - smt(kmax_ge0).
 qed.
 
 (* ================================================================= *)
 (* Section 11: Equivalence lemmas (deferred)                          *)
-(*                                                                    *)
-(* The reflexivity tests `sample_basic_equiv` and                     *)
-(* `sample_triangle_equiv` are deferred. They are not needed by       *)
-(* any downstream module, and the equivalence proofs for procedures   *)
-(* with `<$`-sampling require a different tactic pattern that we      *)
-(* will develop separately.                                           *)
-(*                                                                    *)
-(* They are kept in a separate file (or in the git history) rather    *)
-(* than as comments here, because nested comments confuse the         *)
-(* EasyCrypt parser.                                                  *)
 (* ================================================================= *)
+(* The reflexivity tests for sample_basic and sample_triangle are      *)
+(* deferred: they are not used by downstream modules, and the          *)
+(* equivalence proofs for procedures with `<$`-sampling require a      *)
+(* different tactic pattern.                                           *)
 
 (* ================================================================= *)
 (* Section 12: 3-term and 4-term extensions                           *)
-(*                                                                    *)
-(* The following definitions generalise the representation count to   *)
-(* 3-term and 4-term decompositions. They are included here for       *)
-(* completeness of the Core file. A more extensive treatment (with    *)
-(* explicit recursive sums and the non-degenerate 3-term formula)     *)
-(* is available in MRS_General.ec.                                    *)
 (* ================================================================= *)
 
 op sum_R (q r N p : int) : int -> int -> int =
@@ -708,6 +644,84 @@ op R_3 (p q r N : int) : int =
     else
       let numerator = (J + 1) * M - p * r * (J * (J + 1) %/ 2) - Rm in
       numerator %/ q + (J + 1).
+
+lemma sum_R_empty (q r N p A kmax : int) :
+  kmax < A => sum_R q r N p A kmax = 0.
+proof.
+  move=> h.
+  rewrite /sum_R.
+  by rewrite h.
+qed.
+
+lemma sum_R_step (q r N p A kmax : int) :
+  A <= kmax =>
+  sum_R q r N p A kmax =
+    R q r (N - p * A) + sum_R q r N p (A + 1) kmax.
+proof.
+  move=> h.
+  rewrite /sum_R.
+  have : ! (kmax < A) by smt().
+  by rewrite this.
+qed.
+
+lemma R_with_r_one (q M : int) :
+  0 < q => M >= q =>
+  R q 1 M = 1.
+proof.
+  move=> hq hM.
+  rewrite /R.
+  have h1 : ! (q <= 0) by smt().
+  have h2 : ! (1 <= 0) by smt().
+  have h3 : ! (M < 0) by smt().
+  rewrite h1 h2 h3 /=.
+  have hmod : M %% 1 = 0 by smt().
+  rewrite hmod.
+  have hle : 0 <= M %/ q by smt(divz_ge0).
+  have hgt : ! (M %/ q < 0) by smt().
+  rewrite hgt /=.
+  have hdiv : M %/ q %/ 1 = M %/ q by smt().
+  rewrite hdiv.
+  smt().
+qed.
+
+lemma R_3_r_one (p q N : int) :
+  0 < p => 0 < q => p %% q = 1 => N >= p * q =>
+  R_3 p q 1 N = 0.
+proof.
+  move=> hp hq hpq hN.
+  rewrite /R_3.
+  have h1 : ! (p <= 0) by smt().
+  have h2 : ! (q <= 0) by smt().
+  have h3 : ! (1 <= 0) by smt().
+  have h4 : ! (N < 0) by smt().
+  rewrite h1 h2 h3 h4 /=.
+  have hM_div_1 : N %/ p %/ 1 = N %/ p by smt().
+  have hM_mod_1 : N %/ p %% 1 = 0 by smt().
+  rewrite hM_div_1 hM_mod_1.
+  case (N %/ p < q) => [hlt | hge].
+  - by [].
+  have hp_gt2 : 2 < p.
+    have hpq_pos : 0 < p by smt().
+    smt().
+  have hnum_neg :
+      (N %/ p %/ 1 + 1) * (N %/ p) -
+      p * 1 * ((N %/ p %/ 1 * (N %/ p %/ 1 + 1)) %/ 2) -
+      (N %/ p %% 1) < 0.
+    rewrite hM_div_1 hM_mod_1.
+    have hM_pos : 0 < N %/ p by smt(divz_eq).
+    have hfac_pos : 0 < N %/ p * (N %/ p + 1) by smt().
+    smt().
+  have hq_pos : 0 < q by smt().
+  smt(divz_ge0).
+qed.
+
+lemma R_3_trivial_r (p q N : int) :
+  0 < p => 2 < p => 0 < q => p %% q = 1 => N >= p * q =>
+  R_3 p q 1 N = 0.
+proof.
+  move=> hp hp2 hq hpq hN.
+  apply R_3_r_one; smt().
+qed.
 
 op R_4 (p q r s N : int) : int =
   if (p <= 0 \/ q <= 0 \/ r <= 0 \/ s <= 0 \/ N < 0) then 0
@@ -740,21 +754,24 @@ proof.
   smt(divz_ge0).
 qed.
 
-(* ================================================================= *)
-(* Section 13: Summary                                                *)
-(* ================================================================= *)
-(*
-   This file establishes the mathematical core of the MRS-AUTH
-   representation system for the (19, 9) coefficient pair:
+lemma example_143_R_3 : R_3 19 9 3 143 = 0.
+proof. by compute. qed.
 
-     - Digital root: dr, with all its modular properties.
-     - Positive Anchor: a0 N = dr N, B0 N = (N - 19*a0 N) / 9.
-     - Uniqueness: every representation of N as 19*A + 9*B with
-       A, B >= 0 is of the form (a0 N + 9k, B0 N - 19k).
-     - Frobenius boundary: 162 is not representable, 163 is.
-     - Sampler correctness: sample_basic produces a valid
-       representation.
+lemma example_958_R_3 : R_3 19 9 3 958 = 6.
+proof. by compute. qed.
 
-   All proofs are constructive: no axioms, no admits. The file
-   compiles cleanly under EasyCrypt r2024.09.
-*)
+lemma example_6666_R_3 : R_3 19 9 3 6666 = 39.
+proof. by compute. qed.
+
+lemma example_143_R_4 : R_4 19 9 3 3 143 = 0.
+proof. by compute. qed.
+
+lemma example_958_R_4 : R_4 19 9 3 3 958 = 6.
+proof. by compute. qed.
+
+lemma example_6666_R_4 : R_4 19 9 3 3 6666 = 39.
+proof. by compute. qed.
+
+(* ================================================================= *)
+(* End of MRS_Core.ec                                                 *)
+(* ================================================================= *)
