@@ -2,56 +2,39 @@
 (*  MRS_Distr.ec                                                      *)
 (*  Axiomatic distribution theory for MRS-AUTH.                       *)
 (*                                                                    *)
-(*  In EasyCrypt r2024.09 the standard distribution operators         *)
-(*  are not present in the installed theory files. The theory is      *)
-(*  therefore introduced here entirely axiomatically.                 *)
+(*  In EasyCrypt r2024.09 the standard distribution operators are     *)
+(*  not present in the installed theory files, but the distribution   *)
+(*  type `int Pervasive.distr` IS available. We therefore use the     *)
+(*  built-in type and axiomatise the missing operators `mu`,          *)
+(*  `duniform`, and `dpoint`.                                         *)
 (*                                                                    *)
-(*  To avoid the limitations of EasyCrypt's type system, the type     *)
-(*  `distr` is not parametrised: all distributions are over `int`.    *)
-(*  This is sufficient for the MRS sampling procedures, which only    *)
-(*  sample integers.                                                  *)
-(*                                                                    *)
-(*  Axiom baseline: 6.                                                *)
+(*  Axiom baseline: 5.                                                *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real.
+require import Pervasive.
 
 (* ----------------------------------------------------------------- *)
-(* Distributions over integers and their probability measure         *)
+(* The probability measure on integer distributions                   *)
+(*                                                                    *)
+(* The built-in type `int Pervasive.distr` is used directly; we only  *)
+(* axiomatise the probability measure `mu` and the two distributions  *)
+(* `duniform` and `dpoint`, which are not present in r2024.09.        *)
 (* ----------------------------------------------------------------- *)
 
-type distr.
-
-op mu : distr -> int -> real.
+op mu : int distr -> int -> real.
 
 (* ----------------------------------------------------------------- *)
 (* Basic property of the probability measure                          *)
-(*                                                                    *)
-(* The measure is non-negative. This is the only property of `mu`     *)
-(* that is directly required by the MRS correctness proofs: they use  *)
-(* it to distinguish values in the support (mu > 0) from values out   *)
-(* of the support (mu = 0).                                           *)
 (* ----------------------------------------------------------------- *)
 
-axiom mu_ge0 : forall (d : distr) (x : int), 0%r <= mu d x.
+axiom mu_ge0 : forall (d : int distr) (x : int), 0%r <= mu d x.
 
 (* ----------------------------------------------------------------- *)
 (* The uniform distribution over the closed interval [0, N]           *)
-(*                                                                    *)
-(* duniform N is the uniform distribution over {0, 1, ..., N}. Its    *)
-(* three characteristic properties are:                               *)
-(*                                                                    *)
-(*   - mu (duniform N) x = 0 when x is outside [0, N],                *)
-(*   - mu (duniform N) x > 0 when x is inside [0, N],                 *)
-(*   - mu (duniform N) x = mu (duniform N) y for any two points       *)
-(*     x, y in [0, N].                                                *)
-(*                                                                    *)
-(* The first property is used to exclude invalid samples. The second  *)
-(* is used to establish that the sampling covers the entire interval. *)
-(* The third is used when reasoning about the shape of the sampling.  *)
 (* ----------------------------------------------------------------- *)
 
-op duniform (N : int) : distr.
+op duniform (N : int) : int distr.
 
 axiom duniform_mu_zero (N x : int) :
   0 <= N =>
@@ -71,14 +54,9 @@ axiom duniform_mu_uniform (N x y : int) :
 
 (* ----------------------------------------------------------------- *)
 (* The point mass distribution                                        *)
-(*                                                                    *)
-(* dpoint n is the distribution that returns n with probability 1.    *)
-(* Used by the degenerate branch of sample_triangle. Its two          *)
-(* characteristic properties are: the mass at n is 1, and the mass    *)
-(* at any other point is 0.                                           *)
 (* ----------------------------------------------------------------- *)
 
-op dpoint (n : int) : distr.
+op dpoint (n : int) : int distr.
 
 axiom dpoint_mu_eq (n x : int) :
   mu (dpoint n) x = if x = n then 1%r else 0%r.
