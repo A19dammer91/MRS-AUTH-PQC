@@ -647,7 +647,8 @@ proof.
   move=> hN.
   proc.
   seq 1 1 : (={kvl}).
-  - rnd; auto.
+  - rnd.
+    auto.
   - auto.
 qed.
 
