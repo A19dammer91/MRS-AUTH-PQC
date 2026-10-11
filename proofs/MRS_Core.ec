@@ -631,7 +631,7 @@ proof.
   - rnd.
     skip => /=.
     move=> &1 &2 H.
-    by [].
+    smt().
   - skip => /=.
     move=> &1 &2 H.
     smt().
