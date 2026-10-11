@@ -650,29 +650,11 @@ proof.
   move=> hN.
   proc.
   conseq />.
-  move=> &m t.
   split.
-  - move=> hk0_gt.
-    left; split => //.
-  - move=> hk0_le ht_lo ht_hi.
-    right.
-    have hk_lo : 0 <= (B0 N - dr (2 * dr N) %% 9) %% 9 + 9 * t
-      by smt(modz_ge0).
-    have hk_hi : (B0 N - dr (2 * dr N) %% 9) %% 9 + 9 * t <= kmax N
-      by smt(modz_ge0 kmax_ge0).
-    split; first by apply linear_invariant => //; smt().
-    split.
-    - apply dr_rep_A => //; smt().
-    - have hB_pos : 0 < B0 N - 19 * ((B0 N - dr (2 * dr N) %% 9) %% 9 + 9 * t).
-        have hBge := B_ge0 N ((B0 N - dr (2 * dr N) %% 9) %% 9 + 9 * t) hN.
-        smt(B_ge0 a0_range).
-      apply dr_triangle_B => //.
-      + smt().
-      + have Heq2 : 19 * (9 * t) %% 9 = 0.
-          have Heq3 : 19 * (9 * t) = 9 * (19 * t) by ring.
-          by rewrite Heq3 modzMl.
-        smt(modzDl modzNm modzMml modz_mod).
-      + exact hB_pos.
+  - apply linear_invariant => //.
+    smt(kmax_ge0).
+  - apply dr_rep_A => //.
+    smt().
 qed.
 
 lemma sample_basic_equiv (N : int) :
