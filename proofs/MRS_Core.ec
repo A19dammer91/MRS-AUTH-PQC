@@ -21,9 +21,9 @@
 (*  guarantees formally.                                              *)
 (*                                                                    *)
 (*  Distribution theory:                                              *)
-(*    Sampling uses `duniform` from MRS_Distr.ec. The built-in        *)
-(*    `int Pervasive.distr` type is used, with `mu`, `duniform` and   *)
-(*    `dpoint` axiomatised there.                                     *)
+(*    Sampling uses `duniform` from MRS_Distr.ec. The                *)
+(*    constructive `idistr` type is used, with `mu` as the field     *)
+(*    projection. No axioms.                                          *)
 (*                                                                    *)
 (*  Axiom baseline: 0.                                                *)
 (*                                                                    *)
@@ -38,8 +38,8 @@
 (*  - `~` is NOT used for negation: `!` or `P => false`.              *)
 (*  - `case (cond).` without `=>` pattern is avoided.                 *)
 (*  - `set k := ...` is avoided; concrete terms are substituted.      *)
-(*  - `auto => />` is avoided on Hoare triples whose body contains    *)
-(*    our axiomatic `duniform`. We use `wp.` + `skip.` + `move=>`.    *)
+(*  - The anomalous `auto.` on `equiv` with `duniform` is replaced   *)
+(*    by the safe pattern `rnd.` / `skip => /=.` / explicit `move`.   *)
 (*  - Module variable names carry no digits.                          *)
 (*  - Module variable declarations carry explicit type annotations.   *)
 (*  - Module bodies contain no blank lines.                           *)
@@ -339,28 +339,11 @@ qed.
 
 (* ----------------------------------------------------------------- *)
 (* D^3 Pattern structural conditions                                 *)
-(*                                                                    *)
-(* The coefficient set [19, 9, 3, 3, 1] satisfies the two structural  *)
-(* conditions of the D^3 pattern:                                     *)
-(*                                                                    *)
-(*   Foundation:  19 = 1 (mod 9)                                      *)
-(*   Chain:       1 | 3 | 3 | 9                                       *)
-(*                                                                    *)
-(* Together they guarantee a unique, complete, branch-free            *)
-(* decomposition for all N above the break-even threshold. The five   *)
-(* lemmas below establish these guarantees formally.                  *)
 (* ----------------------------------------------------------------- *)
 
-(* Foundation: 19 = 1 (mod 9). Adding one unit of 19 to N shifts     *)
-(* the residue of N modulo 9 by exactly 1.                           *)
 lemma foundation_19_mod_9 : 19 %% 9 = 1.
-proof.
-  by smt().
-qed.
+proof. by smt(). qed.
 
-(* Chain: 1 | 3, 3 | 3, 3 | 9. Every coefficient exactly divides    *)
-(* the one above it, so remainders from higher layers are            *)
-(* completely absorbable by lower layers.                            *)
 lemma chain_divisibility :
   (3 = 1 * 3) /\ (3 = 3 * 1) /\ (9 = 3 * 3).
 proof.
@@ -369,8 +352,6 @@ proof.
   by ring.
 qed.
 
-(* Absorption Guarantee: the remainder after the top layer is        *)
-(* strictly bounded by c1 = 19.                                      *)
 lemma absorption_guarantee (N : int) :
   162 < N =>
   0 <= N - 19 * (N %/ 19) < 19.
@@ -380,9 +361,6 @@ proof.
   smt().
 qed.
 
-(* No backtracking: the remainders at every layer are bounded by     *)
-(* the next coefficient, so the greedy decomposition never needs     *)
-(* to correct an overshoot.                                          *)
 lemma no_backtracking (N : int) :
   162 < N =>
   0 <= N - 19 * (N %/ 19) < 19 /\
@@ -394,8 +372,6 @@ proof.
   smt().
 qed.
 
-(* Stateless pre-validation: the anchor a0 N is congruent to N       *)
-(* modulo 9, so it can be computed in O(1) by digit summation.       *)
 lemma stateless_precheck (N : int) :
   0 < N =>
   (a0 N) %% 9 = N %% 9.
@@ -640,6 +616,19 @@ proof.
   move=> hN. smt().
 qed.
 
+(* ----------------------------------------------------------------- *)
+(* Equivalence and correctness of sample_basic                        *)
+(*                                                                    *)
+(* The previous version of this file crashed at the anomaly in        *)
+(* ecUtils.ml on the `auto.` inside the equivalence proof. The       *)
+(* cause was the axiomatic `duniform`. With the constructive          *)
+(* `duniform` of MRS_Distr.ec (Section 1), the anomaly does not       *)
+(* arise: `duniform N` is a concrete record, and both sides of the    *)
+(* equivalence refer to the same record. We therefore use the safe    *)
+(* pattern `rnd.` / `skip => /=.` / explicit `move=>` without         *)
+(* invoking `auto.` on the distributions themselves.                  *)
+(* ----------------------------------------------------------------- *)
+
 lemma sample_basic_equiv (N : int) :
   162 < N =>
   equiv [MRSRep.sample_basic ~ MRSRep.sample_basic : ={arg} ==> ={res}].
@@ -647,10 +636,15 @@ proof.
   move=> hN.
   proc.
   seq 1 1 : (={kvl}).
-  - rnd.
-    auto.
-  - skip => /=.
-    auto.
+  - (* sampling step: same distribution on both sides *)
+    rnd.
+    skip => /=.
+    move=> &1 &2 H.
+    by [].
+  - (* return step: deterministic *)
+    skip => /=.
+    move=> &1 &2 H.
+    by [].
 qed.
 
 lemma sample_basic_correct (N : int) :
@@ -680,8 +674,13 @@ proof.
   seq 4 4 : (={anc, bcp, kbn, tmx}).
   - auto.
   seq 1 1 : (={ndx, anc, bcp, kbn, tmx}).
-  - rnd; auto.
+  - rnd.
+    skip => /=.
+    move=> &1 &2 H.
+    by [].
   - seq 1 1 : (={kvl, ndx, anc, bcp, kbn, tmx}).
     + auto.
-    + auto.
+    + skip => /=.
+      move=> &1 &2 H.
+      by [].
 qed.
