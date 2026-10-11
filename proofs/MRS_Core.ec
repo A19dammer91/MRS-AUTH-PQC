@@ -649,7 +649,8 @@ proof.
   seq 1 1 : (={kvl}).
   - rnd.
     auto.
-  - auto.
+  - skip => /=.
+    auto.
 qed.
 
 lemma sample_basic_correct (N : int) :
