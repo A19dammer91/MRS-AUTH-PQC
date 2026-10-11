@@ -5,6 +5,7 @@
 # Lines starting with '#' are comments.
 
 MRS_FloorSum.ec   3
+MRS_Distr.ec      4
 MRS_Core.ec       0
 MRS_Encoding.ec   1
 MRS_Chain.ec      0
