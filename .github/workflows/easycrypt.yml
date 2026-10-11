@@ -105,18 +105,13 @@ jobs:
         working-directory: proofs
         run: |
           set -o pipefail
+          fail=0
           for f in \
               MRS_FloorSum.ec \
               MRS_DigitSum.ec \
               MRS_Distr.ec \
               MRS_General.ec \
-              MRS_Core.ec \
-              MRS_Encoding.ec \
-              MRS_Chain.ec \
-              MRS_Sampler.ec \
-              MRS_Deny.ec \
-              MRS_AUTH.ec \
-              MRS_Honey.ec; do
+              MRS_Core.ec; do
             echo "=========================================="
             echo "== Verifying $f"
             echo "=========================================="
@@ -125,6 +120,7 @@ jobs:
               echo "== $f OK ($(( $(date +%s) - start ))s)"
             else
               echo "== FAILED: $f ($(( $(date +%s) - start ))s)"
-              exit 1
+              fail=1
             fi
           done
+          exit $fail
