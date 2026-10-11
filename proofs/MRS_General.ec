@@ -21,6 +21,7 @@
 (*  Robustness principles (EasyCrypt r2024.09):                       *)
 (*  - NO axioms, NO admits.                                           *)
 (*  - `>` is written as `<` with reversed operands.                   *)
+(*  - Compound goals are split with `split.` before `smt()`.          *)
 (*  - All arithmetic via divz_eq, modz_ge0, modzDl, modzNm.           *)
 (*  - No ring_simplify, no linarith, no nlinarith.                    *)
 (* ================================================================= *)
@@ -63,7 +64,9 @@ proof.
   rewrite h1 h2 /=.
   have hmod_ge0 : 0 <= (N - 1) %% q by smt(modz_ge0).
   have hmod_lt : (N - 1) %% q < q by smt(modz_ge0 divz_eq).
-  smt().
+  split.
+  - smt().
+  - smt().
 qed.
 
 lemma dr_q_eq_mod (q N : int) :
