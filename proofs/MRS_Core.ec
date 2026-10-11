@@ -635,13 +635,12 @@ proof.
   proc.
   seq 1 1 : (={kvl}).
   - rnd.
-    skip => /=.
-    move=> &1 &2 H.
-    by [].
-  - skip => /=.
-    move=> &1 &2 H.
-    by [].
-qed.
+    - skip => /=.
+  move=> &1 &2 H.
+  (* H : kvl{1} = kvl{2} *)
+  (* Doel: (a0 N + 9*kvl, B0 N - 19*kvl){1} = (...){2} *)
+  progress.
+  by [].
 
 lemma sample_basic_correct (N : int) :
   162 < N =>
