@@ -13,10 +13,17 @@
 (*      a0 N = 9           if N %% 9 = 0                              *)
 (*  so in all cases a0 N = N (mod 9) and 1 <= a0 N <= 9.              *)
 (*                                                                    *)
+(*  Distribution theory:                                              *)
+(*    The sampling procedures use the uniform distribution over the   *)
+(*    closed interval [0, N], provided by MRS_Distr.ec. The standard  *)
+(*    distribution operators of EasyCrypt r2024.09 are not present    *)
+(*    in the installed theory files; MRS_Distr.ec introduces them     *)
+(*    axiomatically, to be discharged later.                          *)
+(*                                                                    *)
 (*  Axiom baseline: 0.                                                *)
 (*                                                                    *)
 (*  Robustness principles (calibrated for EasyCrypt r2024.09):        *)
-(*  - NO axioms, NO admits.                                           *)
+(*  - NO axioms in this file, NO admits.                              *)
 (*  - `linarith`, `nlinarith`, `ltz_pmod`, `divz_ge0` are avoided.   *)
 (*  - `ring_simplify` is avoided.                                     *)
 (*  - `(by tactic)` is never used as a term argument.                 *)
@@ -48,39 +55,23 @@
 (*    rejects the declaration in r2024.09.                            *)
 (*  - Module bodies contain no blank lines: blank lines inside a      *)
 (*    procedure body disturb the parser in r2024.09.                  *)
-(*  - Random sampling uses the algebraic interval notation `[0..N]`.  *)
-(*    In EasyCrypt r2024.09 the `dinter` operator of Top.DInterval    *)
-(*    has a signature that does not accept either `int -> int -> int` *)
-(*    or `(int * int) -> int`, so any explicit call to `dinter`       *)
-(*    fails with "no matching operator". The `[0..N]` notation is     *)
-(*    recognised directly by the parser and is the algebraic form     *)
-(*    required by the framework.                                      *)
-(*  - The `[0..N]` notation is inclusive on both endpoints: it        *)
-(*    denotes `{0, 1, ..., N}`. This is the convention required by    *)
-(*    the MRS representation, where k ranges over the closed interval *)
-(*    [0, kmax N].                                                    *)
+(*  - Random sampling uses the uniform distribution over [0, N],      *)
+(*    provided by MRS_Distr.ec via the op `duniform`. The algebraic   *)
+(*    interval notation `[0..N]` is not used because it internally    *)
+(*    translates to a `dinter` call that fails in r2024.09.           *)
 (*  - The `%%` and `%/` operators are NOT used inside a procedure     *)
 (*    body. All modular and division arithmetic is placed inside      *)
-(*    top-level `op` definitions. The procedure body contains only    *)
-(*    simple assignments, an interval sampling, and a return.         *)
+(*    top-level `op` definitions.                                     *)
 (*  - The conditional result of `sample_triangle` is expressed as an  *)
-(*    `if ... then ... else ...` expression in the return statement,  *)
-(*    not as an `if ... { return ... } else { ... }` statement with   *)
-(*    two early returns. Early returns in an `if` block are a parse   *)
-(*    error in r2024.09; an `if`-expression in a `return` is safe.    *)
+(*    `if ... then ... else ...` expression in the return statement.  *)
 (*  - The conditional upper bound of `sample_triangle` is computed    *)
-(*    first into a local variable `tmx`, so that the sampling syntax  *)
-(*    `[0..tmx]` sees only a variable, not a compound if-expression.  *)
-(*  - Each procedure and each module appears exactly once: duplicate  *)
-(*    definitions trigger a parse error in r2024.09.                  *)
-(*  - Whitespace uses spaces only, never tabs. Exactly two spaces     *)
-(*    indent a `proc` inside a `module`, four spaces indent a `var`   *)
-(*    or an assignment inside a `proc`.                               *)
+(*    first into a local variable `tmx`.                              *)
+(*  - Each procedure and each module appears exactly once.            *)
+(*  - Whitespace uses spaces only, never tabs.                        *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
-require import StdOrder.
-import IntOrder.
+require import MRS_Distr.
 
 (* ----------------------------------------------------------------- *)
 (* Digital root                                                       *)
@@ -181,18 +172,6 @@ op kmax (N : int) : int = ((B0 N) %/ 19).
 
 (* ----------------------------------------------------------------- *)
 (* Derived quantities for the MRS representation                     *)
-(*                                                                    *)
-(* The quantities ddr, dmod, kbs, tbn are defined here as top-level   *)
-(* `op`s rather than as local variables inside the sampling           *)
-(* procedure. The reason is that in EasyCrypt r2024.09 the operators  *)
-(* `%%` and `%/` are fragile when they appear inside a procedure-     *)
-(* level assignment. By contrast, `%%` and `%/` inside a top-level    *)
-(* `op` definition parse without issue.                               *)
-(*                                                                    *)
-(*   ddr(N) = dr(2 * dr(N))                                           *)
-(*   dmod(N) = ddr(N) %% 9                                            *)
-(*   kbs(N) = (B0(N) - dmod(N)) %% 9                                  *)
-(*   tbn(N) = (kmax(N) - kbs(N)) %/ 9                                 *)
 (* ----------------------------------------------------------------- *)
 op ddr (N : int) : int = dr (2 * (dr N)).
 op dmod (N : int) : int = (ddr N) %% 9.
@@ -584,24 +563,13 @@ qed.
 (*   bcp   B-component = B0 N                                         *)
 (*   kbn   K-bound     = kmax N                                       *)
 (*   tmx   T-max       = (if kbn < kbs N then 0 else tbn N)           *)
-(*   ndx   Index       = sampled uniform in [0..tmx]                  *)
+(*   ndx   Index       = sampled uniform in [0..tmx] via duniform     *)
 (*   kvl   K-value     = (kbs N) + 9 * ndx                            *)
 (*                                                                    *)
-(* All modular and division arithmetic is in the top-level ops        *)
-(* ddr, dmod, kbs, tbn above. The procedure body contains only        *)
-(* simple assignments, an algebraic interval sampling, and a return.  *)
-(*                                                                    *)
-(* Sampling uses the algebraic interval notation [0..N], which is     *)
-(* recognised directly by the parser and denotes the inclusive        *)
-(* interval {0, 1, ..., N}. The functional `dinter` operator is not   *)
-(* used: in r2024.09 its signature does not accept either             *)
-(* `int -> int -> int` or `(int * int) -> int`, so any explicit call  *)
-(* fails with "no matching operator". The algebraic notation is the   *)
-(* form used by the framework.                                        *)
-(*                                                                    *)
-(* The conditional upper bound of sample_triangle is computed first   *)
-(* into the local variable tmx, so that the sampling sees only the    *)
-(* variable tmx, not a compound if-expression.                        *)
+(* Sampling uses the uniform distribution duniform from MRS_Distr.    *)
+(* The algebraic interval notation [0..N] is not used because it      *)
+(* internally translates to dinter, which is not available in         *)
+(* r2024.09.                                                          *)
 (*                                                                    *)
 (* Whitespace: two spaces indent a `proc` inside the module, four     *)
 (* spaces indent a `var` or an assignment inside a `proc`. Tabs are   *)
@@ -610,7 +578,7 @@ qed.
 module MRSRep = {
   proc sample_basic(N : int) : int * int = {
     var kvl : int;
-    kvl <$ [0..kmax N];
+    kvl <$ duniform (kmax N);
     return ((a0 N) + (9 * kvl), (B0 N) - (19 * kvl));
   }
 
@@ -620,7 +588,7 @@ module MRSRep = {
     bcp <- B0 N;
     kbn <- kmax N;
     tmx <- (if (kbn < kbs N) then 0 else tbn N);
-    ndx <$ [0..tmx];
+    ndx <$ duniform tmx;
     kvl <- (kbs N) + 9 * ndx;
     return (if (kbn < kbs N) then (0, 0)
             else ((anc + (9 * kvl)), (bcp - (19 * kvl))));
