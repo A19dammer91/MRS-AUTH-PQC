@@ -666,10 +666,12 @@ proof.
   move=> hN.
   proc.
   conseq />.
-  - apply linear_invariant => //.
-    smt(kmax_ge0).
-  - apply dr_rep_A => //.
-    smt().
+  - apply linear_invariant.
+    + smt().
+    + smt(kmax_ge0).
+  - apply dr_rep_A.
+    + smt().
+    + smt().
 qed.
 
 (* ================================================================= *)
