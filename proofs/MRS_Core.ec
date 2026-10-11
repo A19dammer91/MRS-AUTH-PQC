@@ -6,7 +6,7 @@
 (*  The anchor A_0 is defined as the digital root of N:               *)
 (*      A_0 = dr(N) = 1 + ((N - 1) mod 9)      for N > 0              *)
 (*                                                                    *)
-(*  D^3 PATTERN (Deterministic Data Decomposition)                    *)
+(*  D^3 PATTERN (Deterministic Data Decomposition)                   *)
 (*                                                                    *)
 (*  The MRS-AUTH system is an instance of the D^3 pattern. The        *)
 (*  coefficient set [19, 9, 3, 3, 1] satisfies the two structural     *)
@@ -638,18 +638,6 @@ lemma triangle_k0_le_kmax (N : int) :
   kmax N < (B0 N - dr (2 * dr N) %% 9) %% 9.
 proof.
   move=> hN. smt().
-qed.
-
-proof.
-  move=> hN.
-  proc.
-  conseq.
-  move=> kvl.
-  split.
-  - apply linear_invariant => //.
-    smt(kmax_ge0).
-  - apply dr_rep_A => //.
-    smt().
 qed.
 
 lemma sample_basic_equiv (N : int) :
