@@ -363,12 +363,14 @@ qed.
 (* the one above it, so remainders from higher layers are            *)
 (* completely absorbable by lower layers.                            *)
 lemma chain_divisibility :
-  (1 divides 3) /\ (3 divides 3) /\ (3 divides 9).
+  lemma chain_divisibility :
+  (3 = 1 * 3) /\ (3 = 3 * 1) /\ (9 = 3 * 3).
 proof.
-  split; first by smt().
-  split; first by smt().
-  by smt().
+  split; first by ring.
+  split; first by ring.
+  by ring.
 qed.
+proof.
 
 (* Absorption Guarantee: the remainder after the top layer is        *)
 (* strictly bounded by c1 = 19.                                      *)
