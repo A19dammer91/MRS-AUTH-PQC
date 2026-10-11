@@ -1,14 +1,10 @@
 (* ================================================================= *)
-(*  MRS_Equiv.ec                                                    *)
+(*  MRS_Equiv.ec                                                      *)
 (*  Equivalence lemmas for the MRS samplers                           *)
 (*                                                                    *)
 (*  This file completes the module-level specification of             *)
 (*  MRS_Core.ec by proving the reflexivity tests for the two          *)
 (*  samplers `sample_basic` and `sample_triangle`.                    *)
-(*                                                                    *)
-(*  These are equivalence tests: the same procedure is compared to    *)
-(*  itself. They are of limited practical value but complete the      *)
-(*  module-level specification.                                       *)
 (*                                                                    *)
 (*  Axiom baseline: 0. NO admits.                                     *)
 (* ================================================================= *)
@@ -28,7 +24,9 @@ require import MRS_Core.
 (*   - `move=> &1 &2 H.` to introduce the memories and the            *)
 (*     hypothesis that the sampling results match                     *)
 (*   - `by []` to close the sampling branch                           *)
-(*   - `smt()` to close the return branch (tuple equality from H)     *)
+(*   - `have hk` + `rewrite hk` + `by []` to close the return         *)
+(*     branch, exposing the tuple equality from H as an explicit      *)
+(*     hypothesis before rewriting.                                   *)
 (* ================================================================= *)
 
 lemma sample_basic_equiv (N : int) :
@@ -44,7 +42,9 @@ proof.
     by [].
   - skip => /=.
     move=> &1 &2 H.
-    smt().
+    have hk : kvl{1} = kvl{2} by smt().
+    rewrite hk.
+    by [].
 qed.
 
 (* ================================================================= *)
@@ -72,9 +72,11 @@ proof.
     + auto.
     + skip => /=.
       move=> &1 &2 H.
-      smt().
+      have hk : kvl{1} = kvl{2} by smt().
+      rewrite hk.
+      by [].
 qed.
 
 (* ================================================================= *)
-(* End of MRS_General.ec                                              *)
+(* End of MRS_Equiv.ec                                                *)
 (* ================================================================= *)
