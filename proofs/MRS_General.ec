@@ -37,7 +37,7 @@ lemma my_modz_ge0 (a b : int) :
   0 < b => 0 <= a %% b.
 proof.
   move=> hb.
-  by apply modz_ge0.
+  smt().
 qed.
 
 lemma my_modz_lt (a b : int) :
@@ -45,7 +45,6 @@ lemma my_modz_lt (a b : int) :
 proof.
   move=> hb.
   have hdecomp := divz_eq a b.
-  have hmod_ge0 : 0 <= a %% b by apply modz_ge0.
   smt().
 qed.
 
@@ -54,8 +53,10 @@ lemma my_modz_range (a b : int) :
 proof.
   move=> hb.
   split.
-  - by apply my_modz_ge0.
-  - by apply my_modz_lt.
+  - apply my_modz_ge0.
+    smt().
+  - apply my_modz_lt.
+    smt().
 qed.
 
 lemma my_modzMl (a b : int) :
