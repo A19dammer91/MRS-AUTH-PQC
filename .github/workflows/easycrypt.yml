@@ -109,6 +109,7 @@ jobs:
               MRS_FloorSum.ec \
               MRS_DigitSum.ec \
               MRS_Distr.ec \
+              MRS_General.ec \
               MRS_Core.ec \
               MRS_Encoding.ec \
               MRS_Chain.ec \
