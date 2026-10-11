@@ -7,15 +7,12 @@
 (*  (p,q) satisfying the structural conditions. It is independent     *)
 (*  of MRS_Core.ec and can be compiled on its own.                    *)
 (*                                                                    *)
-(*  Main results:                                                     *)
-(*    - A0 = N mod q                                                  *)
-(*    - A0 is the smallest non-negative A with p*A <= N and           *)
-(*      (N - p*A) divisible by q                                      *)
-(*    - Closed formula for R(p,q;N)                                   *)
-(*    - Characterisation of all representations as A0 + q*k           *)
-(*    - Family boundary G(k) = p*q*(k-1) + (p-1)*(q-1)                *)
-(*                                                                    *)
 (*  Axiom baseline: 0.                                                *)
+(*                                                                    *)
+(*  Robustness principles (EasyCrypt r2024.09):                       *)
+(*  - `>` and `>=` are written as `<` and `<=` with reversed operands *)
+(*  - NO axioms, NO admits.                                           *)
+(*  - Compound goals are split with `split.` before `smt()`.          *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv.
@@ -44,10 +41,8 @@ lemma my_modz_range (a b : int) :
 proof.
   move=> hb.
   split.
-  - apply my_modz_ge0.
-    smt().
-  - apply my_modz_lt.
-    smt().
+  - apply my_modz_ge0. smt().
+  - apply my_modz_lt. smt().
 qed.
 
 lemma my_modzMl (a b : int) :
@@ -118,11 +113,10 @@ proof.
   have hN_decomp := divz_eq N q.
   have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
   case (N %% q = 0) => [hmod0 | hmod_ne].
-  - (* Case N %% q = 0 *)
-    have hN_eq : N = N %/ q * q by smt().
+  - have hN_eq : N = N %/ q * q by smt().
     have hNm1_mod : (N - 1) %% q = q - 1.
       have hq_ge1 : 1 <= q by smt().
-      have hN_ge_q : N >= q by smt().
+      have hN_ge_q : q <= N by smt().
       have hdiv_ge1 : 1 <= N %/ q by smt(divz_eq).
       have : N - 1 = (N %/ q - 1) * q + (q - 1) by smt().
       move=> hdecomp2.
@@ -137,8 +131,7 @@ proof.
     have : 1 + (q - 1) - N %/ q * q = (1 - N %/ q) * q by ring.
     move=> ->.
     by smt(modzMl).
-  - (* Case N %% q <> 0 *)
-    have hNm1_mod : (N - 1) %% q = N %% q - 1.
+  - have hNm1_mod : (N - 1) %% q = N %% q - 1.
       have hN_eq : N = N %/ q * q + N %% q by smt().
       have : N - 1 = N %/ q * q + (N %% q - 1) by smt().
       move=> hdecomp2.
@@ -198,7 +191,7 @@ proof.
 qed.
 
 lemma A0_minimal (p q N : int) :
-  0 < p => 0 < q => p %% q = 1 => N >= p * q =>
+  0 < p => 0 < q => p %% q = 1 => p * q <= N =>
   exists B, 0 <= B /\ p * (N %% q) + q * B = N.
 proof.
   move=> hp hq hpq hN.
@@ -207,14 +200,11 @@ proof.
   - have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
     have hp_ge1 : 1 <= p by smt().
     have hprod_le : p * (N %% q) <= p * (q - 1) by smt().
-    have hp_ge : p * q <= N by smt().
     have hnn : 0 <= N - p * (N %% q) by smt().
-    apply divz_ge0.
-    exact hnn.
+    apply divz_ge0. exact hnn.
   - have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
     have hp_ge1 : 1 <= p by smt().
     have hprod_le : p * (N %% q) <= p * (q - 1) by smt().
-    have hp_ge : p * q <= N by smt().
     have hnn : 0 <= N - p * (N %% q) by smt().
     have hdecomp := divz_eq (N - p * (N %% q)) q.
     have hq_ne : q <> 0 by smt().
@@ -247,19 +237,18 @@ qed.
 (* ================================================================= *)
 
 lemma R_well_defined (p q N : int) :
-  0 < p => 0 < q => N >= p * q =>
+  0 < p => 0 < q => p * q <= N =>
   N %% q <= N %/ p.
 proof.
   move=> hp hq hN.
   have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
   have hp_ge1 : 1 <= p by smt().
-  have h1 : p * q <= N by smt().
-  have h2 : N %/ p >= q by smt(divz_eq).
+  have h2 : q <= N %/ p by smt(divz_eq).
   smt().
 qed.
 
 lemma R_formula (p q N : int) :
-  0 < p => 0 < q => p %% q = 1 => N >= p * q =>
+  0 < p => 0 < q => p %% q = 1 => p * q <= N =>
   R p q N = (N %/ p - (N %% q)) %/ q + 1.
 proof.
   move=> hp hq hpq hN.
@@ -284,7 +273,7 @@ pred is_valid_A (p q N A : int) =
   exists B, is_rep p q N A B.
 
 lemma is_rep_A0_B0 (p q N : int) :
-  0 < p => 0 < q => p %% q = 1 => N >= p * q =>
+  0 < p => 0 < q => p %% q = 1 => p * q <= N =>
   is_rep p q N (N %% q) ((N - p * (N %% q)) %/ q).
 proof.
   move=> hp hq hpq hN.
@@ -295,17 +284,14 @@ proof.
     + have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
       have hp_ge1 : 1 <= p by smt().
       have hprod_le : p * (N %% q) <= p * (q - 1) by smt().
-      have hp_ge : p * q <= N by smt().
       have hnn : 0 <= N - p * (N %% q) by smt().
-      apply divz_ge0.
-      exact hnn.
+      apply divz_ge0. exact hnn.
     + have hmin := A0_minimal p q N hp hq hpq hN.
       move: hmin => [B [hB_ge0 hB_eq]].
       have hdecomp := divz_eq (N - p * (N %% q)) q.
       have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
       have hp_ge1 : 1 <= p by smt().
       have hprod_le : p * (N %% q) <= p * (q - 1) by smt().
-      have hp_ge : p * q <= N by smt().
       have hnn : 0 <= N - p * (N %% q) by smt().
       have hmod : (N - p * (N %% q)) %% q = 0.
         have hq_ne : q <> 0 by smt().
@@ -331,7 +317,7 @@ proof.
 qed.
 
 lemma rep_characterisation_forward (p q N : int) :
-  0 < p => 0 < q => p %% q = 1 => N >= p * q =>
+  0 < p => 0 < q => p %% q = 1 => p * q <= N =>
   forall A,
     is_valid_A p q N A =>
     (exists k,
@@ -364,7 +350,7 @@ proof.
 qed.
 
 lemma rep_characterisation_backward (p q N : int) :
-  0 < p => 0 < q => p %% q = 1 => N >= p * q =>
+  0 < p => 0 < q => p %% q = 1 => p * q <= N =>
   forall A,
     (exists k,
        0 <= k /\
@@ -384,15 +370,12 @@ proof.
       have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
       have hp_ge1 : 1 <= p by smt().
       have hprod_le : p * (N %% q) <= p * (q - 1) by smt().
-      have hp_ge : p * q <= N by smt().
       have hnn : 0 <= N - p * (N %% q) by smt().
-      apply divz_ge0.
-      smt().
+      apply divz_ge0. smt().
     + rewrite /B0.
       have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
       have hp_ge1 : 1 <= p by smt().
       have hprod_le : p * (N %% q) <= p * (q - 1) by smt().
-      have hp_ge : p * q <= N by smt().
       have hnn : 0 <= N - p * (N %% q) by smt().
       have hdecomp := divz_eq (N - p * (N %% q)) q.
       have hmod : (N - p * (N %% q)) %% q = 0 by smt().
@@ -400,7 +383,7 @@ proof.
 qed.
 
 lemma rep_characterisation (p q N : int) :
-  0 < p => 0 < q => p %% q = 1 => N >= p * q =>
+  0 < p => 0 < q => p %% q = 1 => p * q <= N =>
   forall A,
     is_valid_A p q N A <=>
     (exists k,
@@ -415,7 +398,7 @@ proof.
 qed.
 
 lemma R_counts (p q N : int) :
-  0 < p => 0 < q => p %% q = 1 => N >= p * q =>
+  0 < p => 0 < q => p %% q = 1 => p * q <= N =>
   R p q N = (N %/ p - (N %% q)) %/ q + 1.
 proof.
   move=> hp hq hpq hN.
