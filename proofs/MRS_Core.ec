@@ -581,9 +581,6 @@ qed.
 (* Section 10: Correctness of sample_basic                            *)
 (* ================================================================= *)
 
-(* Pure invariant: for every k in [0, kmax N], the pair                 *)
-(* (a0 N + 9*k, B0 N - 19*k) is a valid representation of N with       *)
-(* matching digital roots.                                             *)
 lemma sample_basic_inv (N k : int) :
   162 < N =>
   0 <= k <= kmax N =>
@@ -596,7 +593,6 @@ proof.
   - by apply dr_rep_A.
 qed.
 
-(* Hoare correctness: sample_basic returns a valid representation.     *)
 lemma sample_basic_correct (N : int) :
   162 < N =>
   hoare [MRSRep.sample_basic :
@@ -616,10 +612,11 @@ qed.
 (* ================================================================= *)
 (* Section 11: Equivalence lemmas (deferred)                          *)
 (* ================================================================= *)
-(* The reflexivity tests for sample_basic and sample_triangle are      *)
-(* deferred: they are not used by downstream modules, and the          *)
-(* equivalence proofs for procedures with `<$`-sampling require a      *)
-(* different tactic pattern.                                           *)
+
+(* The reflexivity tests `sample_basic_equiv` and                     *)
+(* `sample_triangle_equiv` are deferred: they are not used by any     *)
+(* downstream module, and the equivalence proofs for procedures       *)
+(* with `<$`-sampling require a different tactic pattern.             *)
 
 (* ================================================================= *)
 (* Section 12: 3-term and 4-term extensions                           *)
@@ -755,22 +752,28 @@ proof.
 qed.
 
 lemma example_143_R_3 : R_3 19 9 3 143 = 0.
-proof. by compute. qed.
+proof. by smt(). qed.
 
 lemma example_958_R_3 : R_3 19 9 3 958 = 6.
-proof. by compute. qed.
+proof. by smt(). qed.
 
 lemma example_6666_R_3 : R_3 19 9 3 6666 = 39.
-proof. by compute. qed.
+proof.
+  rewrite /R_3.
+  by smt().
+qed.
 
 lemma example_143_R_4 : R_4 19 9 3 3 143 = 0.
-proof. by compute. qed.
+proof. by smt(). qed.
 
 lemma example_958_R_4 : R_4 19 9 3 3 958 = 6.
-proof. by compute. qed.
+proof. by smt(). qed.
 
 lemma example_6666_R_4 : R_4 19 9 3 3 6666 = 39.
-proof. by compute. qed.
+proof.
+  rewrite /R_4.
+  by smt().
+qed.
 
 (* ================================================================= *)
 (* End of MRS_Core.ec                                                 *)
