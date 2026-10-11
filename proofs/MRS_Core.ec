@@ -667,7 +667,7 @@ proof.
   - rnd.
     skip => /=.
     move=> &1 &2 H.
-    by [].
+    smt().
   - seq 1 1 : (={kvl, ndx, anc, bcp, kbn, tmx}).
     + auto.
     + skip => /=.
