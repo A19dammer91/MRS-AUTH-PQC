@@ -21,9 +21,9 @@
 (*  guarantees formally.                                              *)
 (*                                                                    *)
 (*  Distribution theory:                                              *)
-(*    Sampling uses `duniform` from MRS_Distr.ec. The                *)
-(*    constructive `idistr` type is used, with `mu` as the field     *)
-(*    projection. No axioms.                                          *)
+(*    Sampling uses `duniform_int` from MRS_Distr.ec. This is a       *)
+(*    concrete `int distr` built from `duniform` applied to the       *)
+(*    explicit list [0; 1; ...; N]. No axioms.                        *)
 (*                                                                    *)
 (*  Axiom baseline: 0.                                                *)
 (*                                                                    *)
@@ -43,7 +43,7 @@
 (*  - Module variable names carry no digits.                          *)
 (*  - Module variable declarations carry explicit type annotations.   *)
 (*  - Module bodies contain no blank lines.                           *)
-(*  - Random sampling uses `duniform` from MRS_Distr.ec, not the      *)
+(*  - Random sampling uses `duniform_int` from MRS_Distr.ec, not the  *)
 (*    algebraic interval notation `[0..N]`.                           *)
 (*  - The `%%` and `%/` operators are NOT used inside a procedure     *)
 (*    body. All modular and division arithmetic is placed inside      *)
@@ -591,7 +591,7 @@ qed.
 module MRSRep = {
   proc sample_basic(N : int) : int * int = {
     var kvl : int;
-    kvl <$ duniform (kmax N);
+    kvl <$ duniform_int (kmax N);
     return ((a0 N) + (9 * kvl), (B0 N) - (19 * kvl));
   }
 
@@ -601,7 +601,7 @@ module MRSRep = {
     bcp <- B0 N;
     kbn <- kmax N;
     tmx <- (if (kbn < kbs N) then 0 else tbn N);
-    ndx <$ duniform tmx;
+    ndx <$ duniform_int tmx;
     kvl <- (kbs N) + 9 * ndx;
     return (if (kbn < kbs N) then (0, 0)
             else ((anc + (9 * kvl)), (bcp - (19 * kvl))));
@@ -619,14 +619,12 @@ qed.
 (* ----------------------------------------------------------------- *)
 (* Equivalence and correctness of sample_basic                        *)
 (*                                                                    *)
-(* The previous version of this file crashed at the anomaly in        *)
-(* ecUtils.ml on the `auto.` inside the equivalence proof. The       *)
-(* cause was the axiomatic `duniform`. With the constructive          *)
-(* `duniform` of MRS_Distr.ec (Section 1), the anomaly does not       *)
-(* arise: `duniform N` is a concrete record, and both sides of the    *)
-(* equivalence refer to the same record. We therefore use the safe    *)
-(* pattern `rnd.` / `skip => /=.` / explicit `move=>` without         *)
-(* invoking `auto.` on the distributions themselves.                  *)
+(* Sampling uses `duniform_int`, a concrete `int distr` built from    *)
+(* EasyCrypt's built-in `duniform` applied to the list [0; ...; N].   *)
+(* There are no axioms involved, so the equivalence proof does not    *)
+(* trigger the ecUtils.ml anomaly that appeared with the axiomatic    *)
+(* duniform. The safe pattern `rnd.` / `skip => /=.` / `move=>` is    *)
+(* used throughout.                                                   *)
 (* ----------------------------------------------------------------- *)
 
 lemma sample_basic_equiv (N : int) :
@@ -636,13 +634,11 @@ proof.
   move=> hN.
   proc.
   seq 1 1 : (={kvl}).
-  - (* sampling step: same distribution on both sides *)
-    rnd.
+  - rnd.
     skip => /=.
     move=> &1 &2 H.
     by [].
-  - (* return step: deterministic *)
-    skip => /=.
+  - skip => /=.
     move=> &1 &2 H.
     by [].
 qed.
