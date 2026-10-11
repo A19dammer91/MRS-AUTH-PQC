@@ -631,7 +631,9 @@ proof.
   - rnd.
     skip => /=.
     move=> &1 &2 H.
-    smt().
+    have hkmax : kmax N{1} = kmax N{2} by smt().
+    rewrite hkmax.
+    by [].
   - skip => /=.
     move=> &1 &2 H.
     smt().
@@ -667,7 +669,9 @@ proof.
   - rnd.
     skip => /=.
     move=> &1 &2 H.
-    smt().
+    have htmx : tmx{1} = tmx{2} by smt().
+    rewrite htmx.
+    by [].
   - seq 1 1 : (={kvl, ndx, anc, bcp, kbn, tmx}).
     + auto.
     + skip => /=.
