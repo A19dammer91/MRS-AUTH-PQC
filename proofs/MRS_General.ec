@@ -21,11 +21,14 @@ require import AllCore Int IntDiv.
 (* ================================================================= *)
 
 (* Remainder is non-negative for positive divisor.                     *)
-lemma my_modz_ge0 (a b : int) :
-  0 < b => 0 <= a %% b.
+lemma my_modz_lt (a b : int) :
+  0 < b => a %% b < b.
 proof.
   move=> hb.
-  by apply modz_ge0.
+  have hb_ne : b <> 0 by smt().
+  have hdecomp := divz_eq a b hb_ne.
+  have hmod_ge0 : 0 <= a %% b by apply modz_ge0.
+  smt().
 qed.
 
 (* Remainder is strictly smaller than the divisor.                    *)
