@@ -627,9 +627,11 @@ proof.
   move=> hN.
   proc.
   conseq />.
-  - apply linear_invariant => //.
+  - move=> kvl.
+    apply linear_invariant => //.
     smt(kmax_ge0).
-  - apply dr_rep_A => //.
+  - move=> kvl.
+    apply dr_rep_A => //.
     smt().
 qed.
 
