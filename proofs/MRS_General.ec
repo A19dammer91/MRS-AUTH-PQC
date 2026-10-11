@@ -20,9 +20,9 @@
 (*                                                                    *)
 (*  Robustness principles (EasyCrypt r2024.09):                       *)
 (*  - NO axioms, NO admits.                                           *)
+(*  - `>` is written as `<` with reversed operands.                   *)
 (*  - All arithmetic via divz_eq, modz_ge0, modzDl, modzNm.           *)
 (*  - No ring_simplify, no linarith, no nlinarith.                    *)
-(*  - Divisibility stated as explicit multiplication identity.        *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv.
@@ -44,7 +44,7 @@ op R (p q N : int) : int =
   else
     let a0 = N %% q in
     let fm = N %/ p in
-    if (a0 > fm) then 0
+    if (fm < a0) then 0
     else (fm - a0) %/ q + 1.
 
 op G (p q k : int) : int = p * q * (k - 1) + (p - 1) * (q - 1).
@@ -151,7 +151,7 @@ proof.
   have h3 : ! (N < 0) by smt().
   rewrite h1 h2 h3 /=.
   have hle : N %% q <= N %/ p by apply R_well_defined.
-  have hgt : ! (N %% q > N %/ p) by smt().
+  have hgt : ! (N %/ p < N %% q) by smt().
   by rewrite hgt.
 qed.
 
@@ -322,7 +322,7 @@ proof.
   case (9 <= 0) => [h | h2]; first by smt().
   case (N < 0) => [h | h3]; first by smt().
   rewrite h1 h2 h3 /=.
-  case (N %% 9 > N %/ 19) => [hgt | hle].
+  case (N %/ 19 < N %% 9) => [hlt | hle].
   - smt().
   have := divz_eq N 19.
   have := divz_eq N 9.
@@ -336,17 +336,6 @@ qed.
 (* ----------------------------------------------------------------- *)
 (* 10.1: Recursive sum for the 3-term counter                         *)
 (* ----------------------------------------------------------------- *)
-(*
-   The 3-term counter is defined semantically as the sum over A of
-   the inner 2-term counts:
-
-       R_3_sum(p,q,r;N) = sum_{A=0}^{floor(N/p)} R(q, r, N - p*A)
-
-   where R(q,r,M) is the closed form for the 2-term problem. To
-   make this computable in EasyCrypt without a built-in `sum`
-   tactic, we define an explicit recursive helper `sum_R` that
-   iterates from A up to kmax.
-*)
 
 op sum_R (q r N p : int) : int -> int -> int =
   fun A kmax =>
@@ -360,18 +349,6 @@ op R_3_sum (p q r N : int) : int =
 (* ----------------------------------------------------------------- *)
 (* 10.2: Closed form for the 3-term counter                           *)
 (* ----------------------------------------------------------------- *)
-(*
-   For R_3 to be a valid count, we require q = 1 (mod r) with
-   r >= 2. When r = 1, the structural condition q = 1 (mod r)
-   imposes no constraint, and the formula degenerates: the
-   numerator becomes negative for p > 2.
-
-   Under the non-degenerate conditions, the closed form is:
-
-       R_3(p,q,r;N) = [ (J+1)*M - p*r*J*(J+1)/2 - Rm ] / q + (J+1)
-
-   where M = floor(N/p), J = floor(M/r), Rm = M mod r.
-*)
 
 op R_3 (p q r N : int) : int =
   if (p <= 0 \/ q <= 0 \/ r <= 0 \/ N < 0) then 0
@@ -418,19 +395,6 @@ qed.
 (* ----------------------------------------------------------------- *)
 (* 10.4: The degenerate r = 1 case                                    *)
 (* ----------------------------------------------------------------- *)
-(*
-   For R_3 to be a valid count, we require q = 1 (mod r) with
-   r >= 2. When r = 1, the structural condition q = 1 (mod r)
-   imposes no constraint, and the formula degenerates: the
-   numerator becomes negative for p > 2.
-
-   The recursive sum, however, still counts representations:
-   every residual N - p*A is trivially divisible by 1, so the
-   inner 2-term count is 1 for each A, and the sum is kmax + 1.
-
-   The lemma R_3_trivial_r records this degenerate case honestly:
-   for p > 2 and the stated hypotheses, R_3(p,q,1;N) = 0.
-*)
 
 lemma R_with_r_one (q M : int) :
   0 < q => M >= q =>
@@ -445,7 +409,7 @@ proof.
   have hmod : M %% 1 = 0 by smt().
   rewrite hmod.
   have hle : 0 <= M %/ q by smt(divz_ge0).
-  have hgt : ! (0 > M %/ q) by smt().
+  have hgt : ! (M %/ q < 0) by smt().
   rewrite hgt /=.
   have hdiv : M %/ q %/ 1 = M %/ q by smt().
   rewrite hdiv.
@@ -590,18 +554,11 @@ proof. by compute. qed.
      G_19_9, G_19_9_alt, worked examples.
 
    3-term extension:
-     sum_R               : explicit recursive sum
-     sum_R_empty         : base case of the recursion
-     sum_R_step          : recursive unfolding
-     R_inner_formula     : inner 2-term count
-     R_with_r_one        : r = 1 collapses the inner count to 1
-     sum_R_r_one         : the recursive sum with r = 1
-     R_3_r_one           : the closed form with r = 1 is 0 (degenerate)
-     R_3_trivial_r       : honest statement for p > 2
+     sum_R, sum_R_empty, sum_R_step, R_inner_formula,
+     R_with_r_one, sum_R_r_one, R_3_r_one, R_3_trivial_r.
 
    4-term extension:
-     R_4_nonneg          : non-negativity of R_4
-     worked examples for 143, 958, 6666
+     R_4_nonneg, worked examples.
 
    Important note on the 3-term formula R_3:
 
