@@ -614,7 +614,7 @@ proof.
   move=> hN.
   proc.
   auto => />.
-  move=> &m kvl hk_lo hk_hi.
+  move=> &m kvl.
   split.
   - apply linear_invariant => //.
     smt(kmax_ge0).
