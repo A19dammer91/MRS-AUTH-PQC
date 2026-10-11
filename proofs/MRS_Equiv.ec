@@ -1,5 +1,5 @@
 (* ================================================================= *)
-(*  MRS_General.ec                                                    *)
+(*  MRS_Equiv.ec                                                    *)
 (*  Equivalence lemmas for the MRS samplers                           *)
 (*                                                                    *)
 (*  This file completes the module-level specification of             *)
