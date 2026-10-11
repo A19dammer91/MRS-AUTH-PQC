@@ -597,7 +597,8 @@ lemma sample_basic_correct (N : int) :
 proof.
   move=> hN.
   proc.
-  conseq />.
+  wp.
+  skip.
   move=> kvl.
   split.
   - apply linear_invariant => //.
