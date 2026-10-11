@@ -8,3 +8,6 @@ op t2 : bool distr = duniform.
 
 (* Test 3: werkt dmap? *)
 op t3 : int distr = dmap (dunit 5) (fun (x : int) => x + 1).
+
+(* Test 4: bestaat er een ingebouwde duniform voor int? *)
+op t4 : int distr = duniform 5.
