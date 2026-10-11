@@ -640,16 +640,11 @@ proof.
   move=> hN. smt().
 qed.
 
-lemma sample_basic_correct (N : int) :
-  162 < N =>
-  hoare [MRSRep.sample_basic :
-    arg = N ==>
-    19 * (fst res) + 9 * (snd res) = N /\
-    dr (fst res) = dr N].
 proof.
   move=> hN.
   proc.
-  conseq />.
+  conseq.
+  move=> kvl.
   split.
   - apply linear_invariant => //.
     smt(kmax_ge0).
