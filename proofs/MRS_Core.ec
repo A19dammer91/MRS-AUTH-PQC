@@ -27,33 +27,22 @@
 (*                                                                    *)
 (*  Axiom baseline: 0.                                                *)
 (*                                                                    *)
-(*  Robustness principles (calibrated for EasyCrypt r2024.09):        *)
+(*  Robustness principles (EasyCrypt r2024.09):                       *)
 (*  - NO axioms in this file, NO admits.                              *)
 (*  - `linarith`, `nlinarith`, `ltz_pmod`, `divz_ge0` are avoided.   *)
 (*  - `ring_simplify` is avoided.                                     *)
-(*  - `divides` is avoided (not present in r2024.09); divisibility   *)
-(*    is stated as an explicit multiplication identity.               *)
+(*  - `divides` is avoided; divisibility is an explicit identity.     *)
 (*  - `(by tactic)` is never used as a term argument.                 *)
-(*  - `smt(/pred_name)` is NOT used (parse error in r2024.09).        *)
+(*  - `smt(/pred_name)` is NOT used.                                  *)
 (*  - `~` is NOT used for negation: `!` or `P => false`.              *)
 (*  - `case (cond).` without `=>` pattern is avoided.                 *)
 (*  - `set k := ...` is avoided; concrete terms are substituted.      *)
-(*  - The anomalous `auto.` on `equiv` with `duniform` is replaced   *)
-(*    by the safe pattern `rnd.` / `skip => /=.` / explicit `move`.   *)
+(*  - Equivalence proofs use the safe pattern:                        *)
+(*      rnd. / skip => /=. / move=> &1 &2 H. / smt.                   *)
+(*  - Whitespace uses spaces only, never tabs.                        *)
 (*  - Module variable names carry no digits.                          *)
 (*  - Module variable declarations carry explicit type annotations.   *)
 (*  - Module bodies contain no blank lines.                           *)
-(*  - Random sampling uses `duniform_int` from MRS_Distr.ec, not the  *)
-(*    algebraic interval notation `[0..N]`.                           *)
-(*  - The `%%` and `%/` operators are NOT used inside a procedure     *)
-(*    body. All modular and division arithmetic is placed inside      *)
-(*    top-level `op` definitions.                                     *)
-(*  - The conditional result of `sample_triangle` is expressed as     *)
-(*    an `if ... then ... else ...` expression in the return.         *)
-(*  - The conditional upper bound of `sample_triangle` is computed    *)
-(*    first into a local variable `tmx`.                              *)
-(*  - Each procedure and each module appears exactly once.            *)
-(*  - Whitespace uses spaces only, never tabs.                        *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real List.
@@ -622,9 +611,14 @@ qed.
 (* Sampling uses `duniform_int`, a concrete `int distr` built from    *)
 (* EasyCrypt's built-in `duniform` applied to the list [0; ...; N].   *)
 (* There are no axioms involved, so the equivalence proof does not    *)
-(* trigger the ecUtils.ml anomaly that appeared with the axiomatic    *)
-(* duniform. The safe pattern `rnd.` / `skip => /=.` / `move=>` is    *)
-(* used throughout.                                                   *)
+(* trigger the ecUtils.ml anomaly.                                    *)
+(*                                                                    *)
+(* The equivalence proof follows the canonical pattern:               *)
+(*   1. `proc.` to enter the procedures.                              *)
+(*   2. `seq 1 1` to isolate the sampling step from the return step.  *)
+(*   3. In the sampling step, `rnd.` followed by `skip => /=.`.       *)
+(*   4. In the return step, `skip => /=.` reduces to a tuple          *)
+(*      equality, which `smt.` closes using the hypothesis on kvl.    *)
 (* ----------------------------------------------------------------- *)
 
 lemma sample_basic_equiv (N : int) :
@@ -635,13 +629,14 @@ proof.
   proc.
   seq 1 1 : (={kvl}).
   - rnd.
-  skip => /=.
-  move=> &1 &2 H.
-  by [].
-- skip => /=.
-  move=> &1 &2 H.
-  progress.
-  by [].
+    skip => /=.
+    move=> &1 &2 H.
+    by [].
+  - skip => /=.
+    move=> &1 &2 H.
+    smt().
+qed.
+
 lemma sample_basic_correct (N : int) :
   162 < N =>
   hoare [MRSRep.sample_basic :
@@ -677,5 +672,5 @@ proof.
     + auto.
     + skip => /=.
       move=> &1 &2 H.
-      by [].
+      smt().
 qed.
