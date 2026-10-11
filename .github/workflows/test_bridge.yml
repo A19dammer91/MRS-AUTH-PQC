@@ -1,0 +1,62 @@
+name: Test Bridge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'proofs/test_bridge.ec'
+      - '.github/workflows/test_bridge.yml'
+  workflow_dispatch:
+
+env:
+  OPAMYES: "true"
+  EC_REF: r2024.09
+
+jobs:
+  verify:
+    name: Test bridge
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Restore opam cache
+        id: opam-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.opam
+          key: opam-${{ runner.os }}-ec-${{ env.EC_REF }}-ocaml4.14.1
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y opam m4 gcc make git curl pkg-config \
+            libgmp-dev libpcre3-dev
+
+      - name: Install OCaml, SMT solvers and EasyCrypt
+        if: steps.opam-cache.outputs.cache-hit != 'true'
+        run: |
+          opam init --disable-sandboxing --bare -y
+          opam switch create 4.14.1 -y
+          opam exec -- opam install -y alt-ergo z3
+          opam exec -- opam pin add -y easycrypt \
+            https://github.com/EasyCrypt/easycrypt.git#${EC_REF}
+
+      - name: Save opam cache
+        if: steps.opam-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.opam
+          key: opam-${{ runner.os }}-ec-${{ env.EC_REF }}-ocaml4.14.1
+
+      - name: Configure Why3 and show provers
+        run: |
+          opam exec -- easycrypt why3config
+          opam exec -- easycrypt config
+
+      - name: Compile test_bridge.ec
+        working-directory: proofs
+        run: |
+          opam exec -- easycrypt compile -I . -timeout 10 test_bridge.ec
