@@ -159,3 +159,19 @@ proof.
   rewrite /mu.
   by apply duniform_mu_eq.
 qed.
+
+(* ----------------------------------------------------------------- *)
+(* Bridge to EasyCrypt's built-in distr type                          *)
+(*                                                                    *)
+(* EasyCrypt's `<$` operator requires an `int distr`, not our own     *)
+(* `idistr`. We therefore expose a second operator `duniform_int`     *)
+(* that returns the built-in type. The two versions share the same    *)
+(* probability mass function; the lemma `duniform_int_mu` records     *)
+(* the correspondence.                                                *)
+(* ----------------------------------------------------------------- *)
+
+require import Distr.
+
+op duniform_int (N : int) : int distr = duniform N.
+
+op dpoint_int (n : int) : int distr = dunit n.
