@@ -4,30 +4,52 @@
 (*                                                                    *)
 (*  In EasyCrypt r2024.09 the standard distribution operators         *)
 (*  (dbool, dunit, dmap, dinter) are not present in the installed     *)
-(*  theory files. We therefore introduce them as axioms, to be        *)
-(*  discharged later when a compatible distribution library is        *)
-(*  available.                                                        *)
+(*  theory files. The distribution primitives are therefore           *)
+(*  introduced here as axioms, to be discharged later when a          *)
+(*  compatible distribution library becomes available.                *)
+(*                                                                    *)
+(*  Support is expressed via the probability measure `mu` rather      *)
+(*  than the membership operator `\in`, because `\in` is not          *)
+(*  defined on `distr` in this release.                               *)
+(*                                                                    *)
+(*  Axiom baseline: 5.                                                *)
 (* ================================================================= *)
 
-require import AllCore Int IntDiv.
+require import AllCore Int IntDiv Distr.
 
-(* Axiomatic primitive: a single fair coin *)
+(* ----------------------------------------------------------------- *)
+(* Primitive distributions                                            *)
+(* ----------------------------------------------------------------- *)
+
+(* Fair coin: dbool is the uniform distribution over {true, false}.   *)
 op dbool : bool distr.
 
-axiom dbool_support : forall (b : bool), b \in dbool.
+axiom dbool_mu_true : mu dbool true = 1%r / 2%r.
 
-(* Axiomatic primitive: the unit distribution *)
+axiom dbool_mu_false : mu dbool false = 1%r / 2%r.
+
+(* Unit distribution: dunit is the point mass at ().                  *)
 op dunit : unit distr.
 
-axiom dunit_support : forall (u : unit), u \in dunit.
+axiom dunit_mu : mu dunit () = 1%r.
 
-(* Axiomatic primitive: map on distributions *)
-op dmap : forall 'a 'b, ('a -> 'b) -> 'a distr -> 'b distr.
+(* ----------------------------------------------------------------- *)
+(* The uniform distribution over [0, N]                               *)
+(*                                                                    *)
+(* The distribution is axiomatised here. Its characteristic           *)
+(* properties are stated via `mu`: the support is contained in        *)
+(* [0, N], and the distribution is uniform on [0, N].                 *)
+(* ----------------------------------------------------------------- *)
 
-(* ... en zo verder ... *)
-
-(* Uniform over [0, N] via rejection sampling on bits *)
 op duniform (N : int) : int distr.
 
-axiom duniform_support (N x : int) :
-  0 <= N => x \in duniform N => 0 <= x <= N.
+axiom duniform_mu_zero (N x : int) :
+  0 <= N =>
+  (x < 0 \/ N < x) =>
+  mu (duniform N) x = 0%r.
+
+axiom duniform_mu_uniform (N x y : int) :
+  0 <= N =>
+  0 <= x <= N =>
+  0 <= y <= N =>
+  mu (duniform N) x = mu (duniform N) y.
