@@ -665,7 +665,6 @@ lemma sample_basic_correct (N : int) :
 proof.
   move=> hN.
   proc.
-  wp.
   skip.
   move=> kvl.
   split.
