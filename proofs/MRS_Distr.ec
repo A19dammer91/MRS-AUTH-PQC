@@ -11,8 +11,7 @@
 (*  Axiom baseline: 0.                                                *)
 (* ================================================================= *)
 
-require import AllCore Int IntDiv Real.
-require import Distr.
+require import AllCore Int IntDiv Real List Distr.
 
 (* ================================================================= *)
 (* Layer 1: Constructive specification                                *)
@@ -144,8 +143,15 @@ qed.
 
 (* ================================================================= *)
 (* Layer 2: Bridge to EasyCrypt's built-in `int distr`                *)
+(*                                                                    *)
+(* The `<$` operator requires EasyCrypt's built-in `int distr`.       *)
+(* We build it from `duniform` applied to the explicit list           *)
+(* [0; 1; ...; N], which is exactly the uniform distribution over     *)
+(* {0, ..., N}.                                                       *)
 (* ================================================================= *)
 
-op duniform_int (N : int) : int distr = duniform N.
+op duniform_int (N : int) : int distr =
+  if N < 0 then dunit 0
+  else duniform (range 0 (N + 1)).
 
 op dpoint_int (n : int) : int distr = dunit n.
