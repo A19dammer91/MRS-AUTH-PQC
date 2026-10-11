@@ -3,46 +3,52 @@
 (*  General theory of linear Diophantine representation systems       *)
 (*      N = p*A + q*B     with p = 1 (mod q), gcd(p,q) = 1, p > q     *)
 (*                                                                    *)
-(*  Every non-trivial lemma is proven by explicit steps. The `smt`    *)
-(*  tactic is used only for trivial closings, never for reasoning     *)
-(*  about `%%` in combination with inequalities.                      *)
+(*  This file generalises the (19,9) specific theory of MRS_Core.ec   *)
+(*  to arbitrary pairs (p,q) satisfying the structural conditions.    *)
+(*                                                                    *)
+(*  Main results:                                                     *)
+(*    - A0 = N mod q                                                  *)
+(*    - A0 is the smallest non-negative A with p*A <= N and           *)
+(*      (N - p*A) divisible by q                                      *)
+(*    - Closed formula for R(p,q;N)                                   *)
+(*    - Characterisation of all representations as A0 + q*k           *)
+(*    - Family boundary G(k) = p*q*(k-1) + (p-1)*(q-1)                *)
+(*    - 3-term extension: R_3(p,q,r;N)                                *)
+(*    - 4-term extension: R_4(p,q,r,s;N)                              *)
 (*                                                                    *)
 (*  Axiom baseline: 0.                                                *)
+(*                                                                    *)
+(*  Robustness principles (EasyCrypt r2024.09):                       *)
+(*  - NO axioms, NO admits.                                           *)
+(*  - `>` is written as `<` with reversed operands.                   *)
+(*  - `divz_eq` is called with 2 arguments (r2024.09 API).            *)
+(*  - Compound goals are split with `split.` before `smt()`.          *)
+(*  - All arithmetic via divz_eq, modz_ge0, modzDl, modzNm.           *)
+(*  - No ring_simplify, no linarith, no nlinarith.                    *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv.
 
 (* ================================================================= *)
 (* Section 0: Auxiliary lemmas about div and mod                      *)
-(*                                                                    *)
-(* We prove our own version of "remainder is strictly smaller than    *)
-(* the divisor", because EasyCrypt r2024.09 does not export a public  *)
-(* `modz_lt` with that name.                                          *)
 (* ================================================================= *)
 
-(* Remainder is non-negative for positive divisor.                     *)
-lemma my_modz_lt (a b : int) :
-  0 < b => a %% b < b.
+lemma my_modz_ge0 (a b : int) :
+  0 < b => 0 <= a %% b.
 proof.
   move=> hb.
-  have hb_ne : b <> 0 by smt().
-  have hdecomp := divz_eq a b hb_ne.
-  have hmod_ge0 : 0 <= a %% b by apply modz_ge0.
-  smt().
+  by apply modz_ge0.
 qed.
 
-(* Remainder is strictly smaller than the divisor.                    *)
 lemma my_modz_lt (a b : int) :
   0 < b => a %% b < b.
 proof.
   move=> hb.
   have hdecomp := divz_eq a b.
-  have hb_ne : b <> 0 by smt().
   have hmod_ge0 : 0 <= a %% b by apply modz_ge0.
   smt().
 qed.
 
-(* The combined range: 0 <= a %% b < b.                               *)
 lemma my_modz_range (a b : int) :
   0 < b => 0 <= a %% b /\ a %% b < b.
 proof.
@@ -52,7 +58,6 @@ proof.
   - by apply my_modz_lt.
 qed.
 
-(* For any k, (b * k) %% b = 0. We need this shape (not a * b).       *)
 lemma my_modzMl (a b : int) :
   (a * b) %% b = 0.
 proof.
@@ -113,69 +118,36 @@ proof.
   by rewrite h1 h2.
 qed.
 
-(* dr_q(N) is congruent to N modulo q.                                *)
 lemma dr_q_cong (q N : int) :
   0 < q => 0 < N => (dr_q q N - N) %% q = 0.
 proof.
   move=> hq hN.
   rewrite dr_q_eq_mod //.
-  (* Goal: (1 + (N-1) %% q - N) %% q = 0 *)
   have hq_ne : q <> 0 by smt().
   have hdiv := divz_eq (N - 1) q.
-  (* hdiv : N - 1 = (N-1) %/ q * q + (N-1) %% q *)
   have hN_decomp := divz_eq N q.
-  (* hN_decomp : N = N %/ q * q + N %% q *)
-  (* We will substitute and use modz arithmetic. *)
-  have hNm1 : N - 1 = (N - 1) %/ q * q + (N - 1) %% q by smt().
-  have hNeq : N = N %/ q * q + N %% q by smt().
-  (* Substituting: N - 1 = N %/ q * q + N %% q - 1 *)
-  (* We want to show (1 + (N-1) %% q - N) %% q = 0. *)
-  (* Rewrite using hNm1: *)
-  (* 1 + ((N-1) %/ q * q + (N-1) %% q - ((N-1) %/ q * q + (N-1) %% q)) *)
-  (* = 1 + (N-1) %% q - N *)
-  (* Substitute N: *)
-  (* = 1 + (N-1) %% q - (N %/ q * q + N %% q) *)
-  (* = 1 + (N-1) %% q - N %% q - N %/ q * q *)
-  (* We need (1 + (N-1) %% q - N %% q) %% q = 0 *)
-  (* This is not trivially true; we need the relation between N %% q and (N-1) %% q. *)
-  (* Case analysis on N %% q = 0. *)
-  have hmod_ge0 : 0 <= N %% q by apply modz_ge0.
-  have hmod_lt : N %% q < q by apply my_modz_lt.
+  have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
   case (N %% q = 0) => [hmod0 | hmod_ne].
   - (* Case N %% q = 0 *)
-    (* Then N = N %/ q * q *)
     have hN_eq : N = N %/ q * q by smt().
-    (* And (N-1) %% q = q - 1 for N > 0 and N %% q = 0 *)
     have hNm1_mod : (N - 1) %% q = q - 1.
-      (* Use: N - 1 = (N %/ q - 1) * q + (q - 1) *)
       have hq_ge1 : 1 <= q by smt().
-      have hdiv_ge1 : 1 <= N %/ q.
-        have : N >= q by smt().
-        smt(divz_eq).
+      have hN_ge_q : N >= q by smt().
+      have hdiv_ge1 : 1 <= N %/ q by smt(divz_eq).
       have : N - 1 = (N %/ q - 1) * q + (q - 1) by smt().
       move=> hdecomp2.
-      (* Now use modz_eq: (a * q + b) %% q = b %% q *)
       have : (N - 1) %% q = ((N %/ q - 1) * q + (q - 1)) %% q by smt().
       rewrite this.
       have : ((N %/ q - 1) * q + (q - 1)) %% q = (q - 1) %% q.
         by smt(modzDl).
       rewrite this.
-      (* (q - 1) %% q = q - 1 *)
-      have hq_ge1' : 1 <= q by smt().
-      have hqm1_lt : q - 1 < q by smt().
-      have hqm1_ge0 : 0 <= q - 1 by smt().
       by smt().
     rewrite hNm1_mod.
-    (* Now: (1 + (q - 1) - N) %% q = 0 *)
-    (* And N = N %/ q * q *)
     rewrite hN_eq.
-    have : 1 + (q - 1) - N %/ q * q = q - N %/ q * q by ring.
-    move=> ->.
-    have : q - N %/ q * q = (1 - N %/ q) * q by ring.
+    have : 1 + (q - 1) - N %/ q * q = (1 - N %/ q) * q by ring.
     move=> ->.
     by smt(modzMl).
   - (* Case N %% q <> 0 *)
-    (* Then (N-1) %% q = N %% q - 1 *)
     have hNm1_mod : (N - 1) %% q = N %% q - 1.
       have hN_eq : N = N %/ q * q + N %% q by smt().
       have : N - 1 = N %/ q * q + (N %% q - 1) by smt().
@@ -185,28 +157,18 @@ proof.
       have : (N %/ q * q + (N %% q - 1)) %% q = (N %% q - 1) %% q.
         by smt(modzDl).
       rewrite this.
-      (* N %% q - 1 < q and >= 0 (since N %% q <> 0 and N %% q >= 0) *)
       have hmod_ge1 : 1 <= N %% q by smt().
       have hNm1_ge0 : 0 <= N %% q - 1 by smt().
       have hNm1_lt : N %% q - 1 < q by smt().
       by smt().
     rewrite hNm1_mod.
-    (* Now: (1 + (N %% q - 1) - N) %% q = 0 *)
-    rewrite hN_decomp_eq.
-    (* Simplify: 1 + N %% q - 1 - (N %/ q * q + N %% q) = - N %/ q * q *)
+    have hN_eq : N = N %/ q * q + N %% q by smt().
+    rewrite hN_eq.
     have : 1 + (N %% q - 1) - (N %/ q * q + N %% q) = -(N %/ q * q) by ring.
     move=> ->.
     have : -(N %/ q * q) = (-(N %/ q)) * q by ring.
     move=> ->.
     by smt(modzMl).
-qed.
-
-(* We need a local name for the divz_eq of N. *)
-lemma N_div_eq (N q : int) :
-  q <> 0 => N = N %/ q * q + N %% q.
-proof.
-  move=> hq.
-  by apply divz_eq.
 qed.
 
 (* ================================================================= *)
@@ -225,14 +187,11 @@ proof.
   - right.
     split.
     + exact h0.
-    + (* dr_q q N = q *)
-      rewrite dr_q_eq_mod //.
+    + rewrite dr_q_eq_mod //.
       have hNm1_mod : (N - 1) %% q = q - 1.
         have hq_ge1 : 1 <= q by smt().
         have hN_eq : N = N %/ q * q by smt().
-        have hdiv_ge1 : 1 <= N %/ q.
-          have : N >= q by smt().
-          smt(divz_eq).
+        have hdiv_ge1 : 1 <= N %/ q by smt(divz_eq).
         have : N - 1 = (N %/ q - 1) * q + (q - 1) by smt().
         move=> hdecomp2.
         have : (N - 1) %% q = ((N %/ q - 1) * q + (q - 1)) %% q by smt().
@@ -271,30 +230,23 @@ proof.
     have hnn : 0 <= N - p * (N %% q) by smt().
     have hdecomp := divz_eq (N - p * (N %% q)) q.
     have hq_ne : q <> 0 by smt().
-    (* (N - p * (N %% q)) %% q = 0 *)
     have hmod : (N - p * (N %% q)) %% q = 0.
-      have : N - p * (N %% q) = N %% q - p * (N %% q) + N %/ q * q.
-        have hNeq : N = N %/ q * q + N %% q by smt().
-        smt().
+      have hN_eq : N = N %/ q * q + N %% q by smt().
+      have : N - p * (N %% q) = (1 - p) * (N %% q) + N %/ q * q by smt().
       move=> hsub.
-      have : (N - p * (N %% q)) %% q = (N %% q - p * (N %% q) + N %/ q * q) %% q by smt().
+      have : (N - p * (N %% q)) %% q =
+             ((1 - p) * (N %% q) + N %/ q * q) %% q by smt().
       rewrite this.
-      have : (N %% q - p * (N %% q) + N %/ q * q) %% q =
-             (N %% q - p * (N %% q)) %% q.
-        by smt(modzDl).
+      have : ((1 - p) * (N %% q) + N %/ q * q) %% q =
+             ((1 - p) * (N %% q)) %% q by smt(modzDl).
       rewrite this.
-      have : N %% q - p * (N %% q) = (1 - p) * (N %% q) by ring.
-      move=> ->.
-      have : (1 - p) = - (p - 1) by ring.
-      move=> ->.
-      have : - (p - 1) * (N %% q) = - ((p - 1) * (N %% q)) by ring.
-      move=> ->.
-      (* p - 1 = p %/ q * q since p %% q = 1 *)
       have hpd := divz_eq p q.
       have hp_eq : p = p %/ q * q + 1 by smt().
       have hp_m1 : p - 1 = p %/ q * q by smt().
+      have : 1 - p = -(p - 1) by ring.
+      move=> ->.
       rewrite hp_m1.
-      have : - (p %/ q * q * (N %% q)) = - (p %/ q * (N %% q)) * q by ring.
+      have : - (p %/ q * q) * (N %% q) = (- (p %/ q) * (N %% q)) * q by ring.
       move=> ->.
       by smt(modzMl).
     rewrite hmod in hdecomp.
@@ -360,10 +312,37 @@ proof.
       apply divz_ge0.
       exact hnn.
     + (* p * (N %% q) + q * ((N - p * (N %% q)) %/ q) = N *)
-      exact (A0_minimal p q N hp hq hpq hN).1.
+      have hmin := A0_minimal p q N hp hq hpq hN.
+      move: hmin => [B [hB_ge0 hB_eq]].
+      have hdecomp := divz_eq (N - p * (N %% q)) q.
+      have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
+      have hp_ge1 : 1 <= p by smt().
+      have hprod_le : p * (N %% q) <= p * (q - 1) by smt().
+      have hp_ge : p * q <= N by smt().
+      have hnn : 0 <= N - p * (N %% q) by smt().
+      have hmod : (N - p * (N %% q)) %% q = 0.
+        have hq_ne : q <> 0 by smt().
+        have hN_eq : N = N %/ q * q + N %% q by smt().
+        have : N - p * (N %% q) = (1 - p) * (N %% q) + N %/ q * q by smt().
+        move=> hsub.
+        have : (N - p * (N %% q)) %% q =
+               ((1 - p) * (N %% q) + N %/ q * q) %% q by smt().
+        rewrite this.
+        have : ((1 - p) * (N %% q) + N %/ q * q) %% q =
+               ((1 - p) * (N %% q)) %% q by smt(modzDl).
+        rewrite this.
+        have hp_eq : p = p %/ q * q + 1 by smt(divz_eq).
+        have hp_m1 : p - 1 = p %/ q * q by smt().
+        have : 1 - p = -(p - 1) by ring.
+        move=> ->.
+        rewrite hp_m1.
+        have : - (p %/ q * q) * (N %% q) = (- (p %/ q) * (N %% q)) * q by ring.
+        move=> ->.
+        by smt(modzMl).
+      have : q * ((N - p * (N %% q)) %/ q) = N - p * (N %% q) by smt().
+      smt().
 qed.
 
-(* Forward direction: valid A implies A = A0 + q*k. *)
 lemma rep_characterisation_forward (p q N : int) :
   0 < p => 0 < q => p %% q = 1 => N >= p * q =>
   forall A,
@@ -397,7 +376,6 @@ proof.
     smt().
 qed.
 
-(* Backward direction: A = A0 + q*k is a valid A. *)
 lemma rep_characterisation_backward (p q N : int) :
   0 < p => 0 < q => p %% q = 1 => N >= p * q =>
   forall A,
@@ -535,7 +513,15 @@ qed.
 
 (* ================================================================= *)
 (* Section 10: 3-term and 4-term extensions                           *)
+(*                                                                    *)
+(* The 3-term counter R_3 and the 4-term counter R_4 are defined     *)
+(* here, together with their recursive counterparts and the           *)
+(* degenerate r = 1 case.                                             *)
 (* ================================================================= *)
+
+(* ----------------------------------------------------------------- *)
+(* 10.1: Recursive sum for the 3-term counter                         *)
+(* ----------------------------------------------------------------- *)
 
 op sum_R (q r N p : int) : int -> int -> int =
   fun A kmax =>
@@ -545,6 +531,10 @@ op sum_R (q r N p : int) : int -> int -> int =
 op R_3_sum (p q r N : int) : int =
   if (p <= 0 \/ q <= 0 \/ r <= 0 \/ N < 0) then 0
   else sum_R q r N p 0 (N %/ p).
+
+(* ----------------------------------------------------------------- *)
+(* 10.2: Closed form for the 3-term counter                           *)
+(* ----------------------------------------------------------------- *)
 
 op R_3 (p q r N : int) : int =
   if (p <= 0 \/ q <= 0 \/ r <= 0 \/ N < 0) then 0
@@ -556,6 +546,10 @@ op R_3 (p q r N : int) : int =
     else
       let numerator = (J + 1) * M - p * r * (J * (J + 1) %/ 2) - Rm in
       numerator %/ q + (J + 1).
+
+(* ----------------------------------------------------------------- *)
+(* 10.3: Basic lemmas for the recursive sum                           *)
+(* ----------------------------------------------------------------- *)
 
 lemma sum_R_empty (q r N p A kmax : int) :
   kmax < A => sum_R q r N p A kmax = 0.
@@ -584,6 +578,10 @@ proof.
   by apply R_formula.
 qed.
 
+(* ----------------------------------------------------------------- *)
+(* 10.4: The degenerate r = 1 case                                    *)
+(* ----------------------------------------------------------------- *)
+
 lemma R_with_r_one (q M : int) :
   0 < q => M >= q =>
   R q 1 M = 1.
@@ -596,12 +594,42 @@ proof.
   rewrite h1 h2 h3 /=.
   have hmod : M %% 1 = 0 by smt().
   rewrite hmod.
-  have hle : 0 <= M %/ q by apply divz_ge0.
+  have hle : 0 <= M %/ q by smt(divz_ge0).
   have hgt : ! (M %/ q < 0) by smt().
   rewrite hgt /=.
   have hdiv : M %/ q %/ 1 = M %/ q by smt().
   rewrite hdiv.
   smt().
+qed.
+
+lemma sum_R_r_one (q N p A kmax : int) :
+  0 < q => A <= kmax =>
+  (forall i, A <= i => i <= kmax => N - p * i >= q) =>
+  sum_R q 1 N p A kmax = kmax - A + 1.
+proof.
+  move=> hq hA hbound.
+  elim /Int.Induction: kmax hA hbound => [| kmax' IH] hA hbound.
+  - smt().
+  - have hstep := sum_R_step q 1 N p A (kmax' + 1).
+    have hAle : A <= kmax' + 1 by smt().
+    rewrite hstep //.
+    have hinner : R q 1 (N - p * A) = 1.
+      apply R_with_r_one; first by smt().
+      apply hbound; smt().
+    rewrite hinner.
+    case (A = kmax' + 1) => [heq | hne].
+    + have hempty : sum_R q 1 N p (A + 1) (kmax' + 1) = 0.
+        apply sum_R_empty; smt().
+      rewrite hempty.
+      smt().
+    + have hrec := IH (A + 1).
+      have hAle' : A + 1 <= kmax' + 1 by smt().
+      have hbound' : forall i, A + 1 <= i => i <= kmax' + 1 =>
+                      N - p * i >= q.
+        move=> i hi1 hi2.
+        apply hbound; smt().
+      rewrite (hrec hAle' hbound').
+      smt().
 qed.
 
 lemma R_3_r_one (p q N : int) :
@@ -643,6 +671,10 @@ proof.
   apply R_3_r_one; smt().
 qed.
 
+(* ----------------------------------------------------------------- *)
+(* 10.5: 4-term extension                                             *)
+(* ----------------------------------------------------------------- *)
+
 op R_4 (p q r s N : int) : int =
   if (p <= 0 \/ q <= 0 \/ r <= 0 \/ s <= 0 \/ N < 0) then 0
   else
@@ -665,14 +697,18 @@ proof.
   have h4 : ! (s <= 0) by smt().
   have h5 : ! (N < 0) by smt().
   rewrite h1 h2 h3 h4 h5 /=.
-  have hM0_ge0 : 0 <= N %/ p by apply divz_ge0.
+  have hM0_ge0 : 0 <= N %/ p by smt(divz_ge0).
   have hS1_ge0 : 0 <= (N %/ p + 1) * (N %/ p + 2) %/ 2.
-    apply divz_ge0; smt().
+    smt(divz_ge0).
   have hSig2_ge0 : 0 <= (N %/ p) * (N %/ p + 1) %/ 2.
-    apply divz_ge0; smt().
-  have hSig3_ge0 : 0 <= (N %/ p) %/ r by apply divz_ge0.
+    smt(divz_ge0).
+  have hSig3_ge0 : 0 <= (N %/ p) %/ r by smt(divz_ge0).
   smt(divz_ge0).
 qed.
+
+(* ----------------------------------------------------------------- *)
+(* 10.6: Worked examples for 3-term and 4-term                        *)
+(* ----------------------------------------------------------------- *)
 
 lemma example_143_R_3 : R_3 19 9 3 143 = 0.
 proof. by compute. qed.
@@ -691,3 +727,22 @@ proof. by compute. qed.
 
 lemma example_6666_R_4 : R_4 19 9 3 3 6666 = 39.
 proof. by compute. qed.
+
+(* ================================================================= *)
+(* Section 11: Summary                                                *)
+(* ================================================================= *)
+(*
+   Basic theory (2-term):
+     dr_q_range, dr_q_cong, A0_eq_dr_q, A0_minimal,
+     R_well_defined, R_formula, is_rep_A0_B0,
+     rep_characterisation_forward, rep_characterisation_backward,
+     rep_characterisation, R_counts,
+     G_19_9, G_19_9_alt, worked examples.
+
+   3-term extension:
+     sum_R, sum_R_empty, sum_R_step, R_inner_formula,
+     R_with_r_one, sum_R_r_one, R_3_r_one, R_3_trivial_r.
+
+   4-term extension:
+     R_4_nonneg, worked examples.
+*)
