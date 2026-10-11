@@ -64,47 +64,61 @@ jobs:
           opam exec -- easycrypt why3config
           opam exec -- easycrypt config
 
-      - name: Locate distribution operators in EasyCrypt library
+      - name: Locate EasyCrypt library and distribution operators
         run: |
           echo "=========================================="
-          echo "=== Files containing 'op dbool' ==="
+          echo "=== Where is easycrypt installed? ==="
           echo "=========================================="
-          find ~/.opam -name "*.ec" 2>/dev/null | xargs grep -l "op dbool" 2>/dev/null | head -20
+          opam exec -- which easycrypt || true
+          echo ""
+          echo "=== Version ==="
+          opam exec -- easycrypt --version 2>&1 | head -5 || true
           echo ""
           echo "=========================================="
-          echo "=== Files containing 'op dunit' ==="
+          echo "=== Contents of sources directory ==="
           echo "=========================================="
-          find ~/.opam -name "*.ec" 2>/dev/null | xargs grep -l "op dunit" 2>/dev/null | head -20
+          ls -la ~/.opam/4.14.1/.opam-switch/sources/ 2>/dev/null || echo "sources/ not found"
+          echo ""
+          echo "=== Contents of build directory ==="
+          echo "=========================================="
+          ls -la ~/.opam/4.14.1/.opam-switch/build/ 2>/dev/null || echo "build/ not found"
           echo ""
           echo "=========================================="
-          echo "=== Files containing 'op dmap' ==="
+          echo "=== Find easycrypt source directories ==="
           echo "=========================================="
-          find ~/.opam -name "*.ec" 2>/dev/null | xargs grep -l "op dmap" 2>/dev/null | head -20
+          find / -type d -name "easycrypt" 2>/dev/null | head -20
           echo ""
           echo "=========================================="
-          echo "=== Files containing 'op dinter' ==="
+          echo "=== Find 'theories' directories ==="
           echo "=========================================="
-          find ~/.opam -name "*.ec" 2>/dev/null | xargs grep -l "op dinter" 2>/dev/null | head -20
+          find / -type d -name "theories" 2>/dev/null | head -20
           echo ""
           echo "=========================================="
-          echo "=== Exact definitions (any of these) ==="
+          echo "=== Find all .ec files on the system ==="
           echo "=========================================="
-          grep -rn "op dbool\|op dunit\|op dmap\|op dinter\|op dunif" ~/.opam/ 2>/dev/null | head -30
+          find / -name "*.ec" 2>/dev/null | head -80
           echo ""
           echo "=========================================="
-          echo "=== All files with 'Distr' in the name ==="
+          echo "=== Find Distr/DBool/DInterval directories ==="
           echo "=========================================="
-          find ~/.opam -name "*Distr*.ec" 2>/dev/null | head -30
+          find / -type d \( -name "Distr" -o -name "DBool" -o -name "DInterval" \) 2>/dev/null | head -20
           echo ""
           echo "=========================================="
-          echo "=== All files with 'Bool' or 'bool' in the name ==="
+          echo "=== Search for dbool/dunit/dmap/dinter definitions ==="
           echo "=========================================="
-          find ~/.opam \( -name "*Bool*.ec" -o -name "*bool*.ec" \) 2>/dev/null | head -30
+          for pattern in dbool dunit dmap dinter dunif; do
+            echo "--- $pattern ---"
+            grep -rn "op $pattern" / 2>/dev/null | head -5
+            echo ""
+          done
           echo ""
           echo "=========================================="
-          echo "=== All files with 'Interval' in the name ==="
+          echo "=== Search for easycrypt library paths ==="
           echo "=========================================="
-          find ~/.opam -name "*Interval*.ec" 2>/dev/null | head -30
+          find / -name "AllCore.ec" 2>/dev/null | head -5
+          find / -name "Distr.ec" 2>/dev/null | head -5
+          find / -name "DBool.ec" 2>/dev/null | head -5
+          find / -name "DInterval.ec" 2>/dev/null | head -5
           echo ""
 
       - name: Forbid admit and enforce axiom baseline
