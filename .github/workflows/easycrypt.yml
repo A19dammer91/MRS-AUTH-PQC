@@ -64,63 +64,6 @@ jobs:
           opam exec -- easycrypt why3config
           opam exec -- easycrypt config
 
-      - name: Locate EasyCrypt library and distribution operators
-        run: |
-          echo "=========================================="
-          echo "=== Where is easycrypt installed? ==="
-          echo "=========================================="
-          opam exec -- which easycrypt || true
-          echo ""
-          echo "=== Version ==="
-          opam exec -- easycrypt --version 2>&1 | head -5 || true
-          echo ""
-          echo "=========================================="
-          echo "=== Contents of sources directory ==="
-          echo "=========================================="
-          ls -la ~/.opam/4.14.1/.opam-switch/sources/ 2>/dev/null || echo "sources/ not found"
-          echo ""
-          echo "=== Contents of build directory ==="
-          echo "=========================================="
-          ls -la ~/.opam/4.14.1/.opam-switch/build/ 2>/dev/null || echo "build/ not found"
-          echo ""
-          echo "=========================================="
-          echo "=== Find easycrypt source directories ==="
-          echo "=========================================="
-          find / -type d -name "easycrypt" 2>/dev/null | head -20
-          echo ""
-          echo "=========================================="
-          echo "=== Find 'theories' directories ==="
-          echo "=========================================="
-          find / -type d -name "theories" 2>/dev/null | head -20
-          echo ""
-          echo "=========================================="
-          echo "=== Find all .ec files on the system ==="
-          echo "=========================================="
-          find / -name "*.ec" 2>/dev/null | head -80
-          echo ""
-          echo "=========================================="
-          echo "=== Find Distr/DBool/DInterval directories ==="
-          echo "=========================================="
-          find / -type d \( -name "Distr" -o -name "DBool" -o -name "DInterval" \) 2>/dev/null | head -20
-          echo ""
-          echo "=========================================="
-          echo "=== Search for dbool/dunit/dmap/dinter definitions ==="
-          echo "=========================================="
-          for pattern in dbool dunit dmap dinter dunif; do
-            echo "--- $pattern ---"
-            grep -rn "op $pattern" / 2>/dev/null | head -5
-            echo ""
-          done
-          echo ""
-          echo "=========================================="
-          echo "=== Search for easycrypt library paths ==="
-          echo "=========================================="
-          find / -name "AllCore.ec" 2>/dev/null | head -5
-          find / -name "Distr.ec" 2>/dev/null | head -5
-          find / -name "DBool.ec" 2>/dev/null | head -5
-          find / -name "DInterval.ec" 2>/dev/null | head -5
-          echo ""
-
       - name: Forbid admit and enforce axiom baseline
         working-directory: proofs
         run: |
@@ -165,7 +108,7 @@ jobs:
           for f in \
               MRS_FloorSum.ec \
               MRS_DigitSum.ec \
-              test_dinter.ec \
+              MRS_Distr.ec \
               MRS_Core.ec \
               MRS_Encoding.ec \
               MRS_Chain.ec \
