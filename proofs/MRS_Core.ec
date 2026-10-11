@@ -12,6 +12,11 @@
 (*  Sampling uses `duniform_int` from MRS_Distr.ec.                   *)
 (*                                                                    *)
 (*  Axiom baseline: 0. NO admits.                                     *)
+(*                                                                    *)
+(*  Note: the equivalence lemma's `sample_basic_equiv` and            *)
+(*  `sample_triangle_equiv` are deferred to MRS_General.ec, where     *)
+(*  they are developed together with the 3-term and 4-term            *)
+(*  extensions.                                                       *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real List.
@@ -151,10 +156,8 @@ proof.
   have [hlo hhi] := hrange.
   have hmod_ge0 : 0 <= N %% 9 by smt(modz_ge0).
   case (N %% 9 = 0) => [hmod0 | hmod_ne].
-  - right.
-    smt().
-  - left.
-    smt().
+  - right. smt().
+  - left. smt().
 qed.
 
 lemma N_minus_19a0_mod9 (N : int) : 0 < N => (N - 19 * (a0 N)) %% 9 = 0.
@@ -184,8 +187,7 @@ proof.
     have hge : 171 <= N.
       have : 9 * 19 <= 9 * (N %/ 9) by smt().
       smt().
-    rewrite heq.
-    smt().
+    rewrite heq. smt().
   - have hle : a0 N <= 8 by smt().
     smt().
 qed.
@@ -460,17 +462,11 @@ lemma frobenius_162_not_rep (A B : int) : is_rep 162 A B => false.
 proof.
   move=> hrep.
   have hA : 1 <= A.
-    move: hrep.
-    move=> [h _].
-    exact h.
+    move: hrep. move=> [h _]. exact h.
   have hB : 0 <= B.
-    move: hrep.
-    move=> [_ [h _]].
-    exact h.
+    move: hrep. move=> [_ [h _]]. exact h.
   have hEq : 19*A + 9*B = 162.
-    move: hrep.
-    move=> [_ [_ h]].
-    exact h.
+    move: hrep. move=> [_ [_ h]]. exact h.
   have hmod : A %% 9 = 0.
     have : (19*A + 9*B) %% 9 = 162 %% 9 by rewrite hEq.
     have h162 : 162 %% 9 = 0 by done.
@@ -500,8 +496,7 @@ proof.
   by rewrite Heq2.
 qed.
 
-lemma frobenius_163_explicit :
-  is_rep 163 1 16.
+lemma frobenius_163_explicit : is_rep 163 1 16.
 proof.
   rewrite /is_rep.
   split; first by done.
@@ -509,8 +504,7 @@ proof.
   by [].
 qed.
 
-lemma frobenius_163_via_anchor :
-  is_rep 163 (a0 163) (B0 163).
+lemma frobenius_163_via_anchor : is_rep 163 (a0 163) (B0 163).
 proof.
   rewrite a0_163 B0_163.
   exact frobenius_163_explicit.
@@ -521,10 +515,8 @@ lemma frobenius_boundary :
   (exists (A B : int), is_rep 163 A B).
 proof.
   split.
-  - move=> A B.
-    exact (frobenius_162_not_rep A B).
-  - exists 1 16.
-    exact frobenius_163_explicit.
+  - move=> A B. exact (frobenius_162_not_rep A B).
+  - exists 1 16. exact frobenius_163_explicit.
 qed.
 
 lemma no_unrep_above_162 (N : int) : 162 < N => is_rep N (a0 N) (B0 N).
@@ -581,6 +573,9 @@ qed.
 (* Section 10: Correctness of sample_basic                            *)
 (* ================================================================= *)
 
+(* Pure invariant: for every k in [0, kmax N], the pair                 *)
+(* (a0 N + 9*k, B0 N - 19*k) is a valid representation of N with       *)
+(* matching digital roots.                                             *)
 lemma sample_basic_inv (N k : int) :
   162 < N =>
   0 <= k <= kmax N =>
@@ -593,6 +588,7 @@ proof.
   - by apply dr_rep_A.
 qed.
 
+(* Hoare correctness: sample_basic returns a valid representation.     *)
 lemma sample_basic_correct (N : int) :
   162 < N =>
   hoare [MRSRep.sample_basic :
@@ -607,172 +603,6 @@ proof.
   apply sample_basic_inv.
   - smt().
   - smt(kmax_ge0).
-qed.
-
-(* ================================================================= *)
-(* Section 11: Equivalence lemmas (deferred)                          *)
-(* ================================================================= *)
-
-(* The reflexivity tests `sample_basic_equiv` and                     *)
-(* `sample_triangle_equiv` are deferred: they are not used by any     *)
-(* downstream module, and the equivalence proofs for procedures       *)
-(* with `<$`-sampling require a different tactic pattern.             *)
-
-(* ================================================================= *)
-(* Section 12: 3-term and 4-term extensions                           *)
-(* ================================================================= *)
-
-op sum_R (q r N p : int) : int -> int -> int =
-  fun A kmax =>
-    if (kmax < A) then 0
-    else R q r (N - p * A) + sum_R q r N p (A + 1) kmax.
-
-op R_3_sum (p q r N : int) : int =
-  if (p <= 0 \/ q <= 0 \/ r <= 0 \/ N < 0) then 0
-  else sum_R q r N p 0 (N %/ p).
-
-op R_3 (p q r N : int) : int =
-  if (p <= 0 \/ q <= 0 \/ r <= 0 \/ N < 0) then 0
-  else
-    let M = N %/ p in
-    let J = M %/ r in
-    let Rm = M %% r in
-    if (M < q * r) then 0
-    else
-      let numerator = (J + 1) * M - p * r * (J * (J + 1) %/ 2) - Rm in
-      numerator %/ q + (J + 1).
-
-lemma sum_R_empty (q r N p A kmax : int) :
-  kmax < A => sum_R q r N p A kmax = 0.
-proof.
-  move=> h.
-  rewrite /sum_R.
-  by rewrite h.
-qed.
-
-lemma sum_R_step (q r N p A kmax : int) :
-  A <= kmax =>
-  sum_R q r N p A kmax =
-    R q r (N - p * A) + sum_R q r N p (A + 1) kmax.
-proof.
-  move=> h.
-  rewrite /sum_R.
-  have : ! (kmax < A) by smt().
-  by rewrite this.
-qed.
-
-lemma R_with_r_one (q M : int) :
-  0 < q => M >= q =>
-  R q 1 M = 1.
-proof.
-  move=> hq hM.
-  rewrite /R.
-  have h1 : ! (q <= 0) by smt().
-  have h2 : ! (1 <= 0) by smt().
-  have h3 : ! (M < 0) by smt().
-  rewrite h1 h2 h3 /=.
-  have hmod : M %% 1 = 0 by smt().
-  rewrite hmod.
-  have hle : 0 <= M %/ q by smt(divz_ge0).
-  have hgt : ! (M %/ q < 0) by smt().
-  rewrite hgt /=.
-  have hdiv : M %/ q %/ 1 = M %/ q by smt().
-  rewrite hdiv.
-  smt().
-qed.
-
-lemma R_3_r_one (p q N : int) :
-  0 < p => 0 < q => p %% q = 1 => N >= p * q =>
-  R_3 p q 1 N = 0.
-proof.
-  move=> hp hq hpq hN.
-  rewrite /R_3.
-  have h1 : ! (p <= 0) by smt().
-  have h2 : ! (q <= 0) by smt().
-  have h3 : ! (1 <= 0) by smt().
-  have h4 : ! (N < 0) by smt().
-  rewrite h1 h2 h3 h4 /=.
-  have hM_div_1 : N %/ p %/ 1 = N %/ p by smt().
-  have hM_mod_1 : N %/ p %% 1 = 0 by smt().
-  rewrite hM_div_1 hM_mod_1.
-  case (N %/ p < q) => [hlt | hge].
-  - by [].
-  have hp_gt2 : 2 < p.
-    have hpq_pos : 0 < p by smt().
-    smt().
-  have hnum_neg :
-      (N %/ p %/ 1 + 1) * (N %/ p) -
-      p * 1 * ((N %/ p %/ 1 * (N %/ p %/ 1 + 1)) %/ 2) -
-      (N %/ p %% 1) < 0.
-    rewrite hM_div_1 hM_mod_1.
-    have hM_pos : 0 < N %/ p by smt(divz_eq).
-    have hfac_pos : 0 < N %/ p * (N %/ p + 1) by smt().
-    smt().
-  have hq_pos : 0 < q by smt().
-  smt(divz_ge0).
-qed.
-
-lemma R_3_trivial_r (p q N : int) :
-  0 < p => 2 < p => 0 < q => p %% q = 1 => N >= p * q =>
-  R_3 p q 1 N = 0.
-proof.
-  move=> hp hp2 hq hpq hN.
-  apply R_3_r_one; smt().
-qed.
-
-op R_4 (p q r s N : int) : int =
-  if (p <= 0 \/ q <= 0 \/ r <= 0 \/ s <= 0 \/ N < 0) then 0
-  else
-    let M0 = N %/ p in
-    let S1 = (M0 + 1) * (M0 + 2) %/ 2 in
-    let Sigma2 = M0 * (M0 + 1) %/ 2 in
-    let Sigma3 = M0 %/ r in
-    let Sigma4 = 0 in
-    (M0 * S1 - s * Sigma2 - (p * r %/ 2) * Sigma3 - Sigma4) %/ q.
-
-lemma R_4_nonneg (p q r s N : int) :
-  0 < p => 0 < q => 0 < r => 0 < s => N >= 0 =>
-  0 <= R_4 p q r s N.
-proof.
-  move=> hp hq hr hs hN.
-  rewrite /R_4.
-  have h1 : ! (p <= 0) by smt().
-  have h2 : ! (q <= 0) by smt().
-  have h3 : ! (r <= 0) by smt().
-  have h4 : ! (s <= 0) by smt().
-  have h5 : ! (N < 0) by smt().
-  rewrite h1 h2 h3 h4 h5 /=.
-  have hM0_ge0 : 0 <= N %/ p by smt(divz_ge0).
-  have hS1_ge0 : 0 <= (N %/ p + 1) * (N %/ p + 2) %/ 2.
-    smt(divz_ge0).
-  have hSig2_ge0 : 0 <= (N %/ p) * (N %/ p + 1) %/ 2.
-    smt(divz_ge0).
-  have hSig3_ge0 : 0 <= (N %/ p) %/ r by smt(divz_ge0).
-  smt(divz_ge0).
-qed.
-
-lemma example_143_R_3 : R_3 19 9 3 143 = 0.
-proof. by smt(). qed.
-
-lemma example_958_R_3 : R_3 19 9 3 958 = 6.
-proof. by smt(). qed.
-
-lemma example_6666_R_3 : R_3 19 9 3 6666 = 39.
-proof.
-  rewrite /R_3.
-  by smt().
-qed.
-
-lemma example_143_R_4 : R_4 19 9 3 3 143 = 0.
-proof. by smt(). qed.
-
-lemma example_958_R_4 : R_4 19 9 3 3 958 = 6.
-proof. by smt(). qed.
-
-lemma example_6666_R_4 : R_4 19 9 3 3 6666 = 39.
-proof.
-  rewrite /R_4.
-  by smt().
 qed.
 
 (* ================================================================= *)
