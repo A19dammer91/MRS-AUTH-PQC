@@ -31,21 +31,20 @@
 (*  - NO axioms in this file, NO admits.                              *)
 (*  - `linarith`, `nlinarith`, `ltz_pmod`, `divz_ge0` are avoided.   *)
 (*  - `ring_simplify` is avoided.                                     *)
+(*  - `divides` is avoided (not present in r2024.09); divisibility   *)
+(*    is stated as an explicit multiplication identity.               *)
 (*  - `(by tactic)` is never used as a term argument.                 *)
 (*  - `smt(/pred_name)` is NOT used (parse error in r2024.09).        *)
 (*  - `~` is NOT used for negation: `!` or `P => false`.              *)
 (*  - `case (cond).` without `=>` pattern is avoided.                 *)
 (*  - `set k := ...` is avoided; concrete terms are substituted.      *)
 (*  - `auto => />` is avoided on Hoare triples whose body contains    *)
-(*    our axiomatic `duniform`, because it triggers an internal       *)
-(*    anomaly in EasyCrypt r2024.09. We use `wp.` + `skip.` +         *)
-(*    explicit `move=>` instead.                                      *)
+(*    our axiomatic `duniform`. We use `wp.` + `skip.` + `move=>`.    *)
 (*  - Module variable names carry no digits.                          *)
 (*  - Module variable declarations carry explicit type annotations.   *)
 (*  - Module bodies contain no blank lines.                           *)
 (*  - Random sampling uses `duniform` from MRS_Distr.ec, not the      *)
-(*    algebraic interval notation `[0..N]` (which internally fails    *)
-(*    in r2024.09).                                                   *)
+(*    algebraic interval notation `[0..N]`.                           *)
 (*  - The `%%` and `%/` operators are NOT used inside a procedure     *)
 (*    body. All modular and division arithmetic is placed inside      *)
 (*    top-level `op` definitions.                                     *)
@@ -363,14 +362,12 @@ qed.
 (* the one above it, so remainders from higher layers are            *)
 (* completely absorbable by lower layers.                            *)
 lemma chain_divisibility :
-  lemma chain_divisibility :
   (3 = 1 * 3) /\ (3 = 3 * 1) /\ (9 = 3 * 3).
 proof.
   split; first by ring.
   split; first by ring.
   by ring.
 qed.
-proof.
 
 (* Absorption Guarantee: the remainder after the top layer is        *)
 (* strictly bounded by c1 = 19.                                      *)
