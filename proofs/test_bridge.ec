@@ -1,4 +1,4 @@
-require import AllCore Distr.
+require import AllCore Distr List.
 
 (* Test 1: bestaat dunit? *)
 op t1 : int distr = dunit 5.
@@ -11,3 +11,6 @@ op t3 : int distr = dmap (dunit 5) (fun (x : int) => x + 1).
 
 (* Test 4: bestaat er een ingebouwde duniform voor int? *)
 op t4 : int distr = duniform 5.
+
+(* Test 5: werkt range? *)
+op t5 : int list = range 0 5.
