@@ -1,3 +1,4 @@
+
 (* MRS_Chain.ec *)
 require import AllCore Int IntDiv List.
 require import MRS_Core.
@@ -34,5 +35,5 @@ lemma build_equiv (N depth : int) (tri : int list) :
     arg{2} = (N, depth, tri) ==> ={res}].
 proof.
   proc.
-  auto.
+  sim.
 qed.
