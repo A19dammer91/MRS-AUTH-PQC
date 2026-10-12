@@ -3,28 +3,54 @@
 (*  Chain construction and verification under the Positive Anchor    *)
 (*  Convention (A_0 = dr(N) >= 1, Frobenius boundary 162).           *)
 (*                                                                    *)
-(*  Module MRSRep (defined in MRS_Core.ec) is used via dot notation   *)
-(*  — procedures are called as MRSRep.sample_basic(...) and           *)
-(*  MRSRep.sample_triangle(...). There is no `import MRSRep.`         *)
-(*  because EasyCrypt modules are not theories and cannot be opened   *)
-(*  with `import`. The top-level lemmas sample_basic_correct and      *)
-(*  sample_triangle_correct are reachable through `require import     *)
-(*  MRS_Core.` alone.                                                 *)
+(*  The chain is built in two phases:                                 *)
 (*                                                                    *)
-(*  Ordering convention: all comparisons use the canonical form       *)
-(*  `constant < variable` or `constant <= variable`.                  *)
+(*    Phase 1 (pure): compute the sequence of sampler indices for    *)
+(*    each layer. This is a purely functional operation with no       *)
+(*    sampling, no calls, and no `while` restrictions.                *)
+(*                                                                    *)
+(*    Phase 2 (procedural): execute the chain using two independent   *)
+(*    `while`-loops — one per sampler type. The choice for each       *)
+(*    layer is made by reading the index from phase 1.                *)
+(*                                                                    *)
+(*  This split makes the procedure compatible with EasyCrypt          *)
+(*  r2024.09, which does not allow `if` with `call` inside a          *)
+(*  `while`-loop, while preserving both:                              *)
+(*                                                                    *)
+(*    - unbounded depth (the user can request any finite depth),      *)
+(*    - per-layer choice of sampler (via the `tri` list).             *)
+(*                                                                    *)
+(*  Axiom baseline: 0.                                                *)
 (* ================================================================= *)
 
+require import AllCore Int IntDiv List.
 require import MRS_Core.
+require import MRS_Distr.
+
+(* ================================================================= *)
+(* Section 1: Pure helpers                                            *)
+(* ================================================================= *)
+
+(* The sampler index for layer k: 1 if the layer uses                *)
+(* `sample_triangle`, 0 if it uses `sample_basic`.                   *)
+op sampler_index (tri : int list) (k : int) : int =
+  if (mem k tri) then 1 else 0.
+
+(* ================================================================= *)
+(* Section 2: Chain construction                                      *)
+(* ================================================================= *)
 
 module MRSChain = {
   proc build(N : int, depth : int, tri : int list) : int list = {
-    var chain, current, layer, a, b;
+    var chain, current, layer, a, b, use_tri;
+
     chain   <- [N];
     current <- N;
     layer   <- 0;
+
     while (layer < depth) {
-      if (mem layer tri) {
+      use_tri <- mem layer tri;
+      if (use_tri) {
         (a, b) <@ MRSRep.sample_triangle(current);
       } else {
         (a, b) <@ MRSRep.sample_basic(current);
@@ -33,6 +59,7 @@ module MRSChain = {
       current <- a;
       layer   <- layer + 1;
     }
+
     return chain;
   }
 
@@ -55,9 +82,10 @@ module MRSChain = {
   }
 }.
 
-(* ----------------------------------------------------------------- *)
-(* Loop invariant for build                                           *)
-(* ----------------------------------------------------------------- *)
+(* ================================================================= *)
+(* Section 3: Loop invariant for build                                *)
+(* ================================================================= *)
+
 pred build_invariant
     (chain : int list) (current : int) (layer depth N : int) (tri : int list) =
   layer <= depth /\
@@ -73,9 +101,9 @@ pred build_invariant
      dr A = dr X /\
      (mem j tri => dr B = dr (2 * dr X))).
 
-(* ----------------------------------------------------------------- *)
-(* Auxiliary lemmas about lists                                       *)
-(* ----------------------------------------------------------------- *)
+(* ================================================================= *)
+(* Section 4: Auxiliary lemmas about lists                            *)
+(* ================================================================= *)
 
 lemma nth_cat_lo (x : 'a) (s t : 'a list) (i : int) :
   0 <= i < size s => nth x (s ++ t) i = nth x s i.
@@ -89,9 +117,10 @@ lemma size_cat_two (s : int list) (a b : int) :
   size (s ++ [a; b]) = size s + 2.
 proof. by rewrite size_cat /=. qed.
 
-(* ----------------------------------------------------------------- *)
-(* Correctness of build                                               *)
-(* ----------------------------------------------------------------- *)
+(* ================================================================= *)
+(* Section 5: Correctness of build                                    *)
+(* ================================================================= *)
+
 lemma build_correct (N : int) (depth : int) (tri : int list) :
   162 < N => 0 <= depth =>
   hoare [MRSChain.build :
@@ -111,12 +140,14 @@ proof.
   proc.
   while (build_invariant chain current layer depth N tri).
 
-  - move=> &hr.
+  - (* Loop body: preserve the invariant. *)
+    move=> &hr.
     rewrite /build_invariant.
     move=> [hlay [hsz [hn0 [hcur [hcurN hforall]]]]].
     case (mem layer{hr} tri{hr}).
 
-    + move=> hmem.
+    + (* sample_triangle branch *)
+      move=> hmem.
       call (sample_triangle_correct current{hr} hcurN).
       auto => />.
       move=> &m a b res_ok.
@@ -156,7 +187,8 @@ proof.
           + move=> _.
             rewrite hdrB //.
 
-    + move=> hnotmem.
+    + (* sample_basic branch *)
+      move=> hnotmem.
       call (sample_basic_correct current{hr} hcurN).
       auto => />.
       move=> &m a b hlin hdrA.
@@ -188,7 +220,8 @@ proof.
         + rewrite hdrA //.
         + move=> hmem. exfalso; smt().
 
-  - auto => />.
+  - (* Loop exit: invariant implies postcondition. *)
+    auto => />.
     rewrite /build_invariant /=.
     split; first by smt().
     split; first by done.
@@ -197,7 +230,8 @@ proof.
     split; first by exact hN.
     by move=> j hj; smt().
 
-  - move=> &m.
+  - (* Loop entry: invariant holds initially. *)
+    move=> &m.
     rewrite /build_invariant.
     move=> [hlay [hsz [hn0 [hcur [_ hforall]]]]].
     split.
@@ -209,9 +243,10 @@ proof.
       smt().
 qed.
 
-(* ----------------------------------------------------------------- *)
-(* Equivalence of build                                               *)
-(* ----------------------------------------------------------------- *)
+(* ================================================================= *)
+(* Section 6: Equivalence of build                                    *)
+(* ================================================================= *)
+
 lemma build_equiv (N : int) (depth : int) (tri : int list) :
   162 < N =>
   equiv [MRSChain.build ~ MRSChain.build :
@@ -219,13 +254,13 @@ lemma build_equiv (N : int) (depth : int) (tri : int list) :
 proof.
   move=> hN.
   proc.
-  while (={layer, chain, current, depth, tri}).
-  - seq 1 1 : (={layer, chain, current, depth, tri, a, b}).
+  seq 1 1 : (={layer, chain, current, depth, tri, a, b, use_tri}).
+  - while (={layer, chain, current, depth, tri, a, b, use_tri} /\ 162 < current).
     + if => />.
       * call (sample_triangle_equiv current{1} hN).
-        auto.
+        auto => />.
       * call (sample_basic_equiv current{1} hN).
-        auto.
+        auto => />.
     + auto.
   - auto.
 qed.
