@@ -1,20 +1,12 @@
-(* ================================================================= *)
-(*  MRS_Chain.ec                                                      *)
-(*  Arbitrary finite-depth chain construction for MRS.                *)
-(*  Positive Anchor Convention: A_0 = dr(N) >= 1.                    *)
-(*  Frobenius boundary: 162.                                          *)
-(*  No fixed maximum depth.                                           *)
-(*  No axioms or admits declared in this file.                        *)
-(* ================================================================= *)
+
+(* MRS_Chain.ec
+   Arbitrary finite-depth chain construction for MRS.
+*)
 
 require import AllCore Int IntDiv List.
 require import MRS_Core.
 require import MRS_Distr.
 require import MRS_Equiv.
-
-(* ----------------------------------------------------------------- *)
-(* Chain construction                                                 *)
-(* ----------------------------------------------------------------- *)
 
 module MRSChain = {
 
@@ -41,36 +33,17 @@ module MRSChain = {
   }
 }.
 
-(* ================================================================= *)
-(* Equivalence of two chain executions with identical inputs.        *)
-(* ================================================================= *)
-
 lemma build_equiv (N depth : int) (tri : int list) :
-  162 < N =>
   equiv [MRSChain.build ~ MRSChain.build :
     arg{1} = (N, depth, tri) /\
-    arg{2} = (N, depth, tri) ==>
-    ={res}].
+    arg{2} = (N, depth, tri) ==> ={res}].
 proof.
-  move=> hN.
   proc.
-  while (={i, chain, current, N, depth, tri, a, b} /\ 162 < current).
-  - (* Loop body: preserve the invariant. *)
-    if => />.
-    + (* Branch: mem tri i — use sample_triangle *)
-      move=> &1 &2 H.
-      have hcurN : 162 < current{1} by smt().
-      call (sample_triangle_equiv current{1} hcurN).
-      auto => />.
-    + (* Branch: ! mem tri i — use sample_basic *)
-      move=> &1 &2 H.
-      have hcurN : 162 < current{1} by smt().
-      call (sample_basic_equiv current{1} hcurN).
-      auto => />.
-  - (* Loop entry: invariant holds initially. *)
-    auto => />.
+  while (={i, chain, current, N, depth, tri}).
+  - if => //.
+    + call (sample_triangle_equiv current{1}).
+      auto.
+    + call (sample_basic_equiv current{1}).
+      auto.
+  - auto.
 qed.
-
-(* ================================================================= *)
-(* End of MRS_Chain.ec                                                *)
-(* ================================================================= *)
