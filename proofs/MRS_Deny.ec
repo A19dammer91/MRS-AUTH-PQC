@@ -15,25 +15,23 @@ module type MRSAdversary = {
 
 module DenyGame (A : MRSAdversary) = {
   proc main(N depth : int, tri : int list) : bool = {
+    var bit : int;
     var b : bool;
     var ch0, ch1, selected : int list;
     var guess : bool;
 
-    (* Uniform challenge bit *)
-    b <$ {0, 1};
+    bit <$ duniform_int 0 1;
+    b <- (bit = 1);
 
-    (* Independently generated chains *)
     ch0 <@ MRSChain.build(N, depth, tri);
     ch1 <@ MRSChain.build(N, depth, tri);
 
-    (* Reveal only the selected chain *)
     if (b) {
       selected <- ch1;
     } else {
       selected <- ch0;
     }
 
-    (* The adversary sees the chain, not b *)
     guess <@ A.guess(selected);
 
     return (guess = b);
