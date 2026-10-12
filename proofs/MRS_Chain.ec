@@ -3,41 +3,17 @@
 (*  Chain construction and verification under the Positive Anchor    *)
 (*  Convention (A_0 = dr(N) >= 1, Frobenius boundary 162).           *)
 (*                                                                    *)
-(*  The chain is built in two phases:                                 *)
-(*                                                                    *)
-(*    Phase 1 (pure): compute the sequence of sampler indices for    *)
-(*    each layer. This is a purely functional operation with no       *)
-(*    sampling, no calls, and no `while` restrictions.                *)
-(*                                                                    *)
-(*    Phase 2 (procedural): execute the chain using two independent   *)
-(*    `while`-loops — one per sampler type. The choice for each       *)
-(*    layer is made by reading the index from phase 1.                *)
-(*                                                                    *)
-(*  This split makes the procedure compatible with EasyCrypt          *)
-(*  r2024.09, which does not allow `if` with `call` inside a          *)
-(*  `while`-loop, while preserving both:                              *)
-(*                                                                    *)
-(*    - unbounded depth (the user can request any finite depth),      *)
-(*    - per-layer choice of sampler (via the `tri` list).             *)
-(*                                                                    *)
 (*  Axiom baseline: 0.                                                *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv List.
+import List.
 require import MRS_Core.
 require import MRS_Distr.
+require import MRS_Equiv.
 
 (* ================================================================= *)
-(* Section 1: Pure helpers                                            *)
-(* ================================================================= *)
-
-(* The sampler index for layer k: 1 if the layer uses                *)
-(* `sample_triangle`, 0 if it uses `sample_basic`.                   *)
-op sampler_index (tri : int list) (k : int) : int =
-  if (mem k tri) then 1 else 0.
-
-(* ================================================================= *)
-(* Section 2: Chain construction                                      *)
+(* Section 1: Chain construction                                      *)
 (* ================================================================= *)
 
 module MRSChain = {
@@ -49,7 +25,7 @@ module MRSChain = {
     layer   <- 0;
 
     while (layer < depth) {
-      use_tri <- mem layer tri;
+      use_tri <- List.mem layer tri;
       if (use_tri) {
         (a, b) <@ MRSRep.sample_triangle(current);
       } else {
@@ -73,7 +49,7 @@ module MRSChain = {
       b  <- nth 0 chain (i + 2);
       ok <- ok && (19 * a + 9 * b = X);
       ok <- ok && (dr a = dr X);
-      if (mem (i %/ 2) tri) {
+      if (List.mem (i %/ 2) tri) {
         ok <- ok && (dr b = dr (2 * dr X));
       }
       i <- i + 2;
@@ -83,7 +59,7 @@ module MRSChain = {
 }.
 
 (* ================================================================= *)
-(* Section 3: Loop invariant for build                                *)
+(* Section 2: Loop invariant for build                                *)
 (* ================================================================= *)
 
 pred build_invariant
@@ -99,10 +75,10 @@ pred build_invariant
      let B = nth 0 chain (2*j + 2) in
      19*A + 9*B = X /\
      dr A = dr X /\
-     (mem j tri => dr B = dr (2 * dr X))).
+     (List.mem j tri => dr B = dr (2 * dr X))).
 
 (* ================================================================= *)
-(* Section 4: Auxiliary lemmas about lists                            *)
+(* Section 3: Auxiliary lemmas about lists                            *)
 (* ================================================================= *)
 
 lemma nth_cat_lo (x : 'a) (s t : 'a list) (i : int) :
@@ -118,7 +94,7 @@ lemma size_cat_two (s : int list) (a b : int) :
 proof. by rewrite size_cat /=. qed.
 
 (* ================================================================= *)
-(* Section 5: Correctness of build                                    *)
+(* Section 4: Correctness of build                                    *)
 (* ================================================================= *)
 
 lemma build_correct (N : int) (depth : int) (tri : int list) :
@@ -134,7 +110,7 @@ lemma build_correct (N : int) (depth : int) (tri : int list) :
        let B = nth 0 chain (2*j + 2) in
        19*A + 9*B = X /\
        dr A = dr X /\
-       (mem j tri => dr B = dr (2 * dr X)))].
+       (List.mem j tri => dr B = dr (2 * dr X)))].
 proof.
   move=> hN hd.
   proc.
@@ -144,7 +120,7 @@ proof.
     move=> &hr.
     rewrite /build_invariant.
     move=> [hlay [hsz [hn0 [hcur [hcurN hforall]]]]].
-    case (mem layer{hr} tri{hr}).
+    case (List.mem layer{hr} tri{hr}).
 
     + (* sample_triangle branch *)
       move=> hmem.
@@ -220,7 +196,7 @@ proof.
         + rewrite hdrA //.
         + move=> hmem. exfalso; smt().
 
-  - (* Loop exit: invariant implies postcondition. *)
+  - (* Loop exit *)
     auto => />.
     rewrite /build_invariant /=.
     split; first by smt().
@@ -230,7 +206,7 @@ proof.
     split; first by exact hN.
     by move=> j hj; smt().
 
-  - (* Loop entry: invariant holds initially. *)
+  - (* Loop entry *)
     move=> &m.
     rewrite /build_invariant.
     move=> [hlay [hsz [hn0 [hcur [_ hforall]]]]].
@@ -244,7 +220,7 @@ proof.
 qed.
 
 (* ================================================================= *)
-(* Section 6: Equivalence of build                                    *)
+(* Section 5: Equivalence of build                                    *)
 (* ================================================================= *)
 
 lemma build_equiv (N : int) (depth : int) (tri : int list) :
