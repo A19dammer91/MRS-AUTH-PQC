@@ -25,7 +25,7 @@ proof.
   move=> hN.
   proc.
   seq 1 1 : (={kvl}).
-  - rnd (fun x => x) (fun x => x).
+  rnd.
     skip => /=.
     move=> &1 &2 H.
     by [].
