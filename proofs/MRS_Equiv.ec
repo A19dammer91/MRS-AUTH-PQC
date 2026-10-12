@@ -30,7 +30,9 @@ lemma sample_basic_equiv (N : int) :
   equiv [MRSRep.sample_basic ~ MRSRep.sample_basic : ={arg} ==> ={res}].
 proof.
   move=> hN.
-  byequiv => //.
+  byequiv.
+  proc.
+  auto.
 qed.
   (* Goal is now a Hoare triple on the product program. *)
   proc.
