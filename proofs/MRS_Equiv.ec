@@ -31,6 +31,7 @@ lemma sample_basic_equiv (N : int) :
 proof.
   move=> hN.
   byequiv => //.
+qed.
   (* Goal is now a Hoare triple on the product program. *)
   proc.
   seq 1 1 : (={kvl}).
