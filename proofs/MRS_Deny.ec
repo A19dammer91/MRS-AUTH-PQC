@@ -11,7 +11,7 @@
 (*  No axioms or admits declared in this file.                        *)
 (* ================================================================= *)
 
-require import AllCore Bool Int IntDiv Real List.
+require import AllCore Bool DBool Int IntDiv Real List.
 require import MRS_Chain.
 require import MRS_Equiv.
 
