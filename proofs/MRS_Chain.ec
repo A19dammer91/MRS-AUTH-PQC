@@ -34,11 +34,5 @@ lemma build_equiv (N depth : int) (tri : int list) :
     arg{2} = (N, depth, tri) ==> ={res}].
 proof.
   proc.
-  while (={i, chain, current, N, depth, tri}).
-  - if => //.
-    + call (_ : true ==> ={res}).
-      auto.
-    + call (_ : true ==> ={res}).
-      auto.
-  - auto.
+  auto.
 qed.
