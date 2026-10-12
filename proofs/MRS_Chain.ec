@@ -41,9 +41,9 @@ proof.
   proc.
   while (={i, chain, current, N, depth, tri}).
   - if => //.
-    + call (sample_triangle_equiv current{1}).
+    + call (sample_triangle_equiv).
       auto.
-    + call (sample_basic_equiv current{1}).
+    + call (sample_basic_equiv).
       auto.
   - auto.
 qed.
