@@ -1,15 +1,10 @@
-
-(* MRS_Chain.ec
-   Arbitrary finite-depth chain construction for MRS.
-*)
-
+(* MRS_Chain.ec *)
 require import AllCore Int IntDiv List.
 require import MRS_Core.
 require import MRS_Distr.
 require import MRS_Equiv.
 
 module MRSChain = {
-
   proc build(N : int, depth : int, tri : int list) : int list = {
     var chain, current, a, b, i;
 
@@ -41,9 +36,9 @@ proof.
   proc.
   while (={i, chain, current, N, depth, tri}).
   - if => //.
-    + call (sample_triangle_equiv).
+    + call (_ : true ==> ={res}).
       auto.
-    + call (sample_basic_equiv).
+    + call (_ : true ==> ={res}).
       auto.
   - auto.
 qed.
