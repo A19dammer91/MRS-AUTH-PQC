@@ -14,12 +14,6 @@ require import MRS_Equiv.
 
 (* ----------------------------------------------------------------- *)
 (* Chain construction                                                 *)
-(*                                                                    *)
-(* depth specifies the requested number of steps.                     *)
-(* tri contains zero-based indices using sample_triangle.             *)
-(* All other layers use sample_basic.                                 *)
-(*                                                                    *)
-(* For every finite depth >= 0, the loop performs exactly depth steps. *)
 (* ----------------------------------------------------------------- *)
 
 module MRSChain = {
@@ -49,14 +43,6 @@ module MRSChain = {
 
 (* ================================================================= *)
 (* Equivalence of two chain executions with identical inputs.        *)
-(*                                                                    *)
-(* The proof uses a `while`-invariant that keeps the loop variables   *)
-(* and the sampled pair equal on both sides. At each iteration, the   *)
-(* `if (mem tri i)` condition is the same on both sides (since tri    *)
-(* and i are equal), so the same branch is taken. The sampler called  *)
-(* is therefore the same on both sides, and its equivalence lemma     *)
-(* (`sample_basic_equiv` or `sample_triangle_equiv`) provides the     *)
-(* required equality.                                                 *)
 (* ================================================================= *)
 
 lemma build_equiv (N depth : int) (tri : int list) :
@@ -72,10 +58,14 @@ proof.
   - (* Loop body: preserve the invariant. *)
     if => />.
     + (* Branch: mem tri i — use sample_triangle *)
-      call (sample_triangle_equiv current{1} hN).
+      move=> &1 &2 H.
+      have hcurN : 162 < current{1} by smt().
+      call (sample_triangle_equiv current{1} hcurN).
       auto => />.
     + (* Branch: ! mem tri i — use sample_basic *)
-      call (sample_basic_equiv current{1} hN).
+      move=> &1 &2 H.
+      have hcurN : 162 < current{1} by smt().
+      call (sample_basic_equiv current{1} hcurN).
       auto => />.
   - (* Loop entry: invariant holds initially. *)
     auto => />.
