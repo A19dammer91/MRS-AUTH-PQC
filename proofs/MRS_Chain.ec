@@ -32,7 +32,7 @@ module MRSChain = {
     i       <- 0;
 
     while (i < depth) {
-      if (mem i tri) {
+      if (mem tri i) {
         (a, b) <@ MRSRep.sample_triangle(current);
       } else {
         (a, b) <@ MRSRep.sample_basic(current);
