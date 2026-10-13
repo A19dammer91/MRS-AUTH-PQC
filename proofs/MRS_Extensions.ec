@@ -53,17 +53,17 @@ lemma sum_mod_j_ge0 (Mq r q j_max : int) :
 proof.
   move=> hq.
   rewrite /sum_mod_j.
-  case (j_max <= 0) => [// | _].
-  case (j_max = 1) => [_->| _].
-    by apply pos_mod_ge0.
-  case (j_max = 2) => [_->| _].
-    have h1 := pos_mod_ge0 Mq q hq.
-    have h2 := pos_mod_ge0 (Mq - r) q hq.
+  case (j_max <= 0) => [// | h0].
+  case (j_max = 1) => [h1 | h1'].
+  - by apply pos_mod_ge0.
+  case (j_max = 2) => [h2 | h2'].
+  - have := pos_mod_ge0 Mq q hq.
+    have := pos_mod_ge0 (Mq - r) q hq.
     smt().
-  case (j_max = 3) => [_->| _].
-    have h1 := pos_mod_ge0 Mq q hq.
-    have h2 := pos_mod_ge0 (Mq - r) q hq.
-    have h3 := pos_mod_ge0 (Mq - 2 * r) q hq.
+  case (j_max = 3) => [h3 | h3'].
+  - have := pos_mod_ge0 Mq q hq.
+    have := pos_mod_ge0 (Mq - r) q hq.
+    have := pos_mod_ge0 (Mq - 2 * r) q hq.
     smt().
   smt().
 qed.
