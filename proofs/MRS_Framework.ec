@@ -2,6 +2,8 @@
 (*  MRS_Framework.ec                                                  *)
 (*  General framework for linear Diophantine representation systems   *)
 (*  N = p*A + q*B, with p = 1 (mod q), p > q                          *)
+(*                                                                    *)
+(*  Axiom baseline: 0.                                                *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv.
@@ -197,6 +199,10 @@ proof.
       smt().
 qed.
 
+(* ----------------------------------------------------------------- *)
+(* Forward direction: every valid A is of the form N mod q + q * k   *)
+(* ----------------------------------------------------------------- *)
+
 lemma rep_characterisation_forward (p q N : int) :
   0 < p => 0 < q => p %% q = 1 => p * q <= N =>
   forall A,
@@ -208,16 +214,88 @@ lemma rep_characterisation_forward (p q N : int) :
 proof.
   move=> hp hq hpq hN A.
   move=> [B [hA [hB hEq]]].
-  have hAmod : A %% q = N %% q by smt(modzMl modzDl).
+
+  (* Stap 1: A ≡ N (mod q), want p ≡ 1 (mod q) *)
+  have hAmod : A %% q = N %% q.
+    have : (p * A + q * B) %% q = N %% q by rewrite hEq.
+    smt(modzDl modzMl modz_mod).
+
+  (* Stap 2: A ≤ N / p *)
   have hAle : A <= N %/ p by smt(divz_eq).
-  have hAlo : N %% q <= A by smt().
+
+  (* Stap 3: N mod q ≤ A *)
+  have hAlo : N %% q <= A.
+    have [hlo hhi] := my_modz_range A q hq.
+    smt().
+
+  (* Stap 4: k = (A − N mod q) / q *)
   exists ((A - N %% q) %/ q).
+
+  (* Stap 5: 0 ≤ k *)
   have hnum : 0 <= A - N %% q by smt().
-  have hmod : (A - N %% q) %% q = 0 by smt(modzDl).
-  have hquot : q * ((A - N %% q) %/ q) = A - N %% q by smt(divz_eq).
-  split; first smt(divz_ge0).
-  split; first smt().
-  smt().
+  have hk_ge0 : 0 <= (A - N %% q) %/ q by smt(divz_ge0).
+
+  (* Stap 6: k ≤ (N/p − N mod q) / q *)
+  have hk_le : (A - N %% q) %/ q <= (N %/ p - N %% q) %/ q by smt().
+
+  (* Stap 7: A = N mod q + q * k *)
+  have hA_eq : A = N %% q + q * ((A - N %% q) %/ q).
+    have : (A - N %% q) %% q = 0 by smt(modzDl modzNm).
+    smt(divz_eq).
+
+  split; first exact hk_ge0.
+  split; first exact hk_le.
+  exact hA_eq.
+qed.
+
+(* ----------------------------------------------------------------- *)
+(* Backward direction: every A of the form N mod q + q * k is valid  *)
+(* ----------------------------------------------------------------- *)
+
+lemma rep_characterisation_backward (p q N : int) :
+  0 < p => 0 < q => p %% q = 1 => p * q <= N =>
+  forall A,
+    (exists k,
+       0 <= k /\
+       k <= (N %/ p - N %% q) %/ q /\
+       A = N %% q + q * k) =>
+    is_valid_A p q N A.
+proof.
+  move=> hp hq hpq hN A.
+  move=> [k [hk_ge0 [hk_le hA_eq]]].
+  (* We need to find B with p*A + q*B = N. *)
+  exists ((N - p * A) %/ q).
+  rewrite /is_rep.
+  have hdiv : N = N %/ q * q + N %% q by smt(divz_eq).
+  have hpdiv : p = p %/ q * q + 1 by smt(divz_eq).
+  split.
+  - (* 0 ≤ A *)
+    have [hlo hhi] := my_modz_range N q hq.
+    smt().
+  - split.
+    + (* 0 ≤ B *)
+      have hnum : 0 <= N - p * A by smt(divz_eq).
+      smt(divz_ge0).
+    + (* p * A + q * B = N *)
+      have hmod : (N - p * A) %% q = 0 by smt(modzDl modzMl).
+      have hquot : q * ((N - p * A) %/ q) = N - p * A
+        by smt(divz_eq).
+      smt().
+qed.
+
+lemma rep_characterisation (p q N : int) :
+  0 < p => 0 < q => p %% q = 1 => p * q <= N =>
+  forall A,
+    is_valid_A p q N A <=>
+    (exists k,
+       0 <= k /\
+       k <= (N %/ p - N %% q) %/ q /\
+       A = N %% q + q * k).
+proof.
+  move=> hp hq hpq hN A.
+  split.
+  - by apply (rep_characterisation_forward p q N hp hq hpq hN A).
+  - by apply (rep_characterisation_backward p q N hp hq hpq hN A).
 qed.
 
 (* ================================================================= *)
