@@ -231,7 +231,7 @@ qed.
 (* Named intermediate values                                          *)
 (*                                                                    *)
 (* Using `op` definitions rather than `let ... in` inside lemma       *)
-(* statements makes the statements cleaner and avoids parser issues.  *)
+(* statements keeps the statements clean and parser-friendly.         *)
 (* ----------------------------------------------------------------- *)
 
 op Bp_val (N : int) : int = -2 * N.
@@ -247,11 +247,14 @@ op first_k_val (N k_min : int) : int = k_min + shift_val N k_min.
 
 (* ----------------------------------------------------------------- *)
 (* The module                                                         *)
+(*                                                                    *)
+(* Note: the parameter is named `deadline` rather than `timeout`,     *)
+(* because `timeout` is a reserved CLI flag in EasyCrypt and cannot   *)
+(* be used as an identifier.                                          *)
 (* ----------------------------------------------------------------- *)
 
 module TemporalBarrier = {
-  proc sample_mrs_timed(N : int, timeout : real) :
-    (int * int * real) option = {
+  proc sample_mrs_timed(N : int, deadline : real) : (int * int * real) option = {
     var Ap, Bp, k_min, k_max, first_k, final_k, A, B, duration;
 
     Ap <- N;
@@ -271,7 +274,7 @@ module TemporalBarrier = {
     B <- Bp - 19 * final_k;
     duration <- step_to_time (total_steps N);
 
-    if (timeout < step_to_time (total_steps N)) { return None; }
+    if (deadline < step_to_time (total_steps N)) { return None; }
 
     return Some (A, B, duration);
   }
@@ -287,11 +290,12 @@ lemma dr_sub_9k (x k : int) :
   0 <= k => 9 * k < x =>
   dr (x - 9 * k) = dr x.
 proof.
-  move=> hk hpos.
+  move=> hk hlt.
   have hx_pos : 0 < x by smt().
-  have hdx := dr_range (x - 9 * k) hpos.
+  have hx9k_pos : 0 < x - 9 * k by smt().
+  have hdx := dr_range (x - 9 * k) hx9k_pos.
   have hdrx := dr_range x hx_pos.
-  have hcong1 := dr_cong9 (x - 9 * k) hpos.
+  have hcong1 := dr_cong9 (x - 9 * k) hx9k_pos.
   have hcong2 := dr_cong9 x hx_pos.
   smt().
 qed.
@@ -359,10 +363,10 @@ qed.
 (* Correctness of sample_mrs_timed                                    *)
 (* ----------------------------------------------------------------- *)
 
-lemma temporal_barrier_correctness (N : int) (timeout : real) :
+lemma temporal_barrier_correctness (N : int) (deadline : real) :
   162 < N =>
   hoare [TemporalBarrier.sample_mrs_timed :
-    arg = (N, timeout) ==>
+    arg = (N, deadline) ==>
     match res with
     | Some (A, B, _) =>
         19 * A + 9 * B = N /\
@@ -392,7 +396,7 @@ proof.
   - auto.
   if => />.
   - auto.
-  auto => /> &m hk_le hfk_le hfk_mem hA hB hdur htimeout_ok.
+  auto => /> &m hk_le hfk_le hfk_mem hA hB hdur hdeadline_ok.
   split.
   - (* 19 * A + 9 * B = N *)
     rewrite hA hB.
@@ -401,7 +405,6 @@ proof.
     smt().
   - (* dr B = dr (2 * dr N) *)
     rewrite hB.
-    have hAp : Ap{m} = N by smt().
     have hBp : Bp{m} = -2 * N by smt().
     rewrite hBp.
     (* final_k - first_k is a multiple of 9 *)
@@ -410,7 +413,6 @@ proof.
       by smt(divz_eq).
     case ht_exists => t ht.
     rewrite ht.
-    (* B = Bp - 19*first_k - 171*t *)
     have hB_decomp :
       Bp{m} - 19 * (first_k{m} + 9 * t) =
       (Bp{m} - 19 * first_k{m}) - 171 * t
@@ -418,39 +420,34 @@ proof.
     rewrite hB_decomp.
     have h171 : 171 = 9 * 19 by ring.
     rewrite h171.
-    (* dr invariant onder -9*(19*t) *)
     have hbase_pos : 0 < Bp{m} - 19 * first_k{m} by smt().
     have ht_nonneg : 0 <= t by smt().
-    (* Algemene feit *)
     have hgen : forall (x k : int),
       0 <= k => 9 * k < x => dr (x - 9 * k) = dr x
       by apply dr_sub_9k.
     have hpos_x : 9 * (19 * t) < Bp{m} - 19 * first_k{m} by smt().
     have hk_nonneg : 0 <= 19 * t by smt().
     rewrite (hgen _ _ hk_nonneg hpos_x).
-    (* dr (Bp - 19*first_k) = dr (2*dr N) *)
     have hBp' : Bp{m} = Bp_val N by smt().
     rewrite hBp'.
     apply triangle_shift_correct; smt().
 qed.
 
 (* ----------------------------------------------------------------- *)
-(* Non-interference under a strict timeout                            *)
+(* Non-interference under a strict deadline                           *)
 (*                                                                    *)
-(* If the timeout is smaller than step_to_time (total_steps N), the   *)
-(* procedure returns None. Since this is a deterministic property of  *)
-(* N, two runs with different N but the same strict timeout both      *)
-(* return None.                                                       *)
+(* If the deadline is smaller than step_to_time (total_steps N),      *)
+(* the procedure returns None.                                        *)
 (* ----------------------------------------------------------------- *)
 
 lemma temporal_barrier_noninterference
-    (N1 N2 : int) (timeout : real) :
+    (N1 N2 : int) (deadline : real) :
   162 < N1 => 162 < N2 =>
-  timeout < step_to_time (total_steps N1) =>
-  timeout < step_to_time (total_steps N2) =>
+  deadline < step_to_time (total_steps N1) =>
+  deadline < step_to_time (total_steps N2) =>
   equiv [TemporalBarrier.sample_mrs_timed ~
          TemporalBarrier.sample_mrs_timed :
-    arg{1} = (N1, timeout) /\ arg{2} = (N2, timeout) ==>
+    arg{1} = (N1, deadline) /\ arg{2} = (N2, deadline) ==>
     res{1} = None /\ res{2} = None].
 proof.
   move=> hN1 hN2 hto1 hto2.
@@ -473,26 +470,25 @@ proof.
   - auto.
   if => />.
   - auto.
-  - (* timeout < step_to_time (total_steps N) *)
-    smt().
+  - smt().
 qed.
 
 (* ----------------------------------------------------------------- *)
 (* Conditional uniformity                                             *)
 (*                                                                    *)
-(* If the timeout is large enough, two runs with the same arguments   *)
+(* If the deadline is large enough, two runs with the same arguments  *)
 (* behave identically.                                                *)
 (* ----------------------------------------------------------------- *)
 
 lemma temporal_barrier_conditional_uniform
-    (N : int) (timeout : real) :
+    (N : int) (deadline : real) :
   162 < N =>
-  step_to_time (total_steps N) <= timeout =>
+  step_to_time (total_steps N) <= deadline =>
   equiv [TemporalBarrier.sample_mrs_timed ~
          TemporalBarrier.sample_mrs_timed :
-    ={arg} /\ arg{1} = (N, timeout) ==> ={res}].
+    ={arg} /\ arg{1} = (N, deadline) ==> ={res}].
 proof.
-  move=> hN htimeout.
+  move=> hN hdeadline.
   proc.
   seq 4 4 : (={Ap, Bp, k_min, k_max} /\
              Ap{1} = N /\ Bp{1} = -2 * N).
@@ -511,8 +507,7 @@ proof.
   seq 1 1 : (={Ap, Bp, k_min, k_max, first_k, final_k, A, B, duration}).
   - auto.
   if => />.
-  - (* timeout < step_to_time ... — onmogelijk door htimeout *)
-    exfalso.
+  - exfalso.
     smt().
   - auto.
 qed.
