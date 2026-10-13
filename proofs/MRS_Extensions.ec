@@ -107,34 +107,7 @@ op R3 (p q r N : int) : int =
       num %/ q + (J + 1).
 
 (* ----------------------------------------------------------------- *)
-(* Section 5: Numerical checks (number of solutions with A >= 1)     *)
-(* ----------------------------------------------------------------- *)
-
-lemma example_R3_19 : R3 19 9 3 19 = 1.
-proof. by compute. qed.
-
-lemma example_R3_143 : R3 19 9 3 143 = 18.
-proof. by compute. qed.
-
-lemma example_R3_171 : R3 19 9 3 171 = 21.
-proof. by compute. qed.
-
-lemma example_R3_958 : R3 19 9 3 958 = 924.
-proof. by compute. qed.
-
-lemma example_R3_6666 : R3 19 9 3 6666 = 43017.
-proof. by compute. qed.
-
-lemma R3_nonneg_primary :
-  0 <= R3 19 9 3 143 /\
-  0 <= R3 19 9 3 958 /\
-  0 <= R3 19 9 3 6666.
-proof.
-  smt(example_R3_143 example_R3_958 example_R3_6666).
-qed.
-
-(* ----------------------------------------------------------------- *)
-(* Section 6: Basic lemmas                                           *)
+(* Section 5: Basic lemmas                                           *)
 (* ----------------------------------------------------------------- *)
 
 (* Degenerate parameters (or N <= 0) give 0. *)
@@ -163,7 +136,7 @@ proof.
 qed.
 
 (* ----------------------------------------------------------------- *)
-(* Section 7: 4-term stub (safe non-negative definition)             *)
+(* Section 6: 4-term stub (safe non-negative definition)             *)
 (* ----------------------------------------------------------------- *)
 
 (* Temporary definition that is provably non-negative.
@@ -182,14 +155,52 @@ proof.
   smt().
 qed.
 
+(* ----------------------------------------------------------------- *)
+(* Section 7: Numerical checks (solutions with A >= 1)               *)
+(* compute is not an EasyCrypt tactic: unfold and simplify instead. *)
+(* ----------------------------------------------------------------- *)
+
+lemma example_R3_19 : R3 19 9 3 19 = 1.
+proof.
+  rewrite /R3 /dr_q /one_cycle /partial_sum /sum_mod_j /pos_mod /=; smt().
+qed.
+
+lemma example_R3_143 : R3 19 9 3 143 = 18.
+proof.
+  rewrite /R3 /dr_q /one_cycle /partial_sum /sum_mod_j /pos_mod /=; smt().
+qed.
+
+lemma example_R3_171 : R3 19 9 3 171 = 21.
+proof.
+  rewrite /R3 /dr_q /one_cycle /partial_sum /sum_mod_j /pos_mod /=; smt().
+qed.
+
+lemma example_R3_958 : R3 19 9 3 958 = 924.
+proof.
+  rewrite /R3 /dr_q /one_cycle /partial_sum /sum_mod_j /pos_mod /=; smt().
+qed.
+
+lemma example_R3_6666 : R3 19 9 3 6666 = 43017.
+proof.
+  rewrite /R3 /dr_q /one_cycle /partial_sum /sum_mod_j /pos_mod /=; smt().
+qed.
+
+lemma R3_nonneg_primary :
+  0 <= R3 19 9 3 143 /\
+  0 <= R3 19 9 3 958 /\
+  0 <= R3 19 9 3 6666.
+proof.
+  smt(example_R3_143 example_R3_958 example_R3_6666).
+qed.
+
 lemma example_R4_143 : R4 19 9 3 3 143 = 0.
-proof. by compute. qed.
+proof. rewrite /R4 /=; smt(). qed.
 
 lemma example_R4_958 : R4 19 9 3 3 958 = 0.
-proof. by compute. qed.
+proof. rewrite /R4 /=; smt(). qed.
 
 lemma example_R4_6666 : R4 19 9 3 3 6666 = 0.
-proof. by compute. qed.
+proof. rewrite /R4 /=; smt(). qed.
 
 (* ================================================================= *)
 (* End of MRS_Extensions.ec                                           *)
