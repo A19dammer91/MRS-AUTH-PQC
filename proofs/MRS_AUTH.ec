@@ -219,30 +219,26 @@ proof.
 qed.
 
 (* ----------------------------------------------------------------- *)
-(* Support of duniform_fractal                                        *)
+(* Properties of duniform_fractal                                     *)
 (*                                                                    *)
-(* The support of `duniform_fractal` is exactly the fractal list.     *)
-(* This is a direct consequence of the definition of `duniform`.      *)
+(* In EasyCrypt, the support of a distribution `d` is characterised   *)
+(* by `mu d x <> 0%r`. There is no separate `in_supp` operator for    *)
+(* `int distr`.                                                       *)
 (* ----------------------------------------------------------------- *)
 
+(* Non-zero mass implies membership in the fractal list.              *)
 lemma duniform_fractal_supp (first_k k_max x : int) :
   first_k <= k_max =>
-  in_supp x (duniform_fractal first_k k_max) =>
+  mu (duniform_fractal first_k k_max) x <> 0%r =>
   mem (fractal_list first_k k_max) x.
 proof.
   move=> hle hsupp.
   rewrite /duniform_fractal in hsupp.
-  (* In EasyCrypt, `duniform L` has support `mem L`. *)
+  have hne := fractal_nonempty first_k k_max hle.
   smt().
 qed.
 
-(* ----------------------------------------------------------------- *)
-(* Fractal sample is lossless                                         *)
-(*                                                                    *)
-(* Since the fractal list is non-empty, sampling from it always       *)
-(* produces a value.                                                  *)
-(* ----------------------------------------------------------------- *)
-
+(* The fractal sample is lossless, since the list is non-empty.       *)
 lemma duniform_fractal_ll (first_k k_max : int) :
   first_k <= k_max =>
   is_lossless (duniform_fractal first_k k_max).
@@ -250,9 +246,17 @@ proof.
   move=> hle.
   rewrite /duniform_fractal.
   have hne := fractal_nonempty first_k k_max hle.
-  (* EasyCrypt: duniform is lossless for non-empty lists. *)
-  have hdunif : forall (L : int list), 0 < size L => is_lossless (duniform L).
-    move=> L hsz.
-    smt().
-  exact (hdunif (fractal_list first_k k_max) hne).
+  smt().
+qed.
+
+(* Total mass of the fractal sample equals 1.                         *)
+lemma duniform_fractal_total_mass (first_k k_max : int) :
+  first_k <= k_max =>
+  weight (duniform_fractal first_k k_max) (fun _ => true) = 1%r.
+proof.
+  move=> hle.
+  rewrite /duniform_fractal.
+  have hll := duniform_fractal_ll first_k k_max hle.
+  (* is_lossless is equivalent to weight = 1 *)
+  smt().
 qed.
