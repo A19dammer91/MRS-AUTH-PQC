@@ -135,6 +135,7 @@ jobs:
               MRS_Chain.ec \
               MRS_Sampler.ec \
               MRS_Deny.ec \
+              MRS_DenyProof.ec \
               MRS_AUTH.ec \
               MRS_Honey.ec; do
             echo "=========================================="
