@@ -84,9 +84,6 @@ qed.
 
 (* ----------------------------------------------------------------- *)
 (* Abstract time model                                                *)
-(*                                                                    *)
-(* We model time abstractly: each step count maps to a real duration. *)
-(* The mapping is monotonic and positive.                             *)
 (* ----------------------------------------------------------------- *)
 
 op step_to_time : int -> real.
@@ -99,9 +96,6 @@ axiom step_time_pos : forall (s : int),
 
 (* ----------------------------------------------------------------- *)
 (* Step counts                                                        *)
-(*                                                                    *)
-(* These abstract constants represent the number of operations        *)
-(* performed by the four phases of the sampling algorithm.            *)
 (* ----------------------------------------------------------------- *)
 
 op step_eea_particular : int.
@@ -139,11 +133,6 @@ qed.
 (*                                                                    *)
 (* The fractal list contains all integers k in [first_k, k_max]       *)
 (* such that (k - first_k) is divisible by 9.                         *)
-(*                                                                    *)
-(* We work directly with lists rather than fsets, because:            *)
-(*   - `filter` on lists is a standard, well-supported operation.     *)
-(*   - `duniform` accepts any `int list`.                             *)
-(*   - There is no need to convert to a finite set.                   *)
 (* ----------------------------------------------------------------- *)
 
 op fractal_list (first_k k_max : int) : int list =
@@ -155,9 +144,6 @@ op duniform_fractal (first_k k_max : int) : int distr =
 
 (* ----------------------------------------------------------------- *)
 (* Fractal-list membership                                            *)
-(*                                                                    *)
-(* We characterise membership explicitly via an iff lemma. This is    *)
-(* the key fact used in all subsequent proofs.                        *)
 (* ----------------------------------------------------------------- *)
 
 lemma fractal_mem_iff (first_k k_max k : int) :
@@ -174,8 +160,6 @@ qed.
 (* Fractal-list properties                                            *)
 (* ----------------------------------------------------------------- *)
 
-(* The starting point first_k is always in the list, provided the     *)
-(* range is non-empty.                                                *)
 lemma fractal_first_k_mem (first_k k_max : int) :
   first_k <= k_max =>
   mem (fractal_list first_k k_max) first_k.
@@ -185,7 +169,6 @@ proof.
   smt().
 qed.
 
-(* The fractal list is never empty when the range is non-empty.       *)
 lemma fractal_nonempty (first_k k_max : int) :
   first_k <= k_max =>
   1 <= size (fractal_list first_k k_max).
@@ -197,7 +180,6 @@ proof.
   smt().
 qed.
 
-(* Every element of the fractal list lies in [first_k, k_max].        *)
 lemma fractal_bounded (first_k k_max k : int) :
   mem (fractal_list first_k k_max) k =>
   first_k <= k /\ k <= k_max.
@@ -207,8 +189,6 @@ proof.
   smt().
 qed.
 
-(* Every element of the fractal list satisfies the divisibility       *)
-(* condition.                                                         *)
 lemma fractal_congruent (first_k k_max k : int) :
   mem (fractal_list first_k k_max) k =>
   (k - first_k) %% 9 = 0.
@@ -221,19 +201,19 @@ qed.
 (* ----------------------------------------------------------------- *)
 (* Properties of duniform_fractal                                     *)
 (*                                                                    *)
-(* In EasyCrypt, the support of a distribution `d` is characterised   *)
-(* by `mu d x <> 0%r`. There is no separate `in_supp` operator for    *)
-(* `int distr`.                                                       *)
+(* In EasyCrypt r2024.09, the standard operator for the probability   *)
+(* mass of a predicate P under a distribution d is `weight d P`.      *)
+(* The point mass on x is `weight d (pred1 x)`.                       *)
 (* ----------------------------------------------------------------- *)
 
-(* Non-zero mass implies membership in the fractal list.              *)
+(* Non-zero mass at x implies x is in the fractal list.               *)
 lemma duniform_fractal_supp (first_k k_max x : int) :
   first_k <= k_max =>
-  mu (duniform_fractal first_k k_max) x <> 0%r =>
+  weight (duniform_fractal first_k k_max) (pred1 x) <> 0%r =>
   mem (fractal_list first_k k_max) x.
 proof.
-  move=> hle hsupp.
-  rewrite /duniform_fractal in hsupp.
+  move=> hle hw.
+  rewrite /duniform_fractal in hw.
   have hne := fractal_nonempty first_k k_max hle.
   smt().
 qed.
@@ -246,17 +226,5 @@ proof.
   move=> hle.
   rewrite /duniform_fractal.
   have hne := fractal_nonempty first_k k_max hle.
-  smt().
-qed.
-
-(* Total mass of the fractal sample equals 1.                         *)
-lemma duniform_fractal_total_mass (first_k k_max : int) :
-  first_k <= k_max =>
-  weight (duniform_fractal first_k k_max) (fun _ => true) = 1%r.
-proof.
-  move=> hle.
-  rewrite /duniform_fractal.
-  have hll := duniform_fractal_ll first_k k_max hle.
-  (* is_lossless is equivalent to weight = 1 *)
   smt().
 qed.
