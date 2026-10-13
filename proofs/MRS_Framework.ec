@@ -1,18 +1,7 @@
 (* ================================================================= *)
-(*  MRS_Framework.ec                                                  *)
-(*  General framework for linear Diophantine representation systems   *)
-(*      N = p*A + q*B     with p = 1 (mod q), gcd(p,q) = 1, p > q     *)
-(*                                                                    *)
-(*  This file establishes the general theory for arbitrary pairs      *)
-(*  (p,q) satisfying the structural conditions. It is independent     *)
-(*  of MRS_Core.ec and can be compiled on its own.                    *)
-(*                                                                    *)
-(*  Axiom baseline: 0.                                                *)
-(*                                                                    *)
-(*  Robustness principles (EasyCrypt r2024.09):                       *)
-(*  - `>` and `>=` are written as `<` and `<=` with reversed operands *)
-(*  - NO axioms, NO admits.                                           *)
-(*  - Compound goals are split with `split.` before `smt()`.          *)
+(* MRS_Framework.ec                                                   *)
+(* General framework for linear Diophantine representation systems    *)
+(* N = p*A + q*B, p = 1 (mod q), gcd(p,q) = 1, p > q                *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv.
@@ -32,7 +21,7 @@ lemma my_modz_lt (a b : int) :
   0 < b => a %% b < b.
 proof.
   move=> hb.
-  have hdecomp := divz_eq a b.
+  have hdecomp : a = a %/ b * b + a %% b by smt(divz_eq).
   smt().
 qed.
 
@@ -41,8 +30,8 @@ lemma my_modz_range (a b : int) :
 proof.
   move=> hb.
   split.
-  - apply my_modz_ge0. smt().
-  - apply my_modz_lt. smt().
+  - exact (my_modz_ge0 a b hb).
+  - exact (my_modz_lt a b hb).
 qed.
 
 lemma my_modzMl (a b : int) :
@@ -61,7 +50,8 @@ op dr_q (q N : int) : int =
 
 op A0 (q N : int) : int = N %% q.
 
-op B0 (p q N : int) : int = (N - p * (N %% q)) %/ q.
+op B0 (p q N : int) : int =
+  (N - p * (N %% q)) %/ q.
 
 op R (p q N : int) : int =
   if (p <= 0 \/ q <= 0 \/ N < 0) then 0
@@ -71,7 +61,8 @@ op R (p q N : int) : int =
     if (fm < a0) then 0
     else (fm - a0) %/ q + 1.
 
-op G (p q k : int) : int = p * q * (k - 1) + (p - 1) * (q - 1).
+op G (p q k : int) : int =
+  p * q * (k - 1) + (p - 1) * (q - 1).
 
 (* ================================================================= *)
 (* Section 2: Digital root properties                                 *)
@@ -82,76 +73,68 @@ lemma dr_q_range (q N : int) :
 proof.
   move=> hq hN.
   rewrite /dr_q.
-  have h1 : ! (N <= 0) by smt().
-  have h2 : ! (q <= 0) by smt().
-  rewrite h1 h2 /=.
+  have hNpos : ! (N <= 0) by smt().
+  have hqpos : ! (q <= 0) by smt().
+  rewrite hNpos hqpos /=.
   have [hmod_ge0 hmod_lt] := my_modz_range (N - 1) q hq.
-  split.
-  - smt().
-  - have hle : 1 + ((N - 1) %% q) <= 1 + (q - 1) by smt().
-    have heq : 1 + (q - 1) = q by ring.
-    smt().
+  split; smt().
 qed.
 
 lemma dr_q_eq_mod (q N : int) :
-  0 < q => 0 < N => dr_q q N = 1 + ((N - 1) %% q).
+  0 < q => 0 < N =>
+  dr_q q N = 1 + ((N - 1) %% q).
 proof.
   move=> hq hN.
   rewrite /dr_q.
-  have h1 : ! (N <= 0) by smt().
-  have h2 : ! (q <= 0) by smt().
-  by rewrite h1 h2.
+  have hNpos : ! (N <= 0) by smt().
+  have hqpos : ! (q <= 0) by smt().
+  by rewrite hNpos hqpos.
 qed.
 
 lemma dr_q_cong (q N : int) :
-  0 < q => 0 < N => (dr_q q N - N) %% q = 0.
+  0 < q => 0 < N =>
+  (dr_q q N - N) %% q = 0.
 proof.
   move=> hq hN.
   rewrite dr_q_eq_mod //.
+  have hdecomp : N = N %/ q * q + N %% q by smt(divz_eq).
+  have hmod_range := my_modz_range N q hq.
   have hq_ne : q <> 0 by smt().
-  have hdiv := divz_eq (N - 1) q.
-  have hN_decomp := divz_eq N q.
-  have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
-  case (N %% q = 0) => [hmod0 | hmod_ne].
+  case (N %% q = 0) => [hzero | hnonzero].
   - have hN_eq : N = N %/ q * q by smt().
-    have hNm1_mod : (N - 1) %% q = q - 1.
-      have hq_ge1 : 1 <= q by smt().
-      have hN_ge_q : q <= N by smt().
-      have hdiv_ge1 : 1 <= N %/ q by smt(divz_eq).
-      have : N - 1 = (N %/ q - 1) * q + (q - 1) by smt().
-      move=> hdecomp2.
-      have : (N - 1) %% q = ((N %/ q - 1) * q + (q - 1)) %% q by smt().
-      rewrite this.
-      have : ((N %/ q - 1) * q + (q - 1)) %% q = (q - 1) %% q.
-        by smt(modzDl).
-      rewrite this.
-      by smt().
-    rewrite hNm1_mod.
+    have hdecomp2 :
+      N - 1 = (N %/ q - 1) * q + (q - 1) by smt().
+    have hmod_eq :
+      (N - 1) %% q =
+      ((N %/ q - 1) * q + (q - 1)) %% q by smt().
+    rewrite hmod_eq.
+    have hmod_simpl :
+      ((N %/ q - 1) * q + (q - 1)) %% q =
+      (q - 1) %% q by smt(modzDl).
+    rewrite hmod_simpl.
+    have hq_ge1 : 1 <= q by smt().
+    have hqminus : (q - 1) %% q = q - 1 by smt().
+    rewrite hqminus.
     rewrite hN_eq.
-    have : 1 + (q - 1) - N %/ q * q = (1 - N %/ q) * q by ring.
-    move=> ->.
-    by smt(modzMl).
-  - have hNm1_mod : (N - 1) %% q = N %% q - 1.
-      have hN_eq : N = N %/ q * q + N %% q by smt().
-      have : N - 1 = N %/ q * q + (N %% q - 1) by smt().
-      move=> hdecomp2.
-      have : (N - 1) %% q = (N %/ q * q + (N %% q - 1)) %% q by smt().
-      rewrite this.
-      have : (N %/ q * q + (N %% q - 1)) %% q = (N %% q - 1) %% q.
-        by smt(modzDl).
-      rewrite this.
-      have hmod_ge1 : 1 <= N %% q by smt().
-      have hNm1_ge0 : 0 <= N %% q - 1 by smt().
-      have hNm1_lt : N %% q - 1 < q by smt().
-      by smt().
-    rewrite hNm1_mod.
-    have hN_eq : N = N %/ q * q + N %% q by smt().
-    rewrite hN_eq.
-    have : 1 + (N %% q - 1) - (N %/ q * q + N %% q) = -(N %/ q * q) by ring.
-    move=> ->.
-    have : -(N %/ q * q) = (-(N %/ q)) * q by ring.
-    move=> ->.
-    by smt(modzMl).
+    smt().
+  - have hdecomp2 :
+      N - 1 = N %/ q * q + (N %% q - 1) by smt().
+    have hmod_eq :
+      (N - 1) %% q =
+      (N %/ q * q + (N %% q - 1)) %% q by smt().
+    rewrite hmod_eq.
+    have hmod_simpl :
+      (N %/ q * q + (N %% q - 1)) %% q =
+      (N %% q - 1) %% q by smt(modzDl).
+    rewrite hmod_simpl.
+    have hmod_ge1 : 1 <= N %% q by smt().
+    have hmod_small : N %% q - 1 < q by smt().
+    have hmod_nonneg : 0 <= N %% q - 1 by smt().
+    have hmod_identity :
+      (N %% q - 1) %% q = N %% q - 1 by smt().
+    rewrite hmod_identity.
+    rewrite hdecomp.
+    smt().
 qed.
 
 (* ================================================================= *)
@@ -160,33 +143,32 @@ qed.
 
 lemma A0_eq_dr_q (p q N : int) :
   0 < p => 0 < q => p %% q = 1 => 0 < N =>
-  N %% q = dr_q q N - 1 \/ (N %% q = q - 1 /\ dr_q q N = q).
+  N %% q = dr_q q N - 1 \/
+  (N %% q = q - 1 /\ dr_q q N = q).
 proof.
   move=> hp hq hpq hN.
   have hdr := dr_q_range q N hq hN.
   have [hlo hhi] := hdr.
   have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
-  case (N %% q = 0) => [h0 | hne].
+  case (N %% q = 0) => [hzero | hnonzero].
   - right.
     split.
-    + exact h0.
+    + exact hzero.
     + rewrite dr_q_eq_mod //.
-      have hNm1_mod : (N - 1) %% q = q - 1.
-        have hq_ge1 : 1 <= q by smt().
-        have hN_eq : N = N %/ q * q by smt().
-        have hdiv_ge1 : 1 <= N %/ q by smt(divz_eq).
-        have : N - 1 = (N %/ q - 1) * q + (q - 1) by smt().
-        move=> hdecomp2.
-        have : (N - 1) %% q = ((N %/ q - 1) * q + (q - 1)) %% q by smt().
-        rewrite this.
-        have : ((N %/ q - 1) * q + (q - 1)) %% q = (q - 1) %% q.
-          by smt(modzDl).
-        rewrite this.
-        by smt().
-      rewrite hNm1_mod.
-      by ring.
+      have hdecomp :
+        N - 1 = (N %/ q - 1) * q + (q - 1) by smt().
+      have hmod_eq :
+        (N - 1) %% q =
+        ((N %/ q - 1) * q + (q - 1)) %% q by smt().
+      rewrite hmod_eq.
+      have hmod_simpl :
+        ((N %/ q - 1) * q + (q - 1)) %% q =
+        (q - 1) %% q by smt(modzDl).
+      rewrite hmod_simpl.
+      have hqminus : (q - 1) %% q = q - 1 by smt().
+      by rewrite hqminus.
   - left.
-    have := dr_q_cong q N hq hN.
+    have hcong := dr_q_cong q N hq hN.
     smt().
 qed.
 
@@ -201,34 +183,32 @@ proof.
     have hp_ge1 : 1 <= p by smt().
     have hprod_le : p * (N %% q) <= p * (q - 1) by smt().
     have hnn : 0 <= N - p * (N %% q) by smt().
-    apply divz_ge0. exact hnn.
-  - have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
-    have hp_ge1 : 1 <= p by smt().
-    have hprod_le : p * (N %% q) <= p * (q - 1) by smt().
-    have hnn : 0 <= N - p * (N %% q) by smt().
-    have hdecomp := divz_eq (N - p * (N %% q)) q.
-    have hq_ne : q <> 0 by smt().
-    have hmod : (N - p * (N %% q)) %% q = 0.
-      have hN_eq : N = N %/ q * q + N %% q by smt().
-      have : N - p * (N %% q) = (1 - p) * (N %% q) + N %/ q * q by smt().
-      move=> hsub.
-      have : (N - p * (N %% q)) %% q =
-             ((1 - p) * (N %% q) + N %/ q * q) %% q by smt().
-      rewrite this.
-      have : ((1 - p) * (N %% q) + N %/ q * q) %% q =
-             ((1 - p) * (N %% q)) %% q by smt(modzDl).
-      rewrite this.
-      have hpd := divz_eq p q.
-      have hp_eq : p = p %/ q * q + 1 by smt().
+    apply divz_ge0.
+    exact hnn.
+  - have hdecomp := divz_eq (N - p * (N %% q)) q.
+    have hmod :
+      (N - p * (N %% q)) %% q = 0.
+    + have hN_eq : N = N %/ q * q + N %% q by smt().
+      have hsub :
+        N - p * (N %% q) =
+        (1 - p) * (N %% q) + N %/ q * q by smt().
+      rewrite hsub.
+      have hmod_simpl :
+        ((1 - p) * (N %% q) + N %/ q * q) %% q =
+        ((1 - p) * (N %% q)) %% q by smt(modzDl).
+      rewrite hmod_simpl.
+      have hp_eq : p = p %/ q * q + 1 by smt(divz_eq).
       have hp_m1 : p - 1 = p %/ q * q by smt().
-      have : 1 - p = -(p - 1) by ring.
-      move=> ->.
-      rewrite hp_m1.
-      have : - (p %/ q * q) * (N %% q) = (- (p %/ q) * (N %% q)) * q by ring.
-      move=> ->.
-      by smt(modzMl).
-    rewrite hmod in hdecomp.
-    have : q * ((N - p * (N %% q)) %/ q) = N - p * (N %% q) by smt().
+      have hsign : 1 - p = -(p - 1) by ring.
+      rewrite hsign hp_m1.
+      have hmul :
+        -(p %/ q * q) * (N %% q) =
+        (-(p %/ q) * (N %% q)) * q by ring.
+      rewrite hmul.
+      by apply modzMl.
+    have hdiv :
+      q * ((N - p * (N %% q)) %/ q) =
+      N - p * (N %% q) by smt().
     smt().
 qed.
 
@@ -253,11 +233,12 @@ lemma R_formula (p q N : int) :
 proof.
   move=> hp hq hpq hN.
   rewrite /R.
-  have h1 : ! (p <= 0) by smt().
-  have h2 : ! (q <= 0) by smt().
-  have h3 : ! (N < 0) by smt().
-  rewrite h1 h2 h3 /=.
-  have hle : N %% q <= N %/ p by apply R_well_defined.
+  have hp_pos : ! (p <= 0) by smt().
+  have hq_pos : ! (q <= 0) by smt().
+  have hN_pos : ! (N < 0) by smt().
+  rewrite hp_pos hq_pos hN_pos /=.
+  have hle : N %% q <= N %/ p.
+    exact (R_well_defined p q N hp hq hN).
   have hgt : ! (N %/ p < N %% q) by smt().
   by rewrite hgt.
 qed.
@@ -274,45 +255,45 @@ pred is_valid_A (p q N A : int) =
 
 lemma is_rep_A0_B0 (p q N : int) :
   0 < p => 0 < q => p %% q = 1 => p * q <= N =>
-  is_rep p q N (N %% q) ((N - p * (N %% q)) %/ q).
+  is_rep p q N (N %% q)
+    ((N - p * (N %% q)) %/ q).
 proof.
   move=> hp hq hpq hN.
   rewrite /is_rep.
   split.
-  - by apply my_modz_ge0.
+  - exact (my_modz_ge0 N q hq).
   - split.
     + have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
       have hp_ge1 : 1 <= p by smt().
       have hprod_le : p * (N %% q) <= p * (q - 1) by smt().
       have hnn : 0 <= N - p * (N %% q) by smt().
-      apply divz_ge0. exact hnn.
+      apply divz_ge0.
+      exact hnn.
     + have hmin := A0_minimal p q N hp hq hpq hN.
       move: hmin => [B [hB_ge0 hB_eq]].
-      have hdecomp := divz_eq (N - p * (N %% q)) q.
-      have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
-      have hp_ge1 : 1 <= p by smt().
-      have hprod_le : p * (N %% q) <= p * (q - 1) by smt().
-      have hnn : 0 <= N - p * (N %% q) by smt().
-      have hmod : (N - p * (N %% q)) %% q = 0.
-        have hq_ne : q <> 0 by smt().
-        have hN_eq : N = N %/ q * q + N %% q by smt().
-        have : N - p * (N %% q) = (1 - p) * (N %% q) + N %/ q * q by smt().
-        move=> hsub.
-        have : (N - p * (N %% q)) %% q =
-               ((1 - p) * (N %% q) + N %/ q * q) %% q by smt().
-        rewrite this.
-        have : ((1 - p) * (N %% q) + N %/ q * q) %% q =
-               ((1 - p) * (N %% q)) %% q by smt(modzDl).
-        rewrite this.
+      have hmod :
+        (N - p * (N %% q)) %% q = 0.
+      + have hN_eq : N = N %/ q * q + N %% q by smt().
+        have hsub :
+          N - p * (N %% q) =
+          (1 - p) * (N %% q) + N %/ q * q by smt().
+        rewrite hsub.
+        have hmod_simpl :
+          ((1 - p) * (N %% q) + N %/ q * q) %% q =
+          ((1 - p) * (N %% q)) %% q by smt(modzDl).
+        rewrite hmod_simpl.
         have hp_eq : p = p %/ q * q + 1 by smt(divz_eq).
         have hp_m1 : p - 1 = p %/ q * q by smt().
-        have : 1 - p = -(p - 1) by ring.
-        move=> ->.
-        rewrite hp_m1.
-        have : - (p %/ q * q) * (N %% q) = (- (p %/ q) * (N %% q)) * q by ring.
-        move=> ->.
-        by smt(modzMl).
-      have : q * ((N - p * (N %% q)) %/ q) = N - p * (N %% q) by smt().
+        have hsign : 1 - p = -(p - 1) by ring.
+        rewrite hsign hp_m1.
+        have hmul :
+          -(p %/ q * q) * (N %% q) =
+          (-(p %/ q) * (N %% q)) * q by ring.
+        rewrite hmul.
+        by apply modzMl.
+      have hdiv :
+        q * ((N - p * (N %% q)) %/ q) =
+        N - p * (N %% q) by smt().
       smt().
 qed.
 
@@ -328,24 +309,20 @@ proof.
   move=> hp hq hpq hN A.
   move=> [B [hA_ge0 [hB_ge0 hEq]]].
   have hA_mod : A %% q = N %% q.
-    have : (p * A + q * B) %% q = N %% q by rewrite hEq.
-    smt(modzDl modzMl modz_mod).
-  have hA_ge_a0 : N %% q <= A.
-    have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
-    smt().
+    have hEqmod : (p * A + q * B) %% q = N %% q by rewrite hEq.
+    smt(modzDl modzMl).
+  have hA_ge_a0 : N %% q <= A by smt().
   have hk_ge0 : 0 <= (A - (N %% q)) %/ q.
-    apply divz_ge0; smt().
+    apply divz_ge0.
+    smt().
   exists ((A - (N %% q)) %/ q).
   split; first by [].
   split.
-  - have hA_le : A <= N %/ p.
-      have := divz_eq N p.
-      have hp_ge1 : 1 <= p by smt().
-      smt().
+  - have hA_le : A <= N %/ p by smt(divz_eq).
     have hprod : q * B >= 0 by smt().
     smt().
-  - have hA_mod' : (A - (N %% q)) %% q = 0 by smt(modzDl modzNm).
-    have := divz_eq (A - (N %% q)) q.
+  - have hA_mod' : (A - (N %% q)) %% q = 0 by smt(modzDl).
+    have hdiv := divz_eq (A - (N %% q)) q.
     smt().
 qed.
 
@@ -356,13 +333,23 @@ qed.
 lemma G_ge (p q k : int) :
   0 < p => 0 < q => 1 <= k =>
   G p q k = p * q * (k - 1) + (p - 1) * (q - 1).
-proof. by rewrite /G. qed.
+proof.
+  by rewrite /G.
+qed.
 
-lemma G_19_9 (k : int) : G 19 9 k = 171 * (k - 1) + 144.
-proof. rewrite /G. by ring. qed.
+lemma G_19_9 (k : int) :
+  G 19 9 k = 171 * (k - 1) + 144.
+proof.
+  rewrite /G.
+  by ring.
+qed.
 
-lemma G_19_9_alt (k : int) : G 19 9 k = 171 * k - 27.
-proof. rewrite /G. by ring. qed.
+lemma G_19_9_alt (k : int) :
+  G 19 9 k = 171 * k - 27.
+proof.
+  rewrite /G.
+  by ring.
+qed.
 
 (* ================================================================= *)
 (* Section 7: Worked examples                                         *)
@@ -396,16 +383,22 @@ lemma example_G_10 : G 19 9 10 = 1683.
 proof. by compute. qed.
 
 (* ================================================================= *)
-(* Section 8: Consistency with MRS_Core (19,9)                        *)
+(* Section 8: Consistency with the general (19,9) system               *)
 (* ================================================================= *)
 
 lemma A0_19_9_eq_dr (N : int) :
   0 < N =>
-  A0 9 N = dr_q 9 N - 1 \/ (A0 9 N = 8 /\ dr_q 9 N = 9).
+  A0 9 N = dr_q 9 N - 1 \/
+  (A0 9 N = 8 /\ dr_q 9 N = 9).
 proof.
   move=> hN.
-  have := A0_eq_dr_q 19 9 N.
-  smt().
+  have h := A0_eq_dr_q 19 9 N.
+  have hp : 0 < 19 by smt().
+  have hq : 0 < 9 by smt().
+  have hpq : 19 %% 9 = 1 by compute.
+  have hres := h hp hq hpq hN.
+  rewrite /A0.
+  exact hres.
 qed.
 
 lemma R_19_9_bound (N : int) :
@@ -414,15 +407,15 @@ lemma R_19_9_bound (N : int) :
 proof.
   move=> hN.
   rewrite /R.
-  case (19 <= 0) => [h | h1]; first by smt().
-  case (9 <= 0) => [h | h2]; first by smt().
-  case (N < 0) => [h | h3]; first by smt().
-  rewrite h1 h2 h3 /=.
-  case (N %/ 19 < N %% 9) => [hlt | hle].
+  have hp : ! (19 <= 0) by smt().
+  have hq : ! (9 <= 0) by smt().
+  have hn : ! (N < 0) by smt().
+  rewrite hp hq hn /=.
+  case (N %/ 19 < N %% 9) => hcase.
   - smt().
-  have := divz_eq N 19.
-  have := divz_eq N 9.
-  smt().
+  - have hdiv19 := divz_eq N 19.
+    have hdiv9 := divz_eq N 9.
+    smt().
 qed.
 
 (* ================================================================= *)
