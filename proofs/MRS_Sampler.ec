@@ -25,11 +25,10 @@
 (*  files and with the RNG model; they are marked explicitly.        *)
 (*                                                                    *)
 (*  Ordering convention: all comparisons use the canonical form       *)
-(*  `constant < variable` or `constant <= variable`.                  *)
+(*  constant < variable or constant <= variable.                      *)
 (*                                                                    *)
 (*  Module access: MRSRep is referenced via dot notation              *)
-(*  (MRSRep.sample_basic, MRSRep.sample_triangle). The `import        *)
-(*  MRSRep.` line is not used because modules are not theories.       *)
+(*  (MRSRep.sample_basic, MRSRep.sample_triangle).                    *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv Real Distr List.
@@ -105,10 +104,10 @@ lemma mk_params_tmax_nonneg (n : int) :
   (mk_params n).`lp_valid => 0 <= (mk_params n).`lp_tmax.
 proof.
   move=> hv.
+  have hiff := mk_params_valid_iff n.
   have hconditions :
     19 * a0 n <= n /\ (mk_params n).`lp_k0 <= kmax n.
-    have hiff := mk_params_valid_iff n.
-    by smt(hiff hv).
+  - smt().
   rewrite mk_params_tmax.
   have hq : 0 < 9 by smt().
   smt(divz_ge0).
@@ -138,28 +137,26 @@ proof.
   exact (a0_B0_eq N hN).
 qed.
 
+(* Needs 0 <= lp_k0: for a general layer_params this is not automatic. *)
 lemma a_at_ge_a0 (p : layer_params) (t : int) :
-  0 <= t => p.`lp_a0 <= a_at p t.
+  0 <= p.`lp_k0 => 0 <= t => p.`lp_a0 <= a_at p t.
 proof.
-  move=> ht.
+  move=> hk ht.
   rewrite /a_at.
-  have : 0 <= 9 * (p.`lp_k0 + 9 * t) by smt().
-  linarith.
+  smt().
 qed.
 
 lemma b_at_le_b0 (p : layer_params) (t : int) :
-  0 <= t => b_at p t <= p.`lp_b0.
+  0 <= p.`lp_k0 => 0 <= t => b_at p t <= p.`lp_b0.
 proof.
-  move=> ht.
+  move=> hk ht.
   rewrite /b_at.
-  have : 0 <= 19 * (p.`lp_k0 + 9 * t) by smt().
-  linarith.
+  smt().
 qed.
 
 (* ================================================================= *)
 (* Prefix weight (instantiated from MRS_FloorSum)                    *)
 (* ================================================================= *)
-
 
 op prefix_weight (p : layer_params) (t_filter : int) (t : int) : int =
   MRS_FloorSum.prefix_weight t_filter t p.`lp_tmax p.`lp_eprime.
@@ -199,7 +196,7 @@ lemma prefix_weight_zero_at_filter (p : layer_params) (t_filter : int) :
 proof.
   move=> hle _.
   rewrite /total_weight.
-  apply prefix_weight_monotone => //.
+  apply prefix_weight_monotone; smt().
 qed.
 
 (* ================================================================= *)
@@ -247,16 +244,16 @@ lemma select_t_is_smallest
   select_t p t_filter r <= t.
 proof.
   move=> hp hle he hr hrng ht_lo ht_hi hpref.
-  case (select_t p t_filter r <= t) => //.
-  move=> hnot.
-  have hlt : t < select_t p t_filter r by smt.
+  have [hs1 hs2] := select_t_is_in_range p t_filter r hp hle he hr hrng.
   have [_ [_ [_ h3]]] := select_t_spec p t_filter r hp hle he hr hrng.
+  case (select_t p t_filter r <= t) => // hnot.
+  have hlt : t < select_t p t_filter r by smt().
   have hprev : prefix_weight p t_filter (select_t p t_filter r - 1) <= r.
-    apply h3; smt.
+  - apply h3; smt().
   have hmono : prefix_weight p t_filter t
              <= prefix_weight p t_filter (select_t p t_filter r - 1).
-    apply prefix_weight_monotone => //; smt.
-  linarith.
+  - apply prefix_weight_monotone; smt().
+  smt().
 qed.
 
 lemma select_t_exists (p : layer_params) (t_filter : int) (r : int) :
@@ -269,13 +266,12 @@ proof.
   exists (select_t p t_filter r).
   have [h1 h2] := select_t_is_in_range p t_filter r hp hle he hr hrng.
   have h3 := select_t_prefix_gt p t_filter r hp hle he hr hrng.
-  by split => //; split.
+  smt().
 qed.
 
 (* ================================================================= *)
 (* Single-attempt sampler                                            *)
 (* ================================================================= *)
-
 
 type attempt_result = {
   ar_layer : DiophantinePair;
@@ -314,12 +310,12 @@ lemma attempt_layer_is_representation (N : int) (p : layer_params) (r : int) :
   0 < N => p = mk_params N =>
   p.`lp_valid => 171 <= p.`lp_eprime =>
   0 <= r => r < total_weight p p.`lp_k0 =>
-  19 * (attempt_layer p r).`ar_layer.a
-    + 9 * (attempt_layer p r).`ar_layer.b = N.
+  19 * (attempt_layer p r).`ar_layer.`a
+    + 9 * (attempt_layer p r).`ar_layer.`b = N.
 proof.
   move=> hN hp hpv he hr hrng.
   have [hrec _] := attempt_layer_is_valid_pair p r hpv he hr hrng.
-  rewrite hrec.
+  rewrite hrec /=.
   exact (a_at_b_at_eq_N N p (select_t p p.`lp_k0 r) hN hp).
 qed.
 
@@ -332,27 +328,28 @@ op sample_three_attempt (root_n : int) (r1 r2 r3 : int) : int list.
 axiom sample_three_draw_count (root_n : int) (r1 r2 r3 : int) :
   size (sample_three_attempt root_n r1 r2 r3) = 2 * DEPTH + 1.
 
-axiom sample_three_correct (root_n : int) :
+(* The layer parameters p0, p1, p2 are named explicitly (instead of    *)
+(* let-bindings), which makes the statement easy to instantiate.       *)
+axiom sample_three_correct
+    (root_n : int) (p0 p1 p2 : layer_params) (r1 r2 r3 : int) :
   162 < root_n =>
-  let p0 = mk_params root_n in
+  p0 = mk_params root_n =>
   p0.`lp_valid => 171 <= p0.`lp_eprime =>
-  forall r1, 0 <= r1 < total_weight p0 p0.`lp_k0 =>
-  let a1 = a_at p0 (select_t p0 p0.`lp_k0 r1) in
-  let p1 = mk_params a1 in
+  0 <= r1 => r1 < total_weight p0 p0.`lp_k0 =>
+  p1 = mk_params (a_at p0 (select_t p0 p0.`lp_k0 r1)) =>
   p1.`lp_valid => 171 <= p1.`lp_eprime =>
-  forall r2, 0 <= r2 < total_weight p1 p1.`lp_k0 =>
-  let a2 = a_at p1 (select_t p1 p1.`lp_k0 r2) in
-  let p2 = mk_params a2 in
+  0 <= r2 => r2 < total_weight p1 p1.`lp_k0 =>
+  p2 = mk_params (a_at p1 (select_t p1 p1.`lp_k0 r2)) =>
   p2.`lp_valid => 171 <= p2.`lp_eprime =>
-  forall r3, 0 <= r3 < total_weight p2 p2.`lp_k0 =>
-  let chain = sample_three_attempt root_n r1 r2 r3 in
-  size chain = 2 * DEPTH + 1 /\
-  nth 0 chain 0 = root_n /\
+  0 <= r3 => r3 < total_weight p2 p2.`lp_k0 =>
+  size (sample_three_attempt root_n r1 r2 r3) = 2 * DEPTH + 1 /\
+  nth 0 (sample_three_attempt root_n r1 r2 r3) 0 = root_n /\
   (forall j, 0 <= j < DEPTH =>
-     let X = nth 0 chain (2*j)     in
-     let A = nth 0 chain (2*j + 1) in
-     let B = nth 0 chain (2*j + 2) in
-     19*A + 9*B = X /\ dr A = dr X).
+     19 * nth 0 (sample_three_attempt root_n r1 r2 r3) (2 * j + 1)
+     + 9 * nth 0 (sample_three_attempt root_n r1 r2 r3) (2 * j + 2)
+       = nth 0 (sample_three_attempt root_n r1 r2 r3) (2 * j) /\
+     dr (nth 0 (sample_three_attempt root_n r1 r2 r3) (2 * j + 1))
+       = dr (nth 0 (sample_three_attempt root_n r1 r2 r3) (2 * j))).
 
 lemma sample_three_size (root_n : int) (r1 r2 r3 : int) :
   size (sample_three_attempt root_n r1 r2 r3) = 2 * DEPTH + 1.
@@ -440,32 +437,28 @@ axiom failure_decreases :
 (* Summary lemmas                                                    *)
 (* ================================================================= *)
 
-lemma sampler_produces_correct_chain (root_n : int) :
+lemma sampler_produces_correct_chain
+    (root_n : int) (p0 p1 p2 : layer_params) (r1 r2 r3 : int) :
   162 < root_n =>
-  let p0 = mk_params root_n in
+  p0 = mk_params root_n =>
   p0.`lp_valid => 171 <= p0.`lp_eprime =>
-  forall r1, 0 <= r1 < total_weight p0 p0.`lp_k0 =>
-  let a1 = a_at p0 (select_t p0 p0.`lp_k0 r1) in
-  let p1 = mk_params a1 in
+  0 <= r1 => r1 < total_weight p0 p0.`lp_k0 =>
+  p1 = mk_params (a_at p0 (select_t p0 p0.`lp_k0 r1)) =>
   p1.`lp_valid => 171 <= p1.`lp_eprime =>
-  forall r2, 0 <= r2 < total_weight p1 p1.`lp_k0 =>
-  let a2 = a_at p1 (select_t p1 p1.`lp_k0 r2) in
-  let p2 = mk_params a2 in
+  0 <= r2 => r2 < total_weight p1 p1.`lp_k0 =>
+  p2 = mk_params (a_at p1 (select_t p1 p1.`lp_k0 r2)) =>
   p2.`lp_valid => 171 <= p2.`lp_eprime =>
-  forall r3, 0 <= r3 < total_weight p2 p2.`lp_k0 =>
-  let chain = sample_three_attempt root_n r1 r2 r3 in
-  19 * (nth 0 chain 1) + 9 * (nth 0 chain 2) = root_n.
+  0 <= r3 => r3 < total_weight p2 p2.`lp_k0 =>
+  19 * nth 0 (sample_three_attempt root_n r1 r2 r3) 1
+  + 9 * nth 0 (sample_three_attempt root_n r1 r2 r3) 2 = root_n.
 proof.
-  move=> hN hp0 he0 r1 hr1 p1 hp1 he1 r2 hr2 p2 hp2 he2 r3 hr3.
-  have h := sample_three_correct
-    root_n hN hp0 he0 r1 hr1 hp1 he1 r2 hr2 hp2 he2 r3 hr3.
-  move: h => [hsz [hn0 hforall]].
-  have h0 := hforall 0.
-  have h0' : 0 <= 0 < DEPTH by rewrite /DEPTH.
-  move: (h0 h0') => [hlin _].
-  move: hlin => [hlin1 _].
-  rewrite hlin1.
-  by rewrite hn0.
+  move=> hN hp0 hv0 he0 h1a h1b hp1 hv1 he1 h2a h2b hp2 hv2 he2 h3a h3b.
+  have h := sample_three_correct root_n p0 p1 p2 r1 r2 r3
+              hN hp0 hv0 he0 h1a h1b hp1 hv1 he1 h2a h2b hp2 hv2 he2 h3a h3b.
+  have [hsz [hn0 hall]] := h.
+  have h0 : 0 <= 0 < DEPTH by smt(DEPTH_pos).
+  have h0' := hall 0 h0.
+  smt().
 qed.
 
 lemma retry_loop_is_constant_time :
@@ -480,9 +473,12 @@ proof.
   by apply sample_three_draw_count.
 qed.
 
+(* Needs size attempts = size valid: otherwise attempts.[i] could be   *)
+(* outside the list and nothing is known about its size.               *)
 lemma winning_chain_has_correct_size
     (attempts : int list list) (valid : bool list) (i : int)
     (expected_size : int) :
+  size attempts = size valid =>
   0 <= i < size valid =>
   valid.[i] =>
   (forall j, 0 <= j < i => ! valid.[j]) =>
@@ -490,12 +486,12 @@ lemma winning_chain_has_correct_size
   exists chain, winning_attempt attempts valid = Some chain /\
     size chain = expected_size.
 proof.
-  move=> hi hv hprev hsz.
+  move=> hs hi hv hprev hsz.
   have [chain [hwin heq]] := winning_chain_is_valid attempts valid i hi hv hprev.
   exists chain.
   split; first by apply hwin.
   rewrite heq.
-  by apply hsz; smt.
+  apply hsz; smt().
 qed.
 
 (* ================================================================= *)
