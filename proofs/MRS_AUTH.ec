@@ -228,25 +228,25 @@ qed.
 (* ================================================================= *)
 
 (* ----------------------------------------------------------------- *)
-(* The TemporalBarrier module                                         *)
+(* Named intermediate values                                          *)
 (*                                                                    *)
-(* Given N and a timeout, `sample_mrs_timed` tries to produce a       *)
-(* representation (A, B) of N as 19A + 9B such that B is              *)
-(* triangle-valid (dr B = dr (2 * dr N)). It returns None if the      *)
-(* intermediate bounds collapse (no valid k exists) or if the         *)
-(* computed duration exceeds the timeout.                             *)
-(*                                                                    *)
-(* The algorithm:                                                     *)
-(*   1. Ap = N, Bp = -2N                                              *)
-(*   2. k_min = (-Ap + 170) / 9                                       *)
-(*   3. k_max = Bp / 19                                               *)
-(*   4. If k_max < k_min: return None                                 *)
-(*   5. first_k = k_min + shift, where shift aligns B to the target   *)
-(*   6. If k_max < first_k: return None                               *)
-(*   7. final_k <$ duniform_fractal first_k k_max                     *)
-(*   8. A = Ap + 9*final_k, B = Bp - 19*final_k                       *)
-(*   9. If timeout < step_to_time (total_steps N): return None        *)
-(*  10. Return Some (A, B, duration)                                  *)
+(* Using `op` definitions rather than `let ... in` inside lemma       *)
+(* statements makes the statements cleaner and avoids parser issues.  *)
+(* ----------------------------------------------------------------- *)
+
+op Bp_val (N : int) : int = -2 * N.
+
+op k_min_val (N : int) : int = (-N + 162 + 8) %/ 9.
+
+op k_max_val (N : int) : int = (-2 * N) %/ 19.
+
+op shift_val (N k_min : int) : int =
+  (dr (Bp_val N - 19 * k_min) - dr (2 * dr N)) %% 9.
+
+op first_k_val (N k_min : int) : int = k_min + shift_val N k_min.
+
+(* ----------------------------------------------------------------- *)
+(* The module                                                         *)
 (* ----------------------------------------------------------------- *)
 
 module TemporalBarrier = {
@@ -277,77 +277,87 @@ module TemporalBarrier = {
   }
 }.
 
-(* ================================================================= *)
-(* Section 3.1: The shift correction                                 *)
-(* ================================================================= *)
+(* ----------------------------------------------------------------- *)
+(* Helper: dr is invariant under subtraction of 9*k                   *)
 (*                                                                    *)
-(* The value `first_k` is chosen so that the resulting                  *)
-(* B-coordinate satisfies `dr B = dr (2 * dr N)`.                    *)
-(*                                                                    *)
-(* The proof uses three facts:                                        *)
-(*   - dr is invariant under addition of multiples of 9              *)
-(*   - dr (x - 9*k) = dr x when x - 9*k > 0                          *)
-(*   - shift is congruent to dr (Bp - 19*k_min) - dr (2*dr N) mod 9  *)
-(* ================================================================= *)
+(* Both dr values are in [1, 9] and congruent to x mod 9.             *)
+(* ----------------------------------------------------------------- *)
 
 lemma dr_sub_9k (x k : int) :
-  0 < x - 9 * k =>
+  0 <= k => 9 * k < x =>
   dr (x - 9 * k) = dr x.
 proof.
-  move=> hpos.
-  have hpos_x : 0 < x by smt().
-  have hdx := dr_range x hpos_x.
-  have hdr := dr_range (x - 9 * k) hpos.
-  have hcong1 : (dr (x - 9 * k) - (x - 9 * k)) %% 9 = 0
-    by apply dr_cong9.
-  have hcong2 : (dr x - x) %% 9 = 0
-    by apply dr_cong9.
+  move=> hk hpos.
+  have hx_pos : 0 < x by smt().
+  have hdx := dr_range (x - 9 * k) hpos.
+  have hdrx := dr_range x hx_pos.
+  have hcong1 := dr_cong9 (x - 9 * k) hpos.
+  have hcong2 := dr_cong9 x hx_pos.
   smt().
 qed.
+
+(* ----------------------------------------------------------------- *)
+(* Shift correction                                                   *)
+(*                                                                    *)
+(* The choice of first_k makes B triangle-valid:                      *)
+(*   dr (Bp - 19 * first_k) = dr (2 * dr N).                          *)
+(* ----------------------------------------------------------------- *)
 
 lemma triangle_shift_correct (N k_min : int) :
   162 < N =>
-  let Bp = -2 * N in
-  let shift = (dr (Bp - 19 * k_min) - dr (2 * dr N)) %% 9 in
-  let first_k = k_min + shift in
-  0 < Bp - 19 * first_k =>
-  dr (Bp - 19 * first_k) = dr (2 * dr N).
+  0 < Bp_val N - 19 * first_k_val N k_min =>
+  dr (Bp_val N - 19 * first_k_val N k_min) = dr (2 * dr N).
 proof.
-  move=> hN /= hpos.
+  move=> hN hpos.
   have hNpos : 0 < N by smt().
-  have h2N : 0 < 2 * N by smt().
+  have h2drN_pos : 0 < 2 * dr N by smt(dr_range).
 
-  (* Stap 1: B = (Bp - 19 * k_min) - 19 * shift *)
-  have hB_eq : Bp - 19 * (k_min + shift) =
-               (Bp - 19 * k_min) - 19 * shift by ring.
+  (* Unfold first_k_val and shift_val *)
+  rewrite /first_k_val /shift_val.
+
+  (* Stap 1: B = (Bp - 19*k_min) - 19*shift *)
+  have hB_eq :
+    Bp_val N - 19 *
+      (k_min + (dr (Bp_val N - 19 * k_min) - dr (2 * dr N)) %% 9) =
+    (Bp_val N - 19 * k_min) -
+      19 * ((dr (Bp_val N - 19 * k_min) - dr (2 * dr N)) %% 9)
+    by ring.
   rewrite hB_eq.
 
-  (* Stap 2: schrijf 19 * shift = 9 * (2 * shift) + shift *)
+  set shift := (dr (Bp_val N - 19 * k_min) - dr (2 * dr N)) %% 9.
+
+  (* Stap 2: 19 * shift = 9 * (2 * shift) + shift *)
   have h19 : 19 * shift = 9 * (2 * shift) + shift by ring.
-  have hdecomp : (Bp - 19 * k_min) - 19 * shift =
-                 ((Bp - 19 * k_min) - shift) - 9 * (2 * shift)
-    by smt().
-  rewrite hdecomp.
+  rewrite h19.
 
-  (* Stap 3: dr is invariant onder -9*(2*shift) *)
-  have h9pos : 0 < (Bp - 19 * k_min) - shift - 9 * (2 * shift)
-    by smt().
-  rewrite dr_sub_9k //.
+  have hsub :
+    (Bp_val N - 19 * k_min) - (9 * (2 * shift) + shift) =
+    ((Bp_val N - 19 * k_min) - shift) - 9 * (2 * shift)
+    by ring.
+  rewrite hsub.
 
-  (* Stap 4: (Bp - 19 * k_min) - shift ≡ dr (2 * dr N) mod 9 *)
-  have hcong : ((Bp - 19 * k_min) - shift - dr (2 * dr N)) %% 9 = 0 by smt().
+  set x := (Bp_val N - 19 * k_min) - shift.
 
-  (* Stap 5: beide zijn in [1, 9] *)
-  have hx_pos : 0 < (Bp - 19 * k_min) - shift by smt().
-  have hx_range := dr_range ((Bp - 19 * k_min) - shift) hx_pos.
-  have h2drN_pos : 0 < 2 * dr N by smt(dr_range).
-  have ht_range := dr_range (2 * dr N) h2drN_pos.
+  have hx_pos : 0 < x by smt().
+  have hk_nonneg : 0 <= 2 * shift by smt(modz_ge0).
+  have hpos_x : 9 * (2 * shift) < x by smt().
+
+  (* Stap 3: dr (x - 9*(2*shift)) = dr x *)
+  have hdr_eq : dr (x - 9 * (2 * shift)) = dr x
+    by apply dr_sub_9k.
+
+  rewrite hdr_eq.
+
+  (* Stap 4: dr x = dr (2*dr N) *)
+  have hx_cong : (x - dr (2 * dr N)) %% 9 = 0 by smt().
+  have hdx := dr_range x hx_pos.
+  have hd2 := dr_range (2 * dr N) h2drN_pos.
   smt().
 qed.
 
-(* ================================================================= *)
-(* Section 3.2: Correctness of sample_mrs_timed                       *)
-(* ================================================================= *)
+(* ----------------------------------------------------------------- *)
+(* Correctness of sample_mrs_timed                                    *)
+(* ----------------------------------------------------------------- *)
 
 lemma temporal_barrier_correctness (N : int) (timeout : real) :
   162 < N =>
@@ -366,25 +376,23 @@ proof.
            k_min = (-N + 162 + 8) %/ 9 /\
            k_max = (-2 * N) %/ 19).
   - auto.
-  if.
+  if => />.
   - auto.
-  seq 1 : (first_k = k_min + ((dr (Bp - 19 * k_min) - dr (2 * dr N)) %% 9)).
+  seq 1 : (first_k = k_min +
+           ((dr (Bp - 19 * k_min) - dr (2 * dr N)) %% 9)).
   - auto.
-  if.
+  if => />.
   - auto.
   (* Sampling *)
   seq 1 : (mem final_k (fractal_list first_k k_max)).
-  - auto => />.
-    move=> &m hle.
-    (* duniform levert een element van de lijst *)
-    smt().
+  - auto.
   seq 2 : (A = Ap + 9 * final_k /\ B = Bp - 19 * final_k).
   - auto.
   seq 1 : (duration = step_to_time (total_steps N)).
   - auto.
-  if.
+  if => />.
   - auto.
-  auto => /> &m hk_le hfk_le hfk_mem hA hB hdur hto_ok.
+  auto => /> &m hk_le hfk_le hfk_mem hA hB hdur htimeout_ok.
   split.
   - (* 19 * A + 9 * B = N *)
     rewrite hA hB.
@@ -393,39 +401,47 @@ proof.
     smt().
   - (* dr B = dr (2 * dr N) *)
     rewrite hB.
+    have hAp : Ap{m} = N by smt().
     have hBp : Bp{m} = -2 * N by smt().
     rewrite hBp.
-    (* Gebruik de fractal-eigenschap: final_k - first_k is een 9-voud *)
-    have hdiff : (final_k{m} - first_k{m}) %% 9 = 0 by smt(fractal_congruent).
-    (* final_k = first_k + 9 * t *)
-    have hfk_eq : exists t, final_k{m} = first_k{m} + 9 * t by smt(divz_eq).
-    case hfk_eq => t ht.
+    (* final_k - first_k is a multiple of 9 *)
+    have hdiff : (final_k{m} - first_k{m}) %% 9 = 0 by smt().
+    have ht_exists : exists t, final_k{m} = first_k{m} + 9 * t
+      by smt(divz_eq).
+    case ht_exists => t ht.
     rewrite ht.
-    (* B = Bp - 19 * first_k - 171 * t *)
-    have hdecomp : Bp{m} - 19 * (first_k{m} + 9 * t) =
-                   Bp{m} - 19 * first_k{m} - 171 * t by ring.
-    rewrite hdecomp.
+    (* B = Bp - 19*first_k - 171*t *)
+    have hB_decomp :
+      Bp{m} - 19 * (first_k{m} + 9 * t) =
+      (Bp{m} - 19 * first_k{m}) - 171 * t
+      by ring.
+    rewrite hB_decomp.
     have h171 : 171 = 9 * 19 by ring.
     rewrite h171.
-    (* Pas dr_sub_9k herhaald toe *)
+    (* dr invariant onder -9*(19*t) *)
     have hbase_pos : 0 < Bp{m} - 19 * first_k{m} by smt().
     have ht_nonneg : 0 <= t by smt().
-    (* Het algemene feit: dr (x - 9*19*t) = dr x als x - 9*19*t > 0 *)
-    have hgen : forall (x k : int), 0 <= k => 0 < x - 171 * k =>
-                dr (x - 171 * k) = dr x.
-      move=> x k hk hpos_x.
-      have hsub : x - 171 * k = x - 9 * (19 * k) by ring.
-      rewrite hsub.
-      apply dr_sub_9k.
-      smt().
-    rewrite hgen; first by smt().
-    (* Nu: dr (Bp - 19 * first_k) = dr (2 * dr N) *)
+    (* Algemene feit *)
+    have hgen : forall (x k : int),
+      0 <= k => 9 * k < x => dr (x - 9 * k) = dr x
+      by apply dr_sub_9k.
+    have hpos_x : 9 * (19 * t) < Bp{m} - 19 * first_k{m} by smt().
+    have hk_nonneg : 0 <= 19 * t by smt().
+    rewrite (hgen _ _ hk_nonneg hpos_x).
+    (* dr (Bp - 19*first_k) = dr (2*dr N) *)
+    have hBp' : Bp{m} = Bp_val N by smt().
+    rewrite hBp'.
     apply triangle_shift_correct; smt().
 qed.
 
-(* ================================================================= *)
-(* Section 3.3: Non-interference under a strict timeout               *)
-(* ================================================================= *)
+(* ----------------------------------------------------------------- *)
+(* Non-interference under a strict timeout                            *)
+(*                                                                    *)
+(* If the timeout is smaller than step_to_time (total_steps N), the   *)
+(* procedure returns None. Since this is a deterministic property of  *)
+(* N, two runs with different N but the same strict timeout both      *)
+(* return None.                                                       *)
+(* ----------------------------------------------------------------- *)
 
 lemma temporal_barrier_noninterference
     (N1 N2 : int) (timeout : real) :
@@ -457,13 +473,16 @@ proof.
   - auto.
   if => />.
   - auto.
-  - (* timeout < step_to_time (total_steps N) — geldt in beide takken *)
+  - (* timeout < step_to_time (total_steps N) *)
     smt().
 qed.
 
-(* ================================================================= *)
-(* Section 3.4: Conditional uniformity                                 *)
-(* ================================================================= *)
+(* ----------------------------------------------------------------- *)
+(* Conditional uniformity                                             *)
+(*                                                                    *)
+(* If the timeout is large enough, two runs with the same arguments   *)
+(* behave identically.                                                *)
+(* ----------------------------------------------------------------- *)
 
 lemma temporal_barrier_conditional_uniform
     (N : int) (timeout : real) :
