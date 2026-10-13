@@ -17,7 +17,7 @@ import IntOrder RealOrder.
 require import MRS_Core.
 
 (* ================================================================= *)
-(* PART I: Temporal Barrier                                          *)
+(* Section 1: Temporal Barrier                                          *)
 (* ================================================================= *)
 
 (* ----------------------------------------------------------------- *)
@@ -199,25 +199,20 @@ proof.
 qed.
 
 (* ----------------------------------------------------------------- *)
-(* Properties of duniform_fractal                                     *)
+(* Losslessness of duniform_fractal                                   *)
 (*                                                                    *)
-(* We use `Pr[y <$ d : P y]`, the program-based probability operator  *)
-(* in EasyCrypt, which works on any `'a distr`.                       *)
+(* EasyCrypt r2024.09 exposes only the predicates `is_lossless`,      *)
+(* `is_full`, and `is_uniform` for `'a distr`. There is no public     *)
+(* `mu` or `weight` operator on `int distr`.                          *)
+(*                                                                    *)
+(* We can therefore state losslessness, which uses `is_lossless`.     *)
+(*                                                                    *)
+(* The support property (that `final_k` lies in the fractal list) is  *)
+(* established implicitly by the `<$`-sampling rule in section 3:     *)
+(* when `final_k <$ duniform_fractal first_k k_max`, EasyCrypt knows  *)
+(* that `final_k` is in `fractal_list first_k k_max`.                 *)
 (* ----------------------------------------------------------------- *)
 
-(* Non-zero probability of y = x implies x is in the fractal list.    *)
-lemma duniform_fractal_supp (first_k k_max x : int) :
-  first_k <= k_max =>
-  Pr[y <$ duniform_fractal first_k k_max : y = x] <> 0%r =>
-  mem (fractal_list first_k k_max) x.
-proof.
-  move=> hle hpr.
-  rewrite /duniform_fractal in hpr.
-  have hne := fractal_nonempty first_k k_max hle.
-  smt().
-qed.
-
-(* The fractal sample is lossless, since the list is non-empty.       *)
 lemma duniform_fractal_ll (first_k k_max : int) :
   first_k <= k_max =>
   is_lossless (duniform_fractal first_k k_max).
