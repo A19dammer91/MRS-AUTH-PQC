@@ -245,35 +245,35 @@ op first_k_val (N kmin : int) : int = kmin + shift_val N kmin.
 (* ----------------------------------------------------------------- *)
 (* The module                                                         *)
 (*                                                                    *)
-(* Local variables use no underscores, to avoid parser issues.        *)
-(* The parameter is named `deadline` rather than `timeout`, because   *)
-(* `timeout` is a reserved CLI flag in EasyCrypt.                     *)
+(* All local variables use lowercase-first names, as required by      *)
+(* EasyCrypt. Uppercase-first names are reserved for modules and      *)
+(* algebraic constructors.                                            *)
 (* ----------------------------------------------------------------- *)
 
 module TemporalBarrier = {
   proc sample_mrs_timed(N : int, deadline : real) : (int * int * real) option = {
-    var Ap, Bp, kmin, kmax, firstk, finalk, A, B, duration;
+    var anc, bcp, kmin, kmax, firstk, finalk, xa, xb, duration;
 
-    Ap <- N;
-    Bp <- -2 * N;
-    kmin <- (-Ap + 162 + 8) %/ 9;
-    kmax <- Bp %/ 19;
+    anc <- N;
+    bcp <- -2 * N;
+    kmin <- (-anc + 162 + 8) %/ 9;
+    kmax <- bcp %/ 19;
 
     if (kmax < kmin) { return None; }
 
-    firstk <- kmin + ((dr (Bp - 19 * kmin) - dr (2 * dr N)) %% 9);
+    firstk <- kmin + ((dr (bcp - 19 * kmin) - dr (2 * dr N)) %% 9);
 
     if (kmax < firstk) { return None; }
 
     finalk <$ duniform_fractal firstk kmax;
 
-    A <- Ap + 9 * finalk;
-    B <- Bp - 19 * finalk;
+    xa <- anc + 9 * finalk;
+    xb <- bcp - 19 * finalk;
     duration <- step_to_time (total_steps N);
 
     if (deadline < step_to_time (total_steps N)) { return None; }
 
-    return Some (A, B, duration);
+    return Some (xa, xb, duration);
   }
 }.
 
@@ -363,56 +363,56 @@ lemma temporal_barrier_correctness (N : int) (deadline : real) :
 proof.
   move=> hN.
   proc.
-  seq 4 : (Ap = N /\ Bp = -2 * N /\
+  seq 4 : (anc = N /\ bcp = -2 * N /\
            kmin = (-N + 162 + 8) %/ 9 /\
            kmax = (-2 * N) %/ 19).
   - auto.
   if => />.
   - auto.
   seq 1 : (firstk = kmin +
-           ((dr (Bp - 19 * kmin) - dr (2 * dr N)) %% 9)).
+           ((dr (bcp - 19 * kmin) - dr (2 * dr N)) %% 9)).
   - auto.
   if => />.
   - auto.
   seq 1 : (mem finalk (fractal_list firstk kmax)).
   - auto.
-  seq 2 : (A = Ap + 9 * finalk /\ B = Bp - 19 * finalk).
+  seq 2 : (xa = anc + 9 * finalk /\ xb = bcp - 19 * finalk).
   - auto.
   seq 1 : (duration = step_to_time (total_steps N)).
   - auto.
   if => />.
   - auto.
-  auto => /> &m hk_le hfk_le hfk_mem hA hB hdur hdeadline_ok.
+  auto => /> &m hk_le hfk_le hfk_mem hxa hxb hdur hdeadline_ok.
   split.
-  - rewrite hA hB.
-    have hAp : Ap{m} = N by smt().
-    have hBp : Bp{m} = -2 * N by smt().
+  - rewrite hxa hxb.
+    have hanc : anc{m} = N by smt().
+    have hbcp : bcp{m} = -2 * N by smt().
     smt().
-  - rewrite hB.
-    have hBp : Bp{m} = -2 * N by smt().
-    rewrite hBp.
+  - rewrite hxb.
+    have hbcp : bcp{m} = -2 * N by smt().
+    rewrite hbcp.
     have hdiff : (finalk{m} - firstk{m}) %% 9 = 0 by smt().
     have ht_exists : exists t, finalk{m} = firstk{m} + 9 * t
       by smt(divz_eq).
     case ht_exists => t ht.
     rewrite ht.
     have hB_decomp :
-      Bp{m} - 19 * (firstk{m} + 9 * t) =
-      (Bp{m} - 19 * firstk{m}) - 171 * t
+      bcp{m} - 19 * (firstk{m} + 9 * t) =
+      (bcp{m} - 19 * firstk{m}) - 171 * t
       by ring.
     rewrite hB_decomp.
     have h171 : 171 = 9 * 19 by ring.
     rewrite h171.
-    have hbase_pos : 0 < Bp{m} - 19 * firstk{m} by smt().
+    have hbase_pos : 0 < bcp{m} - 19 * firstk{m} by smt().
     have ht_nonneg : 0 <= t by smt().
     have hgen : forall (x k : int),
       0 <= k => 9 * k < x => dr (x - 9 * k) = dr x
       by apply dr_sub_9k.
-    have hpos_x : 9 * (19 * t) < Bp{m} - 19 * firstk{m} by smt().
+    have hpos_x : 9 * (19 * t) < bcp{m} - 19 * firstk{m} by smt().
     have hk_nonneg : 0 <= 19 * t by smt().
     rewrite (hgen _ _ hk_nonneg hpos_x).
-    have hBp' : Bp{m} = Bp_val N by smt().
-    rewrite hBp'.
+    have hbcp' : bcp{m} = Bp_val N by smt().
+    rewrite hbcp'.
     apply triangle_shift_correct; smt().
 qed.
 
@@ -467,21 +467,21 @@ lemma temporal_barrier_conditional_uniform
 proof.
   move=> hN hdeadline.
   proc.
-  seq 4 4 : (={Ap, Bp, kmin, kmax} /\
-             Ap{1} = N /\ Bp{1} = -2 * N).
+  seq 4 4 : (={anc, bcp, kmin, kmax} /\
+             anc{1} = N /\ bcp{1} = -2 * N).
   - auto.
   if => />.
   - auto.
-  seq 1 1 : (={Ap, Bp, kmin, kmax, firstk}).
+  seq 1 1 : (={anc, bcp, kmin, kmax, firstk}).
   - auto.
   if => />.
   - auto.
-  seq 1 1 : (={Ap, Bp, kmin, kmax, firstk, finalk}).
+  seq 1 1 : (={anc, bcp, kmin, kmax, firstk, finalk}).
   - rnd.
     auto.
-  seq 2 2 : (={Ap, Bp, kmin, kmax, firstk, finalk, A, B}).
+  seq 2 2 : (={anc, bcp, kmin, kmax, firstk, finalk, xa, xb}).
   - auto.
-  seq 1 1 : (={Ap, Bp, kmin, kmax, firstk, finalk, A, B, duration}).
+  seq 1 1 : (={anc, bcp, kmin, kmax, firstk, finalk, xa, xb, duration}).
   - auto.
   if => />.
   - exfalso.
