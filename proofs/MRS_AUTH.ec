@@ -304,7 +304,7 @@ proof.
 
   rewrite /first_k_val /shift_val.
 
-    have hB_eq :
+      have hB_eq :
     Bp_val N - 19 *
       (kmin + (dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9) =
     (Bp_val N - 19 * kmin) -
