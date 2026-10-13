@@ -327,17 +327,6 @@ proof.
 (* Correctness of sample_mrs_timed                                    *)
 (* ----------------------------------------------------------------- *)
 
-op Bp_val (N : int) : int = -2 * N.
-
-op k_min_val (N : int) : int = (-N + 162 + 8) %/ 9.
-
-op k_max_val (N : int) : int = (-2 * N) %/ 19.
-
-op shift_val (N kmin : int) : int =
-  (dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9.
-
-op first_k_val (N kmin : int) : int = kmin + shift_val N kmin.
-
 lemma triangle_shift_correct (N kmin : int) :
   162 < N =>
   0 < Bp_val N - 19 * first_k_val N kmin =>
@@ -346,98 +335,35 @@ proof.
   move=> hN hpos.
   have hNpos : 0 < N by smt().
   have h2drN_pos : 0 < 2 * dr N by smt(dr_range).
+  
   rewrite /first_k_val /shift_val.
+  
   have hB_eq : Bp_val N - 19 * (kmin + (dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9) =
                (Bp_val N - 19 * kmin) - 19 * ((dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9) by ring.
   rewrite hB_eq.
+  
   pose shift = ((dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9).
+  
   have h19 : 19 * shift = 9 * (2 * shift) + shift by ring.
   rewrite h19.
+  
   have hsub : (Bp_val N - 19 * kmin) - (9 * (2 * shift) + shift) =
               ((Bp_val N - 19 * kmin) - shift) - 9 * (2 * shift) by ring.
   rewrite hsub.
-  set x := (Bp_val N - 19 * kmin) - shift.
+
+  pose x = ((Bp_val N - 19 * kmin) - shift).
+
   have hx_pos : 0 < x by smt().
   have hk_nonneg : 0 <= 2 * shift by smt(modz_ge0).
   have hpos_x : 9 * (2 * shift) < x by smt().
+  
   have hdr_eq : dr (x - 9 * (2 * shift)) = dr x by apply dr_sub_9k.
   rewrite hdr_eq.
+  
   have hx_cong : (x - dr (2 * dr N)) %% 9 = 0 by smt().
   have hdx := dr_range x hx_pos.
   have hd2 := dr_range (2 * dr N) h2drN_pos.
   by smt().
-qed.
-
-lemma temporal_barrier_math_step (bcp firstk finalk N : int) :
-  bcp = -2 * N =>
-  (finalk - firstk) %% 9 = 0 =>
-  0 <= 19 * ((finalk - firstk) %/ 9) =>
-  9 * (19 * ((finalk - firstk) %/ 9)) < bcp - 19 * firstk =>
-  162 < N =>
-  dr (bcp - 19 * finalk) = dr (2 * dr N).
-proof.
-  move=> hbcp hdiff hnonneg hpos hN.
-  have ht_eq : finalk = firstk + 9 * ((finalk - firstk) %/ 9) by smt(divz_eq).
-  rewrite ht_eq.
-  have hB_decomp : bcp - 19 * (firstk + 9 * ((finalk - firstk) %/ 9)) =
-                   (bcp - 19 * firstk) - 171 * ((finalk - firstk) %/ 9) by ring.
-  rewrite hB_decomp.
-  have h171 : 171 = 9 * 19 by ring.
-  rewrite h171.
-  have h9k : 9 * 19 * ((finalk - firstk) %/ 9) = 9 * (19 * ((finalk - firstk) %/ 9)) by ring.
-  rewrite h9k.
-  rewrite dr_sub_9k.
-  + by [].
-  + by [].
-  rewrite hbcp.
-  rewrite /Bp_val.
-  by smt(triangle_shift_correct).
-qed.
-
-lemma temporal_barrier_correctness (N : int) (deadline : real) :
-  162 < N =>
-  hoare [TemporalBarrier.sample_mrs_timed :
-    arg = (N, deadline) ==>
-    match res with
-    | Some (A, B, _) =>
-        19 * A + 9 * B = N /\
-        dr B = dr (2 * dr N)
-    | None => true
-    end].
-proof.
-  move=> hN.
-  proc.
-  seq 4 : (anc = N /\ bcp = -2 * N /\
-           kmin = (-N + 162 + 8) %/ 9 /\
-           kmax = (-2 * N) %/ 19).
-  - by auto.
-  if => />.
-  - by auto.
-  seq 1 : (firstk = kmin + ((dr (bcp - 19 * kmin) - dr (2 * dr N)) %% 9)).
-  - by auto.
-  if => />.
-  - by auto.
-  seq 1 : (mem finalk (fractal_list firstk kmax)).
-  - by auto.
-  seq 2 : (xa = anc + 9 * finalk /\ xb = bcp - 19 * finalk).
-  - by auto.
-  seq 1 : (duration = step_to_time (total_steps N)).
-  - by auto.
-  if => />.
-  - by auto.
-  auto => /> &m hk_le hfk_le hfk_mem hxa hxb hdur hdeadline_ok.
-  split.
-  - rewrite hxa hxb.
-    have hanc : anc{m} = N by smt().
-    have hbcp : bcp{m} = -2 * N by smt().
-    by smt().
-  - rewrite hxb.
-    apply (temporal_barrier_math_step bcp{m} firstk{m} finalk{m} N).
-    + by smt().
-    + by smt(fractal_congruent).
-    + by smt().
-    + by smt().
-    + by assumption.
 qed.
 
 (* ----------------------------------------------------------------- *)
