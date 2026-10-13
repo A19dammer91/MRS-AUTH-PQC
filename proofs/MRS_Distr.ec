@@ -125,7 +125,7 @@ proof.
   field; smt().
 qed.
 
-op mu (d : idistr) (x : int) : real = d.`mass x.
+op mu_idistr (d : idistr) (x : int) : real = d.\`mass x.
 
 lemma mu_dpoint (n x : int) :
   mu (dpoint n) x = if x = n then 1%r else 0%r.
