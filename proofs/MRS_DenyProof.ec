@@ -22,11 +22,11 @@ require import MRS_Core MRS_Distr MRS_Chain MRS_Deny.
 
 lemma duniform_int_ll (n : int) : is_lossless (duniform_int n).
 proof.
-  case (n < 0) => h.
-  - have -> : duniform_int n = dunit 0 by rewrite /duniform_int h /=.
+  rewrite /duniform_int.
+  have [h | h] : n < 0 \/ 0 <= n by smt().
+  - rewrite ifT 1:/#.
     exact dunit_ll.
-  - have -> : duniform_int n = Distr.duniform (range 0 (n + 1))
-      by rewrite /duniform_int h /=.
+  - rewrite ifF 1:/#.
     apply duniform_ll.
     smt(size_range size_eq0).
 qed.
