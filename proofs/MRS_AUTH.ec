@@ -343,54 +343,48 @@ proof.
   seq 4 : (anc = N /\ bcp = -2 * N /\
            kmin = (-N + 162 + 8) %/ 9 /\
            kmax = (-2 * N) %/ 19).
-  - auto.
+  - by auto.
   if => />.
-  - auto.
-  seq 1 : (firstk = kmin +
-           ((dr (bcp - 19 * kmin) - dr (2 * dr N)) %% 9)).
-  - auto.
+  - by auto.
+  seq 1 : (firstk = kmin + ((dr (bcp - 19 * kmin) - dr (2 * dr N)) %% 9)).
+  - by auto.
   if => />.
-  - auto.
+  - by auto.
   seq 1 : (mem finalk (fractal_list firstk kmax)).
-  - auto.
+  - by auto.
   seq 2 : (xa = anc + 9 * finalk /\ xb = bcp - 19 * finalk).
-  - auto.
+  - by auto.
   seq 1 : (duration = step_to_time (total_steps N)).
-  - auto.
+  - by auto.
   if => />.
-  - auto.
+  - by auto.
+  
   auto => /> &m hk_le hfk_le hfk_mem hxa hxb hdur hdeadline_ok.
   split.
   - rewrite hxa hxb.
     have hanc : anc{m} = N by smt().
     have hbcp : bcp{m} = -2 * N by smt().
-    smt().
+    by smt().
   - rewrite hxb.
     have hbcp : bcp{m} = -2 * N by smt().
     rewrite hbcp.
     have hdiff : (finalk{m} - firstk{m}) %% 9 = 0 by smt().
-    have ht_exists : exists t, finalk{m} = firstk{m} + 9 * t
-      by smt(divz_eq).
+    have ht_exists : exists t, finalk{m} = firstk{m} + 9 * t by smt(divz_eq).
     case ht_exists => t ht.
     rewrite ht.
-    have hB_decomp :
-      bcp{m} - 19 * (firstk{m} + 9 * t) =
-      (bcp{m} - 19 * firstk{m}) - 171 * t
-      by ring.
+    have hB_decomp : bcp{m} - 19 * (firstk{m} + 9 * t) = (bcp{m} - 19 * firstk{m}) - 171 * t by ring.
     rewrite hB_decomp.
     have h171 : 171 = 9 * 19 by ring.
     rewrite h171.
-    have hbase_pos : 0 < bcp{m} - 19 * firstk{m} by smt().
-    have ht_nonneg : 0 <= t by smt().
-    have hgen : forall (x k : int),
-      0 <= k => 9 * k < x => dr (x - 9 * k) = dr x
-      by apply dr_sub_9k.
-    have hpos_x : 9 * (19 * t) < bcp{m} - 19 * firstk{m} by smt().
+    
+    (* ELEGANTE OPLOSSING: Direct herschrijven met dr_sub_9k zonder inline hulp-lemma *)
     have hk_nonneg : 0 <= 19 * t by smt().
-    rewrite (hgen _ _ hk_nonneg hpos_x).
+    have hpos_x : 9 * (19 * t) < bcp{m} - 19 * firstk{m} by smt().
+    rewrite (dr_sub_9k (bcp{m} - 19 * firstk{m}) (19 * t) hk_nonneg hpos_x).
+    
     have hbcp' : bcp{m} = Bp_val N by smt().
     rewrite hbcp'.
-    apply triangle_shift_correct; smt().
+    by apply triangle_shift_correct; smt().
 qed.
 
 (* ----------------------------------------------------------------- *)
