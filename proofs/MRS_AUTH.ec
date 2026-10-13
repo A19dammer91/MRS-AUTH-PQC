@@ -253,9 +253,6 @@ proof. rewrite /first_k_val /shift_val; smt(modz_ge0). qed.
 
 (* ----------------------------------------------------------------- *)
 (* Digital-root alignment                                             *)
-(*                                                                    *)
-(* dr(y - 19 s) and t are both in [1,9] and congruent mod 9, hence    *)
-(* equal. The congruences are made explicit with divz_eq.             *)
 (* ----------------------------------------------------------------- *)
 
 lemma dr_align (y t s : int) :
@@ -291,6 +288,15 @@ proof.
   have e1 := divz_eq (dr x - x) 9.
   have e2 := divz_eq (dr (x - 9 * k) - (x - 9 * k)) 9.
   smt().
+qed.
+
+lemma dr_shift_171 (x s : int) :
+  0 <= s => 0 < x - 171 * s =>
+  dr (x - 171 * s) = dr x.
+proof.
+  move=> hs hpos.
+  have -> : x - 171 * s = x - 9 * (19 * s) by ring.
+  apply dr_sub_9k; smt().
 qed.
 
 (* ----------------------------------------------------------------- *)
@@ -387,3 +393,194 @@ proof.
   proc. wp. rnd. wp. skip.
   smt(supp_duniform_fractal).
 qed.
+
+(* ----------------------------------------------------------------- *)
+(* Triangle-validity of the returned representation                   *)
+(* ----------------------------------------------------------------- *)
+
+(* Any k of the fractal list with xb > 0 is aligned. *)
+lemma triangle_of_list (n k : int) :
+  162 < n =>
+  k \in fractal_list (first_k_val n (k_min_val n)) (k_max_val n) =>
+  0 < Bp_val n - 19 * k =>
+  dr (Bp_val n - 19 * k) = dr (2 * dr n).
+proof.
+  move=> hn hk hpos.
+  have [hlo hhi] := fractal_bounded _ _ _ hk.
+  have hc := fractal_congruent _ _ _ hk.
+  have [s [hs hs0]] :
+    exists s, k = first_k_val n (k_min_val n) + 9 * s /\ 0 <= s.
+  - exists ((k - first_k_val n (k_min_val n)) %/ 9).
+    smt(divz_eq divz_ge0).
+  have hx : 0 < Bp_val n - 19 * first_k_val n (k_min_val n) by smt().
+  have hxb : Bp_val n - 19 * k
+           = (Bp_val n - 19 * first_k_val n (k_min_val n)) - 171 * s
+    by rewrite hs; ring.
+  have hpos' :
+    0 < (Bp_val n - 19 * first_k_val n (k_min_val n)) - 171 * s by smt().
+  rewrite hxb (dr_shift_171 _ _ hs0 hpos').
+  exact (triangle_shift_correct n (k_min_val n) hn hx).
+qed.
+
+lemma temporal_barrier_triangle (n : int) (d : real) :
+  162 < n =>
+  hoare [TemporalBarrier.sample_mrs_timed :
+    N = n /\ deadline = d ==>
+    forall xa xb t, res = Some (xa, xb, t) => 0 < xb =>
+      dr xb = dr (2 * dr n)].
+proof.
+  move=> hn.
+  proc. wp. rnd. wp. skip.
+  move=> &m [hN hd] k hk xa xb t.
+  have hk' :
+    k \in duniform_fractal (first_k_val n (k_min_val n)) (k_max_val n)
+    by rewrite -hN.
+  have htri := triangle_of_list n k hn (supp_duniform_fractal _ _ _ hk').
+  smt().
+qed.
+
+(* ----------------------------------------------------------------- *)
+(* Non-interference under a strict deadline                           *)
+(*                                                                    *)
+(* The fractal lists must be non-empty (first_k <= k_max): otherwise  *)
+(* duniform has total mass 0 and the two runs are not comparable.     *)
+(* ----------------------------------------------------------------- *)
+
+lemma temporal_barrier_noninterference
+    (N1 N2 : int) (dl : real) :
+  162 < N1 => 162 < N2 =>
+  first_k_val N1 (k_min_val N1) <= k_max_val N1 =>
+  first_k_val N2 (k_min_val N2) <= k_max_val N2 =>
+  dl < step_to_time (total_steps N1) =>
+  dl < step_to_time (total_steps N2) =>
+  equiv [TemporalBarrier.sample_mrs_timed ~
+         TemporalBarrier.sample_mrs_timed :
+    arg{1} = (N1, dl) /\ arg{2} = (N2, dl) ==>
+    res{1} = None /\ res{2} = None].
+proof.
+  move=> h1 h2 hf1 hf2 hd1 hd2.
+  proc.
+  wp. rnd{1}. rnd{2}. wp. skip.
+  progress; smt(duniform_fractal_ll).
+qed.
+
+(* ----------------------------------------------------------------- *)
+(* Same input, same output distribution                               *)
+(* ----------------------------------------------------------------- *)
+
+lemma temporal_barrier_same_input :
+  equiv [TemporalBarrier.sample_mrs_timed ~
+         TemporalBarrier.sample_mrs_timed :
+    ={arg} ==> ={res}].
+proof. proc; sim. qed.
+
+(* ================================================================= *)
+(* Section 4: Zeroize                                                 *)
+(* ================================================================= *)
+
+(* ----------------------------------------------------------------- *)
+(* Abstract memory states                                             *)
+(*                                                                    *)
+(* The temporal barrier holds a pair (A, B) while active, or has      *)
+(* been cleared by zeroize, or was never initialized.                 *)
+(* ----------------------------------------------------------------- *)
+
+type mem_state = [ Valid of (int * int) | Cleared | Uninitialized ].
+
+(* Zeroize maps any state to Cleared. *)
+op zeroize (m : mem_state) : mem_state = Cleared.
+
+lemma zeroize_idempotent (m : mem_state) :
+  zeroize (zeroize m) = zeroize m.
+proof. by rewrite /zeroize. qed.
+
+(* What an external attacker can observe. *)
+op attacker_obs (m : mem_state) : bool =
+  with m = Valid ab       => true
+  with m = Cleared        => false
+  with m = Uninitialized  => false.
+
+(* After zeroize, the attacker observes nothing. *)
+lemma zeroize_unobservable (m : mem_state) :
+  attacker_obs (zeroize m) = false.
+proof. by rewrite /zeroize /attacker_obs /=. qed.
+
+(* ----------------------------------------------------------------- *)
+(* The Rust-side memory state                                         *)
+(* ----------------------------------------------------------------- *)
+
+type rust_mem_state =
+  [ RustValid of (int * int) | RustCleared | RustUninit ].
+
+op rust_to_abstract (rs : rust_mem_state) : mem_state =
+  with rs = RustValid ab => Valid ab
+  with rs = RustCleared  => Cleared
+  with rs = RustUninit   => Uninitialized.
+
+(* After the Rust side is cleared, the abstract view is Cleared. *)
+lemma rust_to_abstract_cleared (rs : rust_mem_state) :
+  rust_to_abstract RustCleared = zeroize (rust_to_abstract rs).
+proof. by rewrite /zeroize /rust_to_abstract /=. qed.
+
+(* ================================================================= *)
+(* Section 5: RustTemporalBarrier                                     *)
+(* ================================================================= *)
+
+module RustTemporalBarrier = {
+  proc sample_with_zeroize(N : int, deadline_micros : int) : rust_mem_state = {
+    var kmin, kmax, firstk, finalk : int;
+
+    kmin   <- k_min_val N;
+    kmax   <- k_max_val N;
+    firstk <- first_k_val N kmin;
+    finalk <$ duniform_fractal firstk kmax;
+
+    return (if kmax < firstk \/ deadline_micros < total_steps N
+            then RustCleared
+            else RustValid (N + 9 * finalk, Bp_val N - 19 * finalk));
+  }
+}.
+
+(* ----------------------------------------------------------------- *)
+(* Backward security refinement                                       *)
+(*                                                                    *)
+(* Either the attacker observes nothing (the Rust state is cleared),  *)
+(* or the output is a representation of n, and when xb > 0 it is      *)
+(* triangle-valid.                                                    *)
+(* ----------------------------------------------------------------- *)
+
+lemma rust_cleared_unobservable :
+  attacker_obs (rust_to_abstract RustCleared) = false.
+proof. by rewrite /rust_to_abstract /attacker_obs /=. qed.
+
+lemma refinement_backward_security (n dm : int) :
+  162 < n =>
+  hoare [RustTemporalBarrier.sample_with_zeroize :
+    N = n /\ deadline_micros = dm ==>
+    attacker_obs (rust_to_abstract res) = false \/
+    (exists xa xb,
+        res = RustValid (xa, xb) /\
+        19 * xa + 9 * xb = n /\
+        (0 < xb => dr xb = dr (2 * dr n)))].
+proof.
+  move=> hn.
+  proc. wp. rnd. wp. skip.
+  move=> &m [hN hd] k hk.
+  have hk' :
+    k \in duniform_fractal (first_k_val n (k_min_val n)) (k_max_val n)
+    by rewrite -hN.
+  have hsupp := supp_duniform_fractal _ _ _ hk'.
+  have htri := triangle_of_list n k hn hsupp.
+  rewrite hN hd.
+  case (k_max_val n < first_k_val n (k_min_val n) \/ dm < total_steps n)
+    => hc.
+  - left.
+    by rewrite hc /= rust_cleared_unobservable.
+  - right.
+    exists (n + 9 * k) (Bp_val n - 19 * k).
+    smt(Bp_val_eq).
+qed.
+
+(* ================================================================= *)
+(* End of MRS_AUTH.ec                                                 *)
+(* ================================================================= *)
