@@ -103,7 +103,7 @@ proof.
           (N %/ q - 1) * q = q * (N %/ q - 1)
           by ring.
         rewrite hcomm.
-        by apply modzDl.
+        by smt().
       rewrite hmod.
       have hrange : 0 <= q - 1 /\ q - 1 < q
         by smt().
