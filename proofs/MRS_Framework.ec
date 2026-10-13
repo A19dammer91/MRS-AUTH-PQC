@@ -234,13 +234,11 @@ proof.
   move=> hq.
   rewrite /is_valid_A /B_from_A.
   move=> [hA [hbound hmod]].
-  have hdiv :
-    N - p * A =
-      ((N - p * A) %/ q) * q + (N - p * A) %% q
+  (* hmod : (N - p*A) %% q = 0
+     ⇒ N - p*A = q * ((N - p*A) %/ q) *)
+  have heq : N - p * A = q * ((N - p * A) %/ q)
     by smt(divz_eq).
-  have heq : N - p * A = ((N - p * A) %/ q) * q.
-    by rewrite hdiv hmod; ring.
-  rewrite -heq; by ring.
+  by rewrite -heq; ring.
 qed.
 
 lemma is_valid_A_gives_rep (p q N A : int) :
