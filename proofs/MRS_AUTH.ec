@@ -434,7 +434,7 @@ proof.
   move=> &m [hN hd] k hk xa xb t.
   have hk' :
     k \in duniform_fractal (first_k_val n (k_min_val n)) (k_max_val n)
-    by rewrite -hN.
+    by smt().
   have htri := triangle_of_list n k hn (supp_duniform_fractal _ _ _ hk').
   smt().
 qed.
