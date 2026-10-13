@@ -6,10 +6,11 @@
 (*  Axiom baseline: 0.                                                *)
 (*                                                                    *)
 (*  Proof strategy:                                                   *)
-(*    All `split; smt().` patterns are expanded into two separate     *)
-(*    branches with individual `smt()` calls, so the SMT solver       *)
-(*    receives smaller goals. Modular reasoning uses `modz_ge0`,      *)
-(*    `modz_lt`, and `divz_eq` as explicit hints.                     *)
+(*    - All `split; smt().` patterns are expanded into two separate   *)
+(*      branches with individual `smt()` calls.                       *)
+(*    - Modular reasoning uses `smt(modzDl modzMl)` for the           *)
+(*      rewrite `(a * q + b) %% q = b %% q`, which is more robust     *)
+(*      than `apply modzDl` on the raw goal.                          *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv.
@@ -111,7 +112,7 @@ proof.
       have hdecomp : N - 1 = (N %/ q - 1) * q + (q - 1) by smt().
       rewrite hdecomp.
       have hmod : ((N %/ q - 1) * q + (q - 1)) %% q = (q - 1) %% q
-        by apply modzDl.
+        by smt(modzDl modzMl).
       rewrite hmod.
       have hrange : 0 <= q - 1 /\ q - 1 < q by smt().
       smt().
@@ -124,7 +125,7 @@ proof.
       have hdecomp : N - 1 = N %/ q * q + (N %% q - 1) by smt().
       rewrite hdecomp.
       have hmod : (N %/ q * q + (N %% q - 1)) %% q = (N %% q - 1) %% q
-        by apply modzDl.
+        by smt(modzDl modzMl).
       rewrite hmod.
       have hrange : 0 <= N %% q - 1 /\ N %% q - 1 < q by smt().
       smt().
@@ -162,7 +163,7 @@ proof.
         have hdecomp : N - 1 = (N %/ q - 1) * q + (q - 1) by smt().
         rewrite hdecomp.
         have hmod : ((N %/ q - 1) * q + (q - 1)) %% q = (q - 1) %% q
-          by apply modzDl.
+          by smt(modzDl modzMl).
         rewrite hmod.
         have hrange : 0 <= q - 1 /\ q - 1 < q by smt().
         smt().
@@ -175,7 +176,7 @@ proof.
         have hdecomp : N - 1 = (N %/ q - 1) * q + (q - 1) by smt().
         rewrite hdecomp.
         have hmod : ((N %/ q - 1) * q + (q - 1)) %% q = (q - 1) %% q
-          by apply modzDl.
+          by smt(modzDl modzMl).
         rewrite hmod.
         have hrange : 0 <= q - 1 /\ q - 1 < q by smt().
         smt().
@@ -187,7 +188,7 @@ proof.
       have hdecomp : N - 1 = N %/ q * q + (N %% q - 1) by smt().
       rewrite hdecomp.
       have hmod : (N %/ q * q + (N %% q - 1)) %% q = (N %% q - 1) %% q
-        by apply modzDl.
+        by smt(modzDl modzMl).
       rewrite hmod.
       have hrange : 0 <= N %% q - 1 /\ N %% q - 1 < q by smt().
       smt().
