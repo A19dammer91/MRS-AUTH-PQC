@@ -84,6 +84,9 @@ qed.
 
 (* ----------------------------------------------------------------- *)
 (* Abstract time model                                                *)
+(*                                                                    *)
+(* We model time abstractly: each step count maps to a real duration. *)
+(* The mapping is monotonic and positive.                             *)
 (* ----------------------------------------------------------------- *)
 
 op step_to_time : int -> real.
@@ -94,14 +97,12 @@ axiom step_time_monotonic : forall (s1 s2 : int),
 axiom step_time_pos : forall (s : int),
   0 < s => 0%r < step_to_time s.
 
-op TIMEOUT_THRESHOLD : real.
-
 (* ----------------------------------------------------------------- *)
 (* Step counts                                                        *)
 (*                                                                    *)
-(* These are abstract constants used in the temporal barrier.         *)
-(* Their concrete values depend on the implementation and are not     *)
-(* relevant to the correctness proof.                                 *)
+(* These abstract constants represent the number of operations        *)
+(* performed by the four phases of the sampling algorithm.            *)
+(* Their concrete values depend on the implementation.                *)
 (* ----------------------------------------------------------------- *)
 
 op step_eea_particular : int.
@@ -135,34 +136,47 @@ proof.
 qed.
 
 (* ----------------------------------------------------------------- *)
-(* Fractal set                                                        *)
+(* Fractal list                                                       *)
 (*                                                                    *)
-(* The fractal set contains all integers k in [first_k, k_max]        *)
+(* The fractal list contains all integers k in [first_k, k_max]       *)
 (* such that (k - first_k) is divisible by 9.                         *)
+(*                                                                    *)
+(* We work directly with lists rather than fsets, because:            *)
+(*   - `filter` on lists is a standard, well-supported operation.     *)
+(*   - `duniform` accepts any `int list`.                             *)
+(*   - There is no need to convert to a finite set.                   *)
 (* ----------------------------------------------------------------- *)
 
-op fractal_set (first_k k_max : int) : int fset =
-  fset_filter (fun k => (k - first_k) %% 9 = 0)
-              (FSet.oflist (range first_k (k_max + 1))).
+op fractal_list (first_k k_max : int) : int list =
+  filter (fun k => (k - first_k) %% 9 = 0)
+         (range first_k (k_max + 1)).
 
 op duniform_fractal (first_k k_max : int) : int distr =
-  duniform (FSet.elems (fractal_set first_k k_max)).
+  duniform (fractal_list first_k k_max).
 
 (* ----------------------------------------------------------------- *)
-(* Fractal-set properties                                             *)
+(* Fractal-list properties                                            *)
+(*                                                                    *)
+(* These characterise membership in the fractal list, which is the    *)
+(* support of `duniform_fractal`.                                     *)
 (* ----------------------------------------------------------------- *)
 
+(* Membership: k is in the fractal list iff it lies in [first_k,      *)
+(* k_max] and satisfies the divisibility condition.                   *)
 lemma fractal_mem_iff (first_k k_max k : int) :
-  k \in fractal_set first_k k_max <=>
+  mem (fractal_list first_k k_max) k <=>
   (first_k <= k /\ k <= k_max /\ (k - first_k) %% 9 = 0).
 proof.
-  rewrite /fractal_set mem_filter mem_oflist mem_range.
+  rewrite /fractal_list.
+  rewrite mem_filter mem_range.
   smt().
 qed.
 
+(* The starting point first_k is always in the list (provided the     *)
+(* range is non-empty).                                               *)
 lemma fractal_first_k_mem (first_k k_max : int) :
   first_k <= k_max =>
-  first_k \in fractal_set first_k k_max.
+  mem (fractal_list first_k k_max) first_k.
 proof.
   move=> hle.
   rewrite fractal_mem_iff.
@@ -171,18 +185,23 @@ proof.
   by rewrite subzz modz0.
 qed.
 
+(* The fractal list is never empty when the range is non-empty.       *)
 lemma fractal_nonempty (first_k k_max : int) :
   first_k <= k_max =>
-  1 <= FSet.card (fractal_set first_k k_max).
+  1 <= size (fractal_list first_k k_max).
 proof.
   move=> hle.
-  have hmem := fractal_first_k_mem first_k k_max hle.
-  have hcard := FSet.card_gt0 (fractal_set first_k k_max).
-  smt().
+  have hmem : mem (fractal_list first_k k_max) first_k
+    by apply fractal_first_k_mem.
+  (* a list containing an element has size at least 1 *)
+  case (fractal_list first_k k_max) => [| h t].
+  - by rewrite /= in hmem.
+  - by rewrite /=; smt().
 qed.
 
+(* Every element of the fractal list lies in [first_k, k_max].        *)
 lemma fractal_bounded (first_k k_max k : int) :
-  k \in fractal_set first_k k_max =>
+  mem (fractal_list first_k k_max) k =>
   first_k <= k /\ k <= k_max.
 proof.
   move=> hmem.
@@ -190,8 +209,10 @@ proof.
   smt().
 qed.
 
+(* Every element of the fractal list satisfies the divisibility       *)
+(* condition.                                                         *)
 lemma fractal_congruent (first_k k_max k : int) :
-  k \in fractal_set first_k k_max =>
+  mem (fractal_list first_k k_max) k =>
   (k - first_k) %% 9 = 0.
 proof.
   move=> hmem.
