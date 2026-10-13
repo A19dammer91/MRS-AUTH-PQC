@@ -8,6 +8,13 @@
 (*    - idistr        : constructive record type for specification    *)
 (*    - int distr     : EasyCrypt's built-in type for `<$` sampling   *)
 (*                                                                    *)
+(*  Naming note:                                                      *)
+(*    The operator `mu_idistr` is the probability measure on the      *)
+(*    constructive `idistr` type. It is intentionally renamed (from   *)
+(*    the more natural `mu`) to avoid shadowing EasyCrypt's built-in  *)
+(*    `Distr.mu` on `int distr`. This allows the built-in `mu` to be  *)
+(*    used in files that import both `Distr` and `MRS_Distr`.         *)
+(*                                                                    *)
 (*  Axiom baseline: 0.                                                *)
 (* ================================================================= *)
 
@@ -125,19 +132,27 @@ proof.
   field; smt().
 qed.
 
-op mu_idistr (d : idistr) (x : int) : real = d.\`mass x.
+(* ----------------------------------------------------------------- *)
+(* Named measure on idistr                                            *)
+(*                                                                    *)
+(* `mu_idistr` is the probability measure on the constructive type.   *)
+(* The name is chosen to avoid shadowing EasyCrypt's built-in `mu`    *)
+(* on `int distr` (from the `Distr` theory).                          *)
+(* ----------------------------------------------------------------- *)
 
-lemma mu_dpoint (n x : int) :
-  mu (dpoint n) x = if x = n then 1%r else 0%r.
-proof. by rewrite /mu /dpoint. qed.
+op mu_idistr (d : idistr) (x : int) : real = d.`mass x.
 
-lemma mu_duniform (N x : int) :
+lemma mu_idistr_dpoint (n x : int) :
+  mu_idistr (dpoint n) x = if x = n then 1%r else 0%r.
+proof. by rewrite /mu_idistr /dpoint. qed.
+
+lemma mu_idistr_duniform (N x : int) :
   0 <= N =>
-  mu (duniform N) x =
+  mu_idistr (duniform N) x =
     (if (0 <= x /\ x <= N) then 1%r / (N + 1)%r else 0%r).
 proof.
   move=> hN.
-  rewrite /mu.
+  rewrite /mu_idistr.
   by apply duniform_mu_eq.
 qed.
 
