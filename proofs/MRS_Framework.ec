@@ -1,7 +1,7 @@
 (* ================================================================= *)
-(* MRS_Framework.ec                                                   *)
-(* General framework for linear Diophantine representation systems    *)
-(* N = p*A + q*B, with p = 1 (mod q), p > q                          *)
+(*  MRS_Framework.ec                                                  *)
+(*  General framework for linear Diophantine representation systems   *)
+(*  N = p*A + q*B, with p = 1 (mod q), p > q                          *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv.
@@ -91,49 +91,30 @@ lemma dr_q_cong (q N : int) :
 proof.
   move=> hq hN.
   rewrite dr_q_eq_mod //.
-  have hdiv : N = N %/ q * q + N %% q
-    by smt(divz_eq).
+  have hdiv : N = N %/ q * q + N %% q by smt(divz_eq).
   case (N %% q = 0) => hzero.
-  - have hNmul : N = N %/ q * q
-      by smt().
+  - have hNmul : N = N %/ q * q by smt().
     have hprev : (N - 1) %% q = q - 1.
-    proof.
-      have hdecomp :
-        N - 1 = (N %/ q - 1) * q + (q - 1)
-        by smt().
+      have hdecomp : N - 1 = (N %/ q - 1) * q + (q - 1) by smt().
       rewrite hdecomp.
-      have hmod :
-        ((N %/ q - 1) * q + (q - 1)) %% q =
-        (q - 1) %% q
+      have hmod : ((N %/ q - 1) * q + (q - 1)) %% q = (q - 1) %% q
         by smt(modzDl).
       rewrite hmod.
-      have hqrange : 0 <= q - 1 /\ q - 1 < q
-        by smt().
+      have hqrange : 0 <= q - 1 /\ q - 1 < q by smt().
       smt().
-    qed.
     rewrite hprev hNmul.
     have hqpos : 0 < q by smt().
-    have hmultiple :
-      (1 - N %/ q) * q %% q = 0
-      by apply modzMl.
+    have hmultiple : (1 - N %/ q) * q %% q = 0 by apply modzMl.
     smt().
   - have hrempos : 0 < N %% q by smt().
     have hprev : (N - 1) %% q = N %% q - 1.
-    proof.
-      have hdecomp :
-        N - 1 = N %/ q * q + (N %% q - 1)
-        by smt().
+      have hdecomp : N - 1 = N %/ q * q + (N %% q - 1) by smt().
       rewrite hdecomp.
-      have hmod :
-        (N %/ q * q + (N %% q - 1)) %% q =
-        (N %% q - 1) %% q
+      have hmod : (N %/ q * q + (N %% q - 1)) %% q = (N %% q - 1) %% q
         by smt(modzDl).
       rewrite hmod.
-      have hremrange :
-        0 <= N %% q - 1 /\ N %% q - 1 < q
-        by smt().
+      have hremrange : 0 <= N %% q - 1 /\ N %% q - 1 < q by smt().
       smt().
-    qed.
     rewrite hprev hdiv.
     smt().
 qed.
@@ -149,56 +130,36 @@ lemma A0_eq_dr_q (p q N : int) :
 proof.
   move=> hp hq hpq hN.
   have hroot : dr_q q N = 1 + ((N - 1) %% q).
-  proof.
     rewrite /dr_q.
     have hNpos : ! (N <= 0) by smt().
     have hqpos : ! (q <= 0) by smt().
     by rewrite hNpos hqpos.
-  qed.
 
-  have hdiv : N = N %/ q * q + N %% q
-    by smt(divz_eq).
+  have hdiv : N = N %/ q * q + N %% q by smt(divz_eq).
 
   case (N %% q = 0) => hzero.
   - have hprev : (N - 1) %% q = q - 1.
-    proof.
-      have hdecomp :
-        N - 1 = (N %/ q - 1) * q + (q - 1)
-        by smt().
+      have hdecomp : N - 1 = (N %/ q - 1) * q + (q - 1) by smt().
       rewrite hdecomp.
-      have hmod :
-        ((N %/ q - 1) * q + (q - 1)) %% q =
-        (q - 1) %% q
+      have hmod : ((N %/ q - 1) * q + (q - 1)) %% q = (q - 1) %% q
         by smt(modzDl).
       rewrite hmod.
-      have hqrange : 0 <= q - 1 /\ q - 1 < q
-        by smt().
+      have hqrange : 0 <= q - 1 /\ q - 1 < q by smt().
       smt().
-    qed.
     right.
     split.
-    + rewrite hroot hprev.
-      smt().
-    + rewrite hroot hprev.
-      smt().
+    + rewrite hroot hprev. smt().
+    + rewrite hroot hprev. smt().
 
   - have hprev : (N - 1) %% q = N %% q - 1.
-    proof.
       have hrempos : 0 < N %% q by smt().
-      have hdecomp :
-        N - 1 = N %/ q * q + (N %% q - 1)
-        by smt().
+      have hdecomp : N - 1 = N %/ q * q + (N %% q - 1) by smt().
       rewrite hdecomp.
-      have hmod :
-        (N %/ q * q + (N %% q - 1)) %% q =
-        (N %% q - 1) %% q
+      have hmod : (N %/ q * q + (N %% q - 1)) %% q = (N %% q - 1) %% q
         by smt(modzDl).
       rewrite hmod.
-      have hremrange :
-        0 <= N %% q - 1 /\ N %% q - 1 < q
-        by smt().
+      have hremrange : 0 <= N %% q - 1 /\ N %% q - 1 < q by smt().
       smt().
-    qed.
     left.
     rewrite hroot hprev.
     smt().
@@ -216,18 +177,12 @@ proof.
   exists ((N - p * (N %% q)) %/ q).
   split.
   - have [hlo hhi] := my_modz_range N q hq.
-    have hnum : 0 <= N - p * (N %% q)
-      by smt(divz_eq).
+    have hnum : 0 <= N - p * (N %% q) by smt(divz_eq).
     smt(divz_ge0).
-  - have hdiv : N = N %/ q * q + N %% q
-      by smt(divz_eq).
-    have hpdiv : p = p %/ q * q + 1
-      by smt(divz_eq).
-    have hmod : (N - p * (N %% q)) %% q = 0
-      by smt().
-    have hquot :
-      q * ((N - p * (N %% q)) %/ q) =
-      N - p * (N %% q)
+  - have hdiv : N = N %/ q * q + N %% q by smt(divz_eq).
+    have hpdiv : p = p %/ q * q + 1 by smt(divz_eq).
+    have hmod : (N - p * (N %% q)) %% q = 0 by smt().
+    have hquot : q * ((N - p * (N %% q)) %/ q) = N - p * (N %% q)
       by smt(divz_eq).
     smt().
 qed.
@@ -257,8 +212,7 @@ proof.
   rewrite hppos hqpos hNpos /=.
   have hle : N %% q <= N %/ p
     by exact (R_well_defined p q N hp hq hN).
-  have hnot : ! (N %/ p < N %% q)
-    by smt().
+  have hnot : ! (N %/ p < N %% q) by smt().
   by rewrite hnot.
 qed.
 
@@ -274,22 +228,18 @@ pred is_valid_A (p q N A : int) =
 
 lemma is_rep_A0_B0 (p q N : int) :
   0 < p => 0 < q => p %% q = 1 => p * q <= N =>
-  is_rep p q N (N %% q)
-    ((N - p * (N %% q)) %/ q).
+  is_rep p q N (N %% q) ((N - p * (N %% q)) %/ q).
 proof.
   move=> hp hq hpq hN.
   rewrite /is_rep.
   split.
   - exact (my_modz_ge0 N q hq).
   - split.
-    + have hnum : 0 <= N - p * (N %% q)
-        by smt(divz_eq).
+    + have hnum : 0 <= N - p * (N %% q) by smt(divz_eq).
       smt(divz_ge0).
     + have hmin := A0_minimal p q N hp hq hpq hN.
       move: hmin => [B [hB hEq]].
-      have hquot :
-        q * ((N - p * (N %% q)) %/ q) =
-        N - p * (N %% q)
+      have hquot : q * ((N - p * (N %% q)) %/ q) = N - p * (N %% q)
         by smt(divz_eq).
       smt().
 qed.
@@ -305,18 +255,13 @@ lemma rep_characterisation_forward (p q N : int) :
 proof.
   move=> hp hq hpq hN A.
   move=> [B [hA [hB hEq]]].
-  have hAmod : A %% q = N %% q
-    by smt(modzMl modzDl).
-  have hAle : A <= N %/ p
-    by smt(divz_eq).
-  have hAlo : N %% q <= A
-    by smt().
+  have hAmod : A %% q = N %% q by smt(modzMl modzDl).
+  have hAle : A <= N %/ p by smt(divz_eq).
+  have hAlo : N %% q <= A by smt().
   exists ((A - N %% q) %/ q).
   have hnum : 0 <= A - N %% q by smt().
   have hmod : (A - N %% q) %% q = 0 by smt(modzDl).
-  have hquot :
-    q * ((A - N %% q) %/ q) = A - N %% q
-    by smt(divz_eq).
+  have hquot : q * ((A - N %% q) %/ q) = A - N %% q by smt(divz_eq).
   split; first smt(divz_ge0).
   split; first smt().
   smt().
@@ -408,12 +353,8 @@ proof.
   rewrite hp hq hn /=.
   case (N %/ 19 < N %% 9) => hcase.
   - smt().
-  - have hdiv19 :
-      N = N %/ 19 * 19 + N %% 19
-      by smt(divz_eq).
-    have hdiv9 :
-      N = N %/ 9 * 9 + N %% 9
-      by smt(divz_eq).
+  - have hdiv19 : N = N %/ 19 * 19 + N %% 19 by smt(divz_eq).
+    have hdiv9 : N = N %/ 9 * 9 + N %% 9 by smt(divz_eq).
     smt(divz_eq).
 qed.
 
