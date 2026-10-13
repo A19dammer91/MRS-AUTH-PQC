@@ -105,10 +105,13 @@ lemma mk_params_tmax_nonneg (n : int) :
   (mk_params n).`lp_valid => 0 <= (mk_params n).`lp_tmax.
 proof.
   move=> hv.
+  have hconditions :
+    19 * a0 n <= n /\ (mk_params n).`lp_k0 <= kmax n.
+    have hiff := mk_params_valid_iff n.
+    by smt(hiff hv).
   rewrite mk_params_tmax.
-  have [h1 h2] := mk_params_valid_iff n.
-  have hk0_le := h2 hv.
-  by smt(divz_ge0).
+  have hq : 0 < 9 by smt().
+  smt(divz_ge0).
 qed.
 
 (* ================================================================= *)
@@ -156,6 +159,7 @@ qed.
 (* ================================================================= *)
 (* Prefix weight (instantiated from MRS_FloorSum)                    *)
 (* ================================================================= *)
+
 
 op prefix_weight (p : layer_params) (t_filter : int) (t : int) : int =
   MRS_FloorSum.prefix_weight t_filter t p.`lp_tmax p.`lp_eprime.
@@ -271,6 +275,7 @@ qed.
 (* ================================================================= *)
 (* Single-attempt sampler                                            *)
 (* ================================================================= *)
+
 
 type attempt_result = {
   ar_layer : DiophantinePair;
