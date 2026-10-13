@@ -1,53 +1,72 @@
-(* ============================================================ *)
-(* MRS FRAMEWORK                                                *)
-(* Multi Representation System                                  *)
-(* General parameters p and q                                   *)
-(* Primary instance: p = 19, q = 9                              *)
-(* ============================================================ *)
+(* ================================================================= *)
+(*  MRS_Framework.ec                                                  *)
+(*  General framework for linear Diophantine representation systems   *)
+(*  N = p*A + q*B, with p = 1 (mod q), p > q                          *)
+(*                                                                    *)
+(*  Primary instance: (p, q) = (19, 9)                                *)
+(*                                                                    *)
+(*  Axiom baseline: 0.                                                *)
+(*                                                                    *)
+(*  Naming convention:                                                *)
+(*    - The digital root in {1, ..., q} is `dr_q q N`.                *)
+(*    - The ordinary residue in {0, ..., q-1} is `residue_q q N`.     *)
+(*    - `Astart q N` is the smallest positive representative of N      *)
+(*      modulo q (the "anchor").                                      *)
+(*    - `A0 q N` is the ordinary residue N mod q.                     *)
+(*                                                                    *)
+(*  Proof strategy:                                                   *)
+(*    - `split; smt()` patterns are expanded where they fail.         *)
+(*    - Modular reasoning about `(a * q + b) %% q = b %% q` uses      *)
+(*      `ring` to commute multiplication, then `modzDl`.              *)
+(* ================================================================= *)
 
-(* ------------------------------------------------------------ *)
-(* 1. DIGITAL ROOT AND MODULAR RESIDUE                          *)
-(* ------------------------------------------------------------ *)
+require import AllCore Int IntDiv.
 
-(* Digital root in the range 1,...,q for positive N and q. *)
+(* ================================================================= *)
+(* Section 1: Digital root and modular residue                        *)
+(* ================================================================= *)
+
+(* Digital root in the range 1,...,q, for positive N and q.           *)
 op dr_q (q N : int) : int =
   1 + ((N - 1) %% q).
 
-(* Ordinary modular residue: always in the range 0,...,q-1. *)
+(* Ordinary modular residue: always in the range 0,...,q-1.           *)
 op residue_q (q N : int) : int =
   N %% q.
 
-(* The digital root for the primary modulus 9. *)
+(* The digital root for the primary modulus 9.                        *)
 op dr_9 (N : int) : int =
   dr_q 9 N.
 
-(* ------------------------------------------------------------ *)
-(* 2. FIRST REQUIRED VALUE AND REPRESENTATION                   *)
-(* ------------------------------------------------------------ *)
+(* ================================================================= *)
+(* Section 2: First required value and representation                 *)
+(* ================================================================= *)
 
-(* A0 is the ordinary modular residue. *)
+(* A0 is the ordinary modular residue.                                *)
 op A0 (q N : int) : int =
   N %% q.
 
-(* The first positive representative of the residue class. *)
+(* Astart is the smallest positive representative of the residue      *)
+(* class of N modulo q. Under the Positive Anchor Convention, this    *)
+(* equals dr_q q N.                                                   *)
 op Astart (q N : int) : int =
   dr_q q N.
 
-(* A representation of N by p*A + q*B. *)
+(* A representation of N by p*A + q*B, with A >= 1 and B >= 0.        *)
 pred is_rep (p q N A B : int) =
   1 <= A /\
   0 <= B /\
   p * A + q * B = N.
 
-(* A candidate A-value for the system p*A + q*B = N. *)
+(* A candidate A-value for the system p*A + q*B = N.                  *)
 pred is_valid_A (p q N A : int) =
   1 <= A /\
   p * A <= N /\
   (N - p * A) %% q = 0.
 
-(* ------------------------------------------------------------ *)
-(* 3. BASIC MODULAR PROPERTIES                                  *)
-(* ------------------------------------------------------------ *)
+(* ================================================================= *)
+(* Section 3: Basic modular properties                                *)
+(* ================================================================= *)
 
 lemma residue_q_def (q N : int) :
   residue_q q N = N %% q.
@@ -67,7 +86,7 @@ proof.
   by rewrite /dr_9.
 qed.
 
-(* The digital root is congruent to N modulo q. *)
+(* The digital root is congruent to N modulo q.                       *)
 lemma dr_q_cong (q N : int) :
   0 < q =>
   0 < N =>
@@ -81,21 +100,55 @@ proof.
   have hprevdiv :
     N - 1 = ((N - 1) %/ q) * q + (N - 1) %% q
     by smt(divz_eq).
-  smt().
+  case (N %% q = 0) => hzero.
+  - (* Case: N mod q = 0 *)
+    have hprev : (N - 1) %% q = q - 1.
+      have hN_eq : N = (N %/ q) * q by smt().
+      have hdecomp : N - 1 = (N %/ q - 1) * q + (q - 1) by smt().
+      rewrite hdecomp.
+      have hmod : ((N %/ q - 1) * q + (q - 1)) %% q = (q - 1) %% q.
+        have hcomm : (N %/ q - 1) * q = q * (N %/ q - 1) by ring.
+        rewrite hcomm.
+        by apply modzDl.
+      rewrite hmod.
+      have hrange : 0 <= q - 1 /\ q - 1 < q by smt().
+      smt().
+    rewrite hprev hN_eq.
+    have hfac : 1 + (q - 1) - N %/ q * q = (1 - N %/ q) * q by ring.
+    rewrite hfac.
+    by apply modzMl.
+  - (* Case: N mod q <> 0 *)
+    have hprev : (N - 1) %% q = N %% q - 1.
+      have hdecomp : N - 1 = (N %/ q) * q + (N %% q - 1) by smt().
+      rewrite hdecomp.
+      have hmod : ((N %/ q) * q + (N %% q - 1)) %% q = (N %% q - 1) %% q.
+        have hcomm : (N %/ q) * q = q * (N %/ q) by ring.
+        rewrite hcomm.
+        by apply modzDl.
+      rewrite hmod.
+      have hrange : 0 <= N %% q - 1 /\ N %% q - 1 < q by smt().
+      smt().
+    rewrite hprev.
+    have hrearrange : 1 + (N %% q - 1) - N = -((N %/ q) * q)
+      by smt(divz_eq).
+    rewrite hrearrange.
+    have hfac : -((N %/ q) * q) = (-(N %/ q)) * q by ring.
+    rewrite hfac.
+    by apply modzMl.
 qed.
 
-(* Specialization to the modulus 9. *)
+(* Specialization to the modulus 9.                                   *)
 lemma dr_9_cong (N : int) :
   0 < N =>
   (dr_9 N - N) %% 9 = 0.
 proof.
   move=> hN.
   have hq : 0 < 9 by smt().
-  have h := dr_q_cong 9 N.
-  smt().
+  have h := dr_q_cong 9 N hq hN.
+  by rewrite /dr_9.
 qed.
 
-(* The digital root lies between 1 and q. *)
+(* The digital root lies between 1 and q.                             *)
 lemma dr_q_range (q N : int) :
   0 < q =>
   0 < N =>
@@ -104,22 +157,27 @@ proof.
   move=> hq hN.
   rewrite /dr_q.
   have hmod :
-    0 <= (N - 1) %% q < q
-    by smt().
-  smt().
+    0 <= (N - 1) %% q /\ (N - 1) %% q < q
+    by smt(divz_eq).
+  split.
+  - (* 1 <= 1 + (N - 1) %% q *)
+    smt().
+  - (* 1 + (N - 1) %% q <= q *)
+    smt().
 qed.
 
-(* For modulus 9, the digital root lies between 1 and 9. *)
+(* For modulus 9, the digital root lies between 1 and 9.              *)
 lemma dr_9_range (N : int) :
   0 < N =>
   1 <= dr_9 N /\ dr_9 N <= 9.
 proof.
   move=> hN.
-  have h := dr_q_range 9 N.
-  smt().
+  have hq : 0 < 9 by smt().
+  have h := dr_q_range 9 N hq hN.
+  by rewrite /dr_9.
 qed.
 
-(* The ordinary residue is zero exactly when q divides N. *)
+(* The ordinary residue is zero exactly when q divides N.             *)
 lemma residue_zero_iff (q N : int) :
   0 < q =>
   (N %% q = 0 <=> exists k, N = k * q).
@@ -128,13 +186,10 @@ proof.
   smt(divz_eq).
 qed.
 
-(* ------------------------------------------------------------ *)
-(* 4. DIGITAL ROOT VERSUS ORDINARY RESIDUE                      *)
-(* ------------------------------------------------------------ *)
+(* ================================================================= *)
+(* Section 4: Digital root versus ordinary residue                    *)
+(* ================================================================= *)
 
-(* For positive N, the digital root equals the ordinary residue
-   when the residue is nonzero. When the residue is zero,
-   the digital root is q. *)
 lemma dr_q_residue_cases (q N : int) :
   0 < q =>
   0 < N =>
@@ -156,9 +211,9 @@ proof.
     smt().
 qed.
 
-(* ------------------------------------------------------------ *)
-(* 5. REPRESENTATION IDENTITIES                                 *)
-(* ------------------------------------------------------------ *)
+(* ================================================================= *)
+(* Section 5: Representation identities                               *)
+(* ================================================================= *)
 
 lemma is_rep_equation (p q N A B : int) :
   is_rep p q N A B =>
@@ -191,11 +246,11 @@ proof.
   - smt().
   - rewrite hEq.
     have hmod : (q * B) %% q = 0
-      by smt(divz_eq).
+      by smt(modzMl).
     smt().
 qed.
 
-(* If A is valid, its corresponding B can be obtained by division. *)
+(* The B-coordinate corresponding to a valid A.                       *)
 op B_from_A (p q N A : int) : int =
   (N - p * A) %/ q.
 
@@ -232,9 +287,9 @@ proof.
     smt().
 qed.
 
-(* ------------------------------------------------------------ *)
-(* 6. THE PRIMARY (19,9) SYSTEM                                 *)
-(* ------------------------------------------------------------ *)
+(* ================================================================= *)
+(* Section 6: The primary (19, 9) system                              *)
+(* ================================================================= *)
 
 op p19 : int = 19.
 op q9  : int = 9.
@@ -257,7 +312,8 @@ lemma dr_19_9_cong (N : int) :
 proof.
   move=> hN.
   rewrite /Astart_19_9.
-  have h := dr_q_cong 9 N.
+  have hq : 0 < 9 by smt().
+  have h := dr_q_cong 9 N hq hN.
   smt().
 qed.
 
@@ -273,7 +329,8 @@ lemma Astart_19_9_range (N : int) :
 proof.
   move=> hN.
   rewrite /Astart_19_9.
-  have h := dr_q_range 9 N.
+  have hq : 0 < 9 by smt().
+  have h := dr_q_range 9 N hq hN.
   smt().
 qed.
 
@@ -285,17 +342,20 @@ proof.
   smt().
 qed.
 
-(* ------------------------------------------------------------ *)
-(* 7. REPRESENTATION COUNT FORMULA                              *)
-(* ------------------------------------------------------------ *)
+(* ================================================================= *)
+(* Section 7: Representation count formula                            *)
+(* ================================================================= *)
 
-(* This is the proposed count formula for N >= 171.
-   It is kept separate from the representation predicates so
-   that its mathematical domain can be checked independently. *)
+(* Count of representations of N in the (19, 9) system,               *)
+(* for N >= 171 (the first triangle-valid N).                         *)
+(*                                                                    *)
+(* This formula uses the digital root dr_q 9 N (in {1, ..., 9})       *)
+(* rather than the ordinary residue N mod 9 (in {0, ..., 8}).         *)
+(* This is the Positive Anchor Convention.                            *)
 op R_19_9 (N : int) : int =
   ((N %/ 19 - dr_q 9 N) %/ 9) + 1.
 
-(* Upper bound on A in every representation. *)
+(* Upper bound on A in every representation.                          *)
 lemma A_upper_bound_19_9 (N A B : int) :
   is_rep_19_9 N A B =>
   19 * A <= N.
@@ -304,7 +364,7 @@ proof.
   smt().
 qed.
 
-(* Every representation has A in the residue class of N modulo 9. *)
+(* Every representation has A in the residue class of N modulo 9.     *)
 lemma rep_19_9_congruence (N A B : int) :
   is_rep_19_9 N A B =>
   (A - N) %% 9 = 0.
@@ -312,15 +372,15 @@ proof.
   rewrite /is_rep_19_9 /is_rep.
   move=> [hA [hB hEq]].
   have hmod : (9 * B) %% 9 = 0
-    by smt(divz_eq).
+    by apply modzMl.
   have hpmod : (19 * A) %% 9 = A %% 9
     by smt(divz_eq).
   smt().
 qed.
 
-(* ------------------------------------------------------------ *)
-(* 8. NUMERICAL CHECKS                                          *)
-(* ------------------------------------------------------------ *)
+(* ================================================================= *)
+(* Section 8: Numerical checks                                        *)
+(* ================================================================= *)
 
 lemma dr_9_1991 :
   dr_9 1991 = 2.
@@ -384,3 +444,7 @@ proof.
   rewrite /is_rep_19_9 /is_rep.
   smt().
 qed.
+
+(* ================================================================= *)
+(* End of MRS_Framework.ec                                            *)
+(* ================================================================= *)
