@@ -312,7 +312,7 @@ proof.
     by ring.
   rewrite hB_eq.
 
-  set shift := (dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9.
+  set shift = ((dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9).
 
   have h19 : 19 * shift = 9 * (2 * shift) + shift by ring.
   rewrite h19.
