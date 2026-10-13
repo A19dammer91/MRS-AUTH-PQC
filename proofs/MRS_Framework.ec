@@ -102,22 +102,15 @@ qed.
 (* Section 3: A0 and digital-root relationship                        *)
 (* ================================================================= *)
 
-lemma A0_eq_dr_q (p q N : int) :
-  0 < p => 0 < q => p %% q = 1 => 0 < N =>
-  N %% q = dr_q q N - 1 \/
-  (N %% q = q - 1 /\ dr_q q N = q).
+lemma dr_q_cong (q N : int) :
+  0 < q => 0 < N =>
+  (dr_q q N - N) %% q = 0.
 proof.
-  move=> hp hq hpq hN.
-  have hroot : dr_q q N = 1 + ((N - 1) %% q).
-    rewrite /dr_q.
-    have hNpos : ! (N <= 0) by smt().
-    have hqpos : ! (q <= 0) by smt().
-    by rewrite hNpos hqpos.
+  move=> hq hN.
+  rewrite dr_q_eq_mod //.
   case (N %% q = 0) => hzero.
-  - right.
-    split; smt().
-  - left.
-    smt().
+  - smt().
+  - smt().
 qed.
 
 (* ================================================================= *)
