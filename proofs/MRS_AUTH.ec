@@ -312,33 +312,10 @@ proof.
     by ring.
   rewrite hB_eq.
 
-  set shift = ((dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9).
-
-  have h19 : 19 * shift = 9 * (2 * shift) + shift by ring.
+  have h19 : 19 * ((dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9) = 
+             9 * (2 * ((dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9)) + 
+             ((dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9) by ring.
   rewrite h19.
-
-  have hsub :
-    (Bp_val N - 19 * kmin) - (9 * (2 * shift) + shift) =
-    ((Bp_val N - 19 * kmin) - shift) - 9 * (2 * shift)
-    by ring.
-  rewrite hsub.
-
-  set x := (Bp_val N - 19 * kmin) - shift.
-
-  have hx_pos : 0 < x by smt().
-  have hk_nonneg : 0 <= 2 * shift by smt(modz_ge0).
-  have hpos_x : 9 * (2 * shift) < x by smt().
-
-  have hdr_eq : dr (x - 9 * (2 * shift)) = dr x
-    by apply dr_sub_9k.
-
-  rewrite hdr_eq.
-
-  have hx_cong : (x - dr (2 * dr N)) %% 9 = 0 by smt().
-  have hdx := dr_range x hx_pos.
-  have hd2 := dr_range (2 * dr N) h2drN_pos.
-  smt().
-qed.
 
 (* ----------------------------------------------------------------- *)
 (* Correctness of sample_mrs_timed                                    *)
