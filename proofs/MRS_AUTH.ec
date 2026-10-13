@@ -201,19 +201,18 @@ qed.
 (* ----------------------------------------------------------------- *)
 (* Properties of duniform_fractal                                     *)
 (*                                                                    *)
-(* In EasyCrypt r2024.09, the standard operator for the probability   *)
-(* mass of a predicate P under a distribution d is `weight d P`.      *)
-(* The point mass on x is `weight d (pred1 x)`.                       *)
+(* We use `Pr[y <$ d : P y]`, the program-based probability operator  *)
+(* in EasyCrypt, which works on any `'a distr`.                       *)
 (* ----------------------------------------------------------------- *)
 
-(* Non-zero mass at x implies x is in the fractal list.               *)
+(* Non-zero probability of y = x implies x is in the fractal list.    *)
 lemma duniform_fractal_supp (first_k k_max x : int) :
   first_k <= k_max =>
-  weight (duniform_fractal first_k k_max) (pred1 x) <> 0%r =>
+  Pr[y <$ duniform_fractal first_k k_max : y = x] <> 0%r =>
   mem (fractal_list first_k k_max) x.
 proof.
-  move=> hle hw.
-  rewrite /duniform_fractal in hw.
+  move=> hle hpr.
+  rewrite /duniform_fractal in hpr.
   have hne := fractal_nonempty first_k k_max hle.
   smt().
 qed.
