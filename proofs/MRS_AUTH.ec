@@ -182,7 +182,7 @@ proof.
   rewrite fractal_mem_iff.
   split; first by smt().
   split; first by smt().
-  by rewrite subzz modz0.
+  smt().
 qed.
 
 (* The fractal list is never empty when the range is non-empty.       *)
