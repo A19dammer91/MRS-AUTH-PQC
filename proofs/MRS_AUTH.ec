@@ -102,7 +102,6 @@ axiom step_time_pos : forall (s : int),
 (*                                                                    *)
 (* These abstract constants represent the number of operations        *)
 (* performed by the four phases of the sampling algorithm.            *)
-(* Their concrete values depend on the implementation.                *)
 (* ----------------------------------------------------------------- *)
 
 op step_eea_particular : int.
@@ -155,33 +154,34 @@ op duniform_fractal (first_k k_max : int) : int distr =
   duniform (fractal_list first_k k_max).
 
 (* ----------------------------------------------------------------- *)
-(* Fractal-list properties                                            *)
+(* Fractal-list membership                                            *)
 (*                                                                    *)
-(* These characterise membership in the fractal list, which is the    *)
-(* support of `duniform_fractal`.                                     *)
+(* We characterise membership explicitly via an iff lemma. This is    *)
+(* the key fact used in all subsequent proofs.                        *)
 (* ----------------------------------------------------------------- *)
 
-(* Membership: k is in the fractal list iff it lies in [first_k,      *)
-(* k_max] and satisfies the divisibility condition.                   *)
 lemma fractal_mem_iff (first_k k_max k : int) :
   mem (fractal_list first_k k_max) k <=>
   (first_k <= k /\ k <= k_max /\ (k - first_k) %% 9 = 0).
 proof.
   rewrite /fractal_list.
-  rewrite mem_filter mem_range.
+  rewrite mem_filter.
+  rewrite mem_range.
   smt().
 qed.
 
-(* The starting point first_k is always in the list (provided the     *)
-(* range is non-empty).                                               *)
+(* ----------------------------------------------------------------- *)
+(* Fractal-list properties                                            *)
+(* ----------------------------------------------------------------- *)
+
+(* The starting point first_k is always in the list, provided the     *)
+(* range is non-empty.                                                *)
 lemma fractal_first_k_mem (first_k k_max : int) :
   first_k <= k_max =>
   mem (fractal_list first_k k_max) first_k.
 proof.
   move=> hle.
-  rewrite fractal_mem_iff.
-  split; first by smt().
-  split; first by smt().
+  have hiff := fractal_mem_iff first_k k_max first_k.
   smt().
 qed.
 
@@ -191,12 +191,10 @@ lemma fractal_nonempty (first_k k_max : int) :
   1 <= size (fractal_list first_k k_max).
 proof.
   move=> hle.
-  have hmem : mem (fractal_list first_k k_max) first_k
-    by apply fractal_first_k_mem.
-  (* a list containing an element has size at least 1 *)
-  case (fractal_list first_k k_max) => [| h t].
-  - by rewrite /= in hmem.
-  - by rewrite /=; smt().
+  have hmem := fractal_first_k_mem first_k k_max hle.
+  have hne : fractal_list first_k k_max <> [] by smt().
+  have hsz := size_eq0 (fractal_list first_k k_max).
+  smt().
 qed.
 
 (* Every element of the fractal list lies in [first_k, k_max].        *)
@@ -205,7 +203,7 @@ lemma fractal_bounded (first_k k_max k : int) :
   first_k <= k /\ k <= k_max.
 proof.
   move=> hmem.
-  rewrite fractal_mem_iff in hmem.
+  have hiff := fractal_mem_iff first_k k_max k.
   smt().
 qed.
 
@@ -216,6 +214,42 @@ lemma fractal_congruent (first_k k_max k : int) :
   (k - first_k) %% 9 = 0.
 proof.
   move=> hmem.
-  rewrite fractal_mem_iff in hmem.
+  have hiff := fractal_mem_iff first_k k_max k.
+  smt().
+qed.
+
+(* ----------------------------------------------------------------- *)
+(* Support of duniform_fractal                                        *)
+(*                                                                    *)
+(* The support of `duniform_fractal` is exactly the fractal list.     *)
+(* This is a direct consequence of the definition of `duniform`.      *)
+(* ----------------------------------------------------------------- *)
+
+lemma duniform_fractal_supp (first_k k_max x : int) :
+  first_k <= k_max =>
+  in_supp x (duniform_fractal first_k k_max) =>
+  mem (fractal_list first_k k_max) x.
+proof.
+  move=> hle hsupp.
+  rewrite /duniform_fractal in hsupp.
+  (* In EasyCrypt, `duniform L` has support `mem L`. *)
+  smt().
+qed.
+
+(* ----------------------------------------------------------------- *)
+(* Fractal sample is lossless                                         *)
+(*                                                                    *)
+(* Since the fractal list is non-empty, sampling from it always       *)
+(* produces a value.                                                  *)
+(* ----------------------------------------------------------------- *)
+
+lemma duniform_fractal_ll (first_k k_max : int) :
+  first_k <= k_max =>
+  is_lossless (duniform_fractal first_k k_max).
+proof.
+  move=> hle.
+  rewrite /duniform_fractal.
+  have hne := fractal_nonempty first_k k_max hle.
+  (* `duniform L` is lossless whenever L is non-empty. *)
   smt().
 qed.
