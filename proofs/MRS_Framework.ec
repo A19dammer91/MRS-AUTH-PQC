@@ -137,19 +137,18 @@ proof.
 
   have hdiv : N = N %/ q * q + N %% q by smt(divz_eq).
 
-  case (N %% q = 0) => hzero.
-  - have hprev : (N - 1) %% q = q - 1.
-      have hdecomp : N - 1 = (N %/ q - 1) * q + (q - 1) by smt().
-      rewrite hdecomp.
-      have hmod : ((N %/ q - 1) * q + (q - 1)) %% q = (q - 1) %% q
-        by smt(modzDl).
-      rewrite hmod.
-      have hqrange : 0 <= q - 1 /\ q - 1 < q by smt().
-      smt().
+    case (N %% q = 0) => hzero.
+  - have hprev : (N - 1) %% q = q - 1 by smt().
     right.
     split.
     + rewrite hroot hprev. smt().
     + rewrite hroot hprev. smt().
+
+  - have hprev : (N - 1) %% q = N %% q - 1 by smt().
+    left.
+    rewrite hroot hprev.
+    smt().
+qed.
 
   - have hprev : (N - 1) %% q = N %% q - 1.
       have hrempos : 0 < N %% q by smt().
