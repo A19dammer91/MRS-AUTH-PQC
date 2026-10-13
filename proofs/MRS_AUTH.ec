@@ -259,11 +259,15 @@ module TemporalBarrier = {
     kmin <- (-anc + 162 + 8) %/ 9;
     kmax <- bcp %/ 19;
 
-    if (kmax < kmin) { return None; }
+    if (kmax < kmin) {
+      return None;
+    }
 
     firstk <- kmin + ((dr (bcp - 19 * kmin) - dr (2 * dr N)) %% 9);
 
-    if (kmax < firstk) { return None; }
+    if (kmax < firstk) {
+      return None;
+    }
 
     finalk <$ duniform_fractal firstk kmax;
 
@@ -271,7 +275,9 @@ module TemporalBarrier = {
     xb <- bcp - 19 * finalk;
     duration <- step_to_time (total_steps N);
 
-    if (deadline < step_to_time (total_steps N)) { return None; }
+    if (deadline < step_to_time (total_steps N)) {
+      return None;
+    }
 
     return Some (xa, xb, duration);
   }
