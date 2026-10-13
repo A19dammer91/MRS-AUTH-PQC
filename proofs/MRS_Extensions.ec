@@ -130,7 +130,7 @@ proof.
   have [ha1 _] := dr_q_range r N hr hN0.
   rewrite /R3.
   have h1 : !(p <= 0 \/ q <= 0 \/ r <= 0 \/ N <= 0) by smt().
-  rewrite ifF 1:h1 /=.
+  have h2 : (N - p * dr_q r N < 0 \/ N %/ p < dr_q r N) by smt().
   smt().
 qed.
 
