@@ -229,9 +229,6 @@ qed.
 
 (* ----------------------------------------------------------------- *)
 (* Named intermediate values                                          *)
-(*                                                                    *)
-(* Using `op` definitions rather than `let ... in` inside lemma       *)
-(* statements keeps the statements clean and parser-friendly.         *)
 (* ----------------------------------------------------------------- *)
 
 op Bp_val (N : int) : int = -2 * N.
@@ -240,38 +237,38 @@ op k_min_val (N : int) : int = (-N + 162 + 8) %/ 9.
 
 op k_max_val (N : int) : int = (-2 * N) %/ 19.
 
-op shift_val (N k_min : int) : int =
-  (dr (Bp_val N - 19 * k_min) - dr (2 * dr N)) %% 9.
+op shift_val (N kmin : int) : int =
+  (dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9.
 
-op first_k_val (N k_min : int) : int = k_min + shift_val N k_min.
+op first_k_val (N kmin : int) : int = kmin + shift_val N kmin.
 
 (* ----------------------------------------------------------------- *)
 (* The module                                                         *)
 (*                                                                    *)
-(* Note: the parameter is named `deadline` rather than `timeout`,     *)
-(* because `timeout` is a reserved CLI flag in EasyCrypt and cannot   *)
-(* be used as an identifier.                                          *)
+(* Local variables use no underscores, to avoid parser issues.        *)
+(* The parameter is named `deadline` rather than `timeout`, because   *)
+(* `timeout` is a reserved CLI flag in EasyCrypt.                     *)
 (* ----------------------------------------------------------------- *)
 
 module TemporalBarrier = {
   proc sample_mrs_timed(N : int, deadline : real) : (int * int * real) option = {
-    var Ap, Bp, k_min, k_max, first_k, final_k, A, B, duration;
+    var Ap, Bp, kmin, kmax, firstk, finalk, A, B, duration;
 
     Ap <- N;
     Bp <- -2 * N;
-    k_min <- (-Ap + 162 + 8) %/ 9;
-    k_max <- Bp %/ 19;
+    kmin <- (-Ap + 162 + 8) %/ 9;
+    kmax <- Bp %/ 19;
 
-    if (k_max < k_min) { return None; }
+    if (kmax < kmin) { return None; }
 
-    first_k <- k_min + ((dr (Bp - 19 * k_min) - dr (2 * dr N)) %% 9);
+    firstk <- kmin + ((dr (Bp - 19 * kmin) - dr (2 * dr N)) %% 9);
 
-    if (k_max < first_k) { return None; }
+    if (kmax < firstk) { return None; }
 
-    final_k <$ duniform_fractal first_k k_max;
+    finalk <$ duniform_fractal firstk kmax;
 
-    A <- Ap + 9 * final_k;
-    B <- Bp - 19 * final_k;
+    A <- Ap + 9 * finalk;
+    B <- Bp - 19 * finalk;
     duration <- step_to_time (total_steps N);
 
     if (deadline < step_to_time (total_steps N)) { return None; }
@@ -282,8 +279,6 @@ module TemporalBarrier = {
 
 (* ----------------------------------------------------------------- *)
 (* Helper: dr is invariant under subtraction of 9*k                   *)
-(*                                                                    *)
-(* Both dr values are in [1, 9] and congruent to x mod 9.             *)
 (* ----------------------------------------------------------------- *)
 
 lemma dr_sub_9k (x k : int) :
@@ -302,57 +297,49 @@ qed.
 
 (* ----------------------------------------------------------------- *)
 (* Shift correction                                                   *)
-(*                                                                    *)
-(* The choice of first_k makes B triangle-valid:                      *)
-(*   dr (Bp - 19 * first_k) = dr (2 * dr N).                          *)
 (* ----------------------------------------------------------------- *)
 
-lemma triangle_shift_correct (N k_min : int) :
+lemma triangle_shift_correct (N kmin : int) :
   162 < N =>
-  0 < Bp_val N - 19 * first_k_val N k_min =>
-  dr (Bp_val N - 19 * first_k_val N k_min) = dr (2 * dr N).
+  0 < Bp_val N - 19 * first_k_val N kmin =>
+  dr (Bp_val N - 19 * first_k_val N kmin) = dr (2 * dr N).
 proof.
   move=> hN hpos.
   have hNpos : 0 < N by smt().
   have h2drN_pos : 0 < 2 * dr N by smt(dr_range).
 
-  (* Unfold first_k_val and shift_val *)
   rewrite /first_k_val /shift_val.
 
-  (* Stap 1: B = (Bp - 19*k_min) - 19*shift *)
   have hB_eq :
     Bp_val N - 19 *
-      (k_min + (dr (Bp_val N - 19 * k_min) - dr (2 * dr N)) %% 9) =
-    (Bp_val N - 19 * k_min) -
-      19 * ((dr (Bp_val N - 19 * k_min) - dr (2 * dr N)) %% 9)
+      (kmin + (dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9) =
+    (Bp_val N - 19 * kmin) -
+      19 * ((dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9)
     by ring.
   rewrite hB_eq.
 
-  set shift := (dr (Bp_val N - 19 * k_min) - dr (2 * dr N)) %% 9.
+  set shift := (dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9.
 
-  (* Stap 2: 19 * shift = 9 * (2 * shift) + shift *)
   have h19 : 19 * shift = 9 * (2 * shift) + shift by ring.
   rewrite h19.
 
   have hsub :
-    (Bp_val N - 19 * k_min) - (9 * (2 * shift) + shift) =
-    ((Bp_val N - 19 * k_min) - shift) - 9 * (2 * shift)
+    (Bp_val N - 19 * kmin) - (9 * (2 * shift) + shift) =
+    ((Bp_val N - 19 * kmin) - shift) - 9 * (2 * shift)
     by ring.
   rewrite hsub.
 
-  set x := (Bp_val N - 19 * k_min) - shift.
+  set x := (Bp_val N - 19 * kmin) - shift.
 
   have hx_pos : 0 < x by smt().
   have hk_nonneg : 0 <= 2 * shift by smt(modz_ge0).
   have hpos_x : 9 * (2 * shift) < x by smt().
 
-  (* Stap 3: dr (x - 9*(2*shift)) = dr x *)
   have hdr_eq : dr (x - 9 * (2 * shift)) = dr x
     by apply dr_sub_9k.
 
   rewrite hdr_eq.
 
-  (* Stap 4: dr x = dr (2*dr N) *)
   have hx_cong : (x - dr (2 * dr N)) %% 9 = 0 by smt().
   have hdx := dr_range x hx_pos.
   have hd2 := dr_range (2 * dr N) h2drN_pos.
@@ -377,20 +364,19 @@ proof.
   move=> hN.
   proc.
   seq 4 : (Ap = N /\ Bp = -2 * N /\
-           k_min = (-N + 162 + 8) %/ 9 /\
-           k_max = (-2 * N) %/ 19).
+           kmin = (-N + 162 + 8) %/ 9 /\
+           kmax = (-2 * N) %/ 19).
   - auto.
   if => />.
   - auto.
-  seq 1 : (first_k = k_min +
-           ((dr (Bp - 19 * k_min) - dr (2 * dr N)) %% 9)).
+  seq 1 : (firstk = kmin +
+           ((dr (Bp - 19 * kmin) - dr (2 * dr N)) %% 9)).
   - auto.
   if => />.
   - auto.
-  (* Sampling *)
-  seq 1 : (mem final_k (fractal_list first_k k_max)).
+  seq 1 : (mem finalk (fractal_list firstk kmax)).
   - auto.
-  seq 2 : (A = Ap + 9 * final_k /\ B = Bp - 19 * final_k).
+  seq 2 : (A = Ap + 9 * finalk /\ B = Bp - 19 * finalk).
   - auto.
   seq 1 : (duration = step_to_time (total_steps N)).
   - auto.
@@ -398,34 +384,31 @@ proof.
   - auto.
   auto => /> &m hk_le hfk_le hfk_mem hA hB hdur hdeadline_ok.
   split.
-  - (* 19 * A + 9 * B = N *)
-    rewrite hA hB.
+  - rewrite hA hB.
     have hAp : Ap{m} = N by smt().
     have hBp : Bp{m} = -2 * N by smt().
     smt().
-  - (* dr B = dr (2 * dr N) *)
-    rewrite hB.
+  - rewrite hB.
     have hBp : Bp{m} = -2 * N by smt().
     rewrite hBp.
-    (* final_k - first_k is a multiple of 9 *)
-    have hdiff : (final_k{m} - first_k{m}) %% 9 = 0 by smt().
-    have ht_exists : exists t, final_k{m} = first_k{m} + 9 * t
+    have hdiff : (finalk{m} - firstk{m}) %% 9 = 0 by smt().
+    have ht_exists : exists t, finalk{m} = firstk{m} + 9 * t
       by smt(divz_eq).
     case ht_exists => t ht.
     rewrite ht.
     have hB_decomp :
-      Bp{m} - 19 * (first_k{m} + 9 * t) =
-      (Bp{m} - 19 * first_k{m}) - 171 * t
+      Bp{m} - 19 * (firstk{m} + 9 * t) =
+      (Bp{m} - 19 * firstk{m}) - 171 * t
       by ring.
     rewrite hB_decomp.
     have h171 : 171 = 9 * 19 by ring.
     rewrite h171.
-    have hbase_pos : 0 < Bp{m} - 19 * first_k{m} by smt().
+    have hbase_pos : 0 < Bp{m} - 19 * firstk{m} by smt().
     have ht_nonneg : 0 <= t by smt().
     have hgen : forall (x k : int),
       0 <= k => 9 * k < x => dr (x - 9 * k) = dr x
       by apply dr_sub_9k.
-    have hpos_x : 9 * (19 * t) < Bp{m} - 19 * first_k{m} by smt().
+    have hpos_x : 9 * (19 * t) < Bp{m} - 19 * firstk{m} by smt().
     have hk_nonneg : 0 <= 19 * t by smt().
     rewrite (hgen _ _ hk_nonneg hpos_x).
     have hBp' : Bp{m} = Bp_val N by smt().
@@ -435,9 +418,6 @@ qed.
 
 (* ----------------------------------------------------------------- *)
 (* Non-interference under a strict deadline                           *)
-(*                                                                    *)
-(* If the deadline is smaller than step_to_time (total_steps N),      *)
-(* the procedure returns None.                                        *)
 (* ----------------------------------------------------------------- *)
 
 lemma temporal_barrier_noninterference
@@ -475,9 +455,6 @@ qed.
 
 (* ----------------------------------------------------------------- *)
 (* Conditional uniformity                                             *)
-(*                                                                    *)
-(* If the deadline is large enough, two runs with the same arguments  *)
-(* behave identically.                                                *)
 (* ----------------------------------------------------------------- *)
 
 lemma temporal_barrier_conditional_uniform
@@ -490,21 +467,21 @@ lemma temporal_barrier_conditional_uniform
 proof.
   move=> hN hdeadline.
   proc.
-  seq 4 4 : (={Ap, Bp, k_min, k_max} /\
+  seq 4 4 : (={Ap, Bp, kmin, kmax} /\
              Ap{1} = N /\ Bp{1} = -2 * N).
   - auto.
   if => />.
   - auto.
-  seq 1 1 : (={Ap, Bp, k_min, k_max, first_k}).
+  seq 1 1 : (={Ap, Bp, kmin, kmax, firstk}).
   - auto.
   if => />.
   - auto.
-  seq 1 1 : (={Ap, Bp, k_min, k_max, first_k, final_k}).
+  seq 1 1 : (={Ap, Bp, kmin, kmax, firstk, finalk}).
   - rnd.
     auto.
-  seq 2 2 : (={Ap, Bp, k_min, k_max, first_k, final_k, A, B}).
+  seq 2 2 : (={Ap, Bp, kmin, kmax, firstk, finalk, A, B}).
   - auto.
-  seq 1 1 : (={Ap, Bp, k_min, k_max, first_k, final_k, A, B, duration}).
+  seq 1 1 : (={Ap, Bp, kmin, kmax, firstk, finalk, A, B, duration}).
   - auto.
   if => />.
   - exfalso.
