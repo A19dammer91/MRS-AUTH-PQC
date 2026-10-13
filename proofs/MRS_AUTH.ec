@@ -383,24 +383,24 @@ proof.
   move=> hN1 hN2 hto1 hto2.
   proc.
   seq 4 4 : true.
-  - auto.
+  - by auto.
   if => />.
-  - auto.
+  - by auto.
   if => />.
-  - auto.
+  - by auto.
   seq 1 1 : true.
-  - auto.
+  - by auto.
   if => />.
-  - auto.
+  - by auto.
   seq 1 1 : true.
-  - auto.
+  - by auto.
   seq 2 2 : true.
-  - auto.
+  - by auto.
   seq 1 1 : true.
-  - auto.
+  - by auto.
   if => />.
-  - auto.
-  - smt().
+  - by auto.
+  - by smt().
 qed.
 
 (* ----------------------------------------------------------------- *)
@@ -417,24 +417,21 @@ lemma temporal_barrier_conditional_uniform
 proof.
   move=> hN hdeadline.
   proc.
-  seq 4 4 : (={anc, bcp, kmin, kmax} /\
-             anc{1} = N /\ bcp{1} = -2 * N).
-  - auto.
+  seq 4 4 : (={anc, bcp, kmin, kmax} /\ anc{1} = N /\ bcp{1} = -2 * N).
+  - by auto.
   if => />.
-  - auto.
+  - by auto.
   seq 1 1 : (={anc, bcp, kmin, kmax, firstk}).
-  - auto.
+  - by auto.
   if => />.
-  - auto.
+  - by auto.
   seq 1 1 : (={anc, bcp, kmin, kmax, firstk, finalk}).
-  - rnd.
-    auto.
+  - by rnd.
   seq 2 2 : (={anc, bcp, kmin, kmax, firstk, finalk, xa, xb}).
-  - auto.
+  - by auto.
   seq 1 1 : (={anc, bcp, kmin, kmax, firstk, finalk, xa, xb, duration}).
-  - auto.
+  - by auto.
   if => />.
-  - exfalso.
-    smt().
-  - auto.
+  - by exfalso; smt().
+  - by auto.
 qed.
