@@ -327,6 +327,32 @@ proof.
 (* Correctness of sample_mrs_timed                                    *)
 (* ----------------------------------------------------------------- *)
 
+lemma temporal_barrier_math_step (bcp firstk finalk N : int) :
+  bcp = -2 * N =>
+  (finalk - firstk) %% 9 = 0 =>
+  0 <= 19 * ((finalk - firstk) %/ 9) =>
+  9 * (19 * ((finalk - firstk) %/ 9)) < bcp - 19 * firstk =>
+  162 < N =>
+  dr (bcp - 19 * finalk) = dr (2 * dr N).
+proof.
+  move=> hbcp hdiff hnonneg hpos hN.
+  have ht_eq : finalk = firstk + 9 * ((finalk - firstk) %/ 9) by smt(divz_eq).
+  rewrite ht_eq.
+  have hB_decomp : bcp - 19 * (firstk + 9 * ((finalk - firstk) %/ 9)) =
+                   (bcp - 19 * firstk) - 171 * ((finalk - firstk) %/ 9) by ring.
+  rewrite hB_decomp.
+  have h171 : 171 = 9 * 19 by ring.
+  rewrite h171.
+  have h9k : 9 * 19 * ((finalk - firstk) %/ 9) = 9 * (19 * ((finalk - firstk) %/ 9)) by ring.
+  rewrite h9k.
+  rewrite dr_sub_9k.
+  + by [].
+  + by [].
+  rewrite hbcp.
+  rewrite /Bp_val.
+  smt(triangle_shift_correct).
+qed.
+
 lemma temporal_barrier_correctness (N : int) (deadline : real) :
   162 < N =>
   hoare [TemporalBarrier.sample_mrs_timed :
@@ -358,7 +384,6 @@ proof.
   - by auto.
   if => />.
   - by auto.
-  
   auto => /> &m hk_le hfk_le hfk_mem hxa hxb hdur hdeadline_ok.
   split.
   - rewrite hxa hxb.
@@ -366,25 +391,12 @@ proof.
     have hbcp : bcp{m} = -2 * N by smt().
     by smt().
   - rewrite hxb.
-    have hbcp : bcp{m} = -2 * N by smt().
-    rewrite hbcp.
-    have hdiff : (finalk{m} - firstk{m}) %% 9 = 0 by smt().
-    have ht_exists : exists t, finalk{m} = firstk{m} + 9 * t by smt(divz_eq).
-    case ht_exists => t ht.
-    rewrite ht.
-    have hB_decomp : bcp{m} - 19 * (firstk{m} + 9 * t) = (bcp{m} - 19 * firstk{m}) - 171 * t by ring.
-    rewrite hB_decomp.
-    have h171 : 171 = 9 * 19 by ring.
-    rewrite h171.
-    
-    (* ELEGANTE OPLOSSING: Direct herschrijven met dr_sub_9k zonder inline hulp-lemma *)
-    have hk_nonneg : 0 <= 19 * t by smt().
-    have hpos_x : 9 * (19 * t) < bcp{m} - 19 * firstk{m} by smt().
-    rewrite (dr_sub_9k (bcp{m} - 19 * firstk{m}) (19 * t) hk_nonneg hpos_x).
-    
-    have hbcp' : bcp{m} = Bp_val N by smt().
-    rewrite hbcp'.
-    by apply triangle_shift_correct; smt().
+    apply (temporal_barrier_math_step bcp{m} firstk{m} finalk{m} N).
+    + by smt().
+    + by smt(fractal_congruent).
+    + by smt().
+    + by smt().
+    + by assumption.
 qed.
 
 (* ----------------------------------------------------------------- *)
