@@ -16,7 +16,7 @@
 (*                                                                    *)
 (*  Proof strategy:                                                   *)
 (*    - Fragile `rewrite` / `smt()` patterns expanded.                 *)
-(*    - Modular arithmetic uses `modzMDl` / `modzMl` / `modzDml`.    *)
+(*    - Modular arithmetic uses `modzMDl` / `modzMl` / `modzMr`.     *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv.
@@ -103,7 +103,7 @@ proof.
     have hN_eq : N = (N %/ q) * q by smt().
     rewrite hN_eq.
     have hfac : 1 + (q - 1) - (N %/ q) * q = (1 - N %/ q) * q by ring.
-    rewrite hfac; by apply modzMl.
+    rewrite hfac; by apply modzMl.   (* (k * q) %% q = 0 *)
   - (* Case N ≢ 0 (mod q) *)
     have hprev : (N - 1) %% q = N %% q - 1.
       have hdecomp : N - 1 = (N %/ q) * q + (N %% q - 1) by smt().
@@ -118,7 +118,7 @@ proof.
       by smt(divz_eq).
     rewrite hrearrange.
     have hfac : -((N %/ q) * q) = (- (N %/ q)) * q by ring.
-    rewrite hfac; by apply modzMl.
+    rewrite hfac; by apply modzMl.   (* (k * q) %% q = 0 *)
 qed.
 
 (* Specialization to the modulus 9.                                   *)
@@ -219,7 +219,7 @@ proof.
     by rewrite -hEq.
   - (* (N - p * A) %% q = 0 *)
     have -> : N - p * A = q * B by rewrite -hEq; ring.
-    by apply modzMl.
+    by apply modzMr.   (* (q * B) %% q = 0 *)
 qed.
 
 (* The B-coordinate corresponding to a valid A.                       *)
@@ -346,7 +346,7 @@ proof.
     have -> : (2 * 9 + 1) * A = 2 * 9 * A + A by ring.
     have -> : (2 * 9 * A + A) %% 9 = A %% 9 by apply modzMDl.
     done.
-  have h9B : (9 * B) %% 9 = 0 by apply modzMl.
+  have h9B : (9 * B) %% 9 = 0 by apply modzMr.   (* (q * B) %% q = 0 *)
   (* From hEq: N %% 9 = (19*A + 9*B) %% 9 = A %% 9 *)
   have hNmod : N %% 9 = A %% 9.
     rewrite -hEq.
