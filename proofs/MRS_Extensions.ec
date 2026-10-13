@@ -3,7 +3,11 @@
 (*  3-term and 4-term extensions of the MRS framework                 *)
 (*                                                                    *)
 (*  Built on MRS_Framework.ec (2-term foundation)                     *)
-(*  No axioms – everything that is stated is proved.                  *)
+(*  No axioms - everything that is stated is proved.                  *)
+(*                                                                    *)
+(*  Convention: positive anchor.                                      *)
+(*    A0 = dr_r(N) = 1 + ((N - 1) mod r)   (so 1 <= A0 <= r),         *)
+(*    and representations use A >= 1.                                 *)
 (*                                                                    *)
 (*  Primary chain: (19,9) -> (19,9,3) -> (19,9,3,3)                    *)
 (* ================================================================= *)
@@ -32,7 +36,8 @@ proof. rewrite /pos_mod; smt(divz_eq). qed.
 
 (* Primary period for the chain (19,9,3) is q/r = 9/3 = 3.
    We therefore give an explicit definition for j_max <= 3.
-   The general case is left as 0 for now and will be extended later. *)
+   For j_max > 3 the value is 0 (placeholder), so R3 is only
+   meaningful for q %/ r <= 3 until this is extended. *)
 
 op sum_mod_j (Mq r q j_max : int) : int =
   if j_max <= 0 then 0
@@ -69,7 +74,7 @@ proof.
 qed.
 
 (* ----------------------------------------------------------------- *)
-(* Section 3: 3-term representation predicate                        *)
+(* Section 3: 3-term representation predicate (A >= 1)               *)
 (* ----------------------------------------------------------------- *)
 
 pred is_rep3 (p q r N A B C : int) =
@@ -77,13 +82,13 @@ pred is_rep3 (p q r N A B C : int) =
   p * A + q * B + r * C = N.
 
 (* ----------------------------------------------------------------- *)
-(* Section 4: R3 kernel (O(1) formula from Theorem 4.2)              *)
+(* Section 4: R3 kernel with positive anchor a0 = dr_r(N)            *)
 (* ----------------------------------------------------------------- *)
 
 op R3 (p q r N : int) : int =
-  if (p <= 0 \/ q <= 0 \/ r <= 0 \/ N < 0) then 0
+  if (p <= 0 \/ q <= 0 \/ r <= 0 \/ N <= 0) then 0
   else
-    let a0     = N %% r in
+    let a0     = dr_q r N in
     let m      = N %/ p in
     let M      = N - p * a0 in
     if (M < 0 \/ m < a0) then 0
@@ -102,43 +107,60 @@ op R3 (p q r N : int) : int =
       num %/ q + (J + 1).
 
 (* ----------------------------------------------------------------- *)
-(* Section 5: Basic lemmas (all proved)                              *)
+(* Section 5: Numerical checks (number of solutions with A >= 1)     *)
 (* ----------------------------------------------------------------- *)
 
-lemma R3_zero_when_N_lt_p (p q r N : int) :
-  0 < p => 0 < q => 0 < r =>
-  N < p =>
-  R3 p q r N = 0.
-proof.
-  move=> hp hq hr hN.
-  rewrite /R3.
-  case (N < 0) => [hneg | hnonneg].
-  - smt().
-  have hdiv : N %/ p = 0 by smt(divz_eq).
-  have ha0 : 0 <= N %% r < r by smt(divz_eq).
-  smt().
-qed.
+lemma example_R3_19 : R3 19 9 3 19 = 1.
+proof. by compute. qed.
+
+lemma example_R3_143 : R3 19 9 3 143 = 18.
+proof. by compute. qed.
+
+lemma example_R3_171 : R3 19 9 3 171 = 21.
+proof. by compute. qed.
+
+lemma example_R3_958 : R3 19 9 3 958 = 924.
+proof. by compute. qed.
+
+lemma example_R3_6666 : R3 19 9 3 6666 = 43017.
+proof. by compute. qed.
 
 lemma R3_nonneg_primary :
   0 <= R3 19 9 3 143 /\
   0 <= R3 19 9 3 958 /\
   0 <= R3 19 9 3 6666.
 proof.
-  split; [by compute | split; by compute].
+  smt(example_R3_143 example_R3_958 example_R3_6666).
 qed.
 
 (* ----------------------------------------------------------------- *)
-(* Section 6: Numerical checks for the primary 3-term chain          *)
+(* Section 6: Basic lemmas                                           *)
 (* ----------------------------------------------------------------- *)
 
-lemma example_R3_143 : R3 19 9 3 143 = 0.
-proof. by compute. qed.
+(* Degenerate parameters (or N <= 0) give 0. *)
+lemma R3_degenerate (p q r N : int) :
+  (p <= 0 \/ q <= 0 \/ r <= 0 \/ N <= 0) =>
+  R3 p q r N = 0.
+proof.
+  move=> h.
+  by rewrite /R3 ifT 1:h.
+qed.
 
-lemma example_R3_958 : R3 19 9 3 958 = 6.
-proof. by compute. qed.
-
-lemma example_R3_6666 : R3 19 9 3 6666 = 39.
-proof. by compute. qed.
+(* With A >= 1 there is no representation below p. *)
+lemma R3_zero_when_N_lt_p (p q r N : int) :
+  0 < p => 0 < q => 0 < r =>
+  0 < N => N < p =>
+  R3 p q r N = 0.
+proof.
+  move=> hp hq hr hN0 hN.
+  have hdiv : N %/ p = 0 by smt(divz_eq).
+  have [ha1 _] := dr_q_range r N hr hN0.
+  rewrite /R3.
+  have h1 : !(p <= 0 \/ q <= 0 \/ r <= 0 \/ N <= 0) by smt().
+  rewrite ifF 1:h1 /=.
+  rewrite hdiv /=.
+  by rewrite ifT 1:/#.
+qed.
 
 (* ----------------------------------------------------------------- *)
 (* Section 7: 4-term stub (safe non-negative definition)             *)
@@ -148,7 +170,7 @@ proof. by compute. qed.
    The full J-block implementation will replace this later. *)
 
 op R4 (p q r s N : int) : int =
-  if (p <= 0 \/ q <= 0 \/ r <= 0 \/ s <= 0 \/ N < 0) then 0
+  if (p <= 0 \/ q <= 0 \/ r <= 0 \/ s <= 0 \/ N <= 0) then 0
   else 0.
 
 lemma R4_nonneg (p q r s N : int) :
@@ -157,8 +179,7 @@ lemma R4_nonneg (p q r s N : int) :
 proof.
   move=> *.
   rewrite /R4.
-  case (p <= 0 \/ q <= 0 \/ r <= 0 \/ s <= 0 \/ N < 0) => [// | _].
-  trivial.
+  smt().
 qed.
 
 lemma example_R4_143 : R4 19 9 3 3 143 = 0.
