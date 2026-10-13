@@ -384,21 +384,21 @@ op winning_attempt (attempts : int list list) (valid : bool list) : int list opt
 axiom winning_attempt_first_valid
     (attempts : int list list) (valid : bool list) (i : int) :
   0 <= i < size valid =>
-  valid.[i] =>
-  (forall j, 0 <= j < i => ! valid.[j]) =>
-  winning_attempt attempts valid = Some attempts.[i].
+  nth false valid i =>
+  (forall j, 0 <= j < i => ! nth false valid j) =>
+  winning_attempt attempts valid = Some (nth [] attempts i).
 
 axiom winning_attempt_none
     (attempts : int list list) (valid : bool list) :
-  (forall i, 0 <= i < size valid => ! valid.[i]) =>
+  (forall i, 0 <= i < size valid => ! nth false valid i) =>
   winning_attempt attempts valid = None.
 
 lemma retry_returns_first_success
     (attempts : int list list) (valid : bool list) (i : int) :
   0 <= i < size valid =>
-  valid.[i] =>
-  (forall j, 0 <= j < i => ! valid.[j]) =>
-  winning_attempt attempts valid = Some attempts.[i].
+  nth false valid i =>
+  (forall j, 0 <= j < i => ! nth false valid j) =>
+  winning_attempt attempts valid = Some (nth [] attempts i).
 proof.
   move=> hi hv hprev.
   by apply winning_attempt_first_valid.
@@ -406,7 +406,7 @@ qed.
 
 lemma retry_returns_none_on_all_fail
     (attempts : int list list) (valid : bool list) :
-  (forall i, 0 <= i < size valid => ! valid.[i]) =>
+  (forall i, 0 <= i < size valid => ! nth false valid i) =>
   winning_attempt attempts valid = None.
 proof.
   move=> hall.
@@ -416,14 +416,15 @@ qed.
 lemma winning_chain_is_valid
     (attempts : int list list) (valid : bool list) (i : int) :
   0 <= i < size valid =>
-  valid.[i] =>
-  (forall j, 0 <= j < i => ! valid.[j]) =>
+  nth false valid i =>
+  (forall j, 0 <= j < i => ! nth false valid j) =>
   exists chain, winning_attempt attempts valid = Some chain /\
-    chain = attempts.[i].
+    chain = nth [] attempts i.
 proof.
   move=> hi hv hprev.
   have h := retry_returns_first_success attempts valid i hi hv hprev.
-  by exists attempts.[i].
+  exists (nth [] attempts i).
+  by split.
 qed.
 
 (* ================================================================= *)
@@ -478,16 +479,16 @@ proof.
   by apply sample_three_draw_count.
 qed.
 
-(* Needs size attempts = size valid: otherwise attempts.[i] could be   *)
+(* Needs size attempts = size valid: otherwise nth [] attempts i could be *)
 (* outside the list and nothing is known about its size.               *)
 lemma winning_chain_has_correct_size
     (attempts : int list list) (valid : bool list) (i : int)
     (expected_size : int) :
   size attempts = size valid =>
   0 <= i < size valid =>
-  valid.[i] =>
-  (forall j, 0 <= j < i => ! valid.[j]) =>
-  (forall k, 0 <= k < size attempts => size attempts.[k] = expected_size) =>
+  nth false valid i =>
+  (forall j, 0 <= j < i => ! nth false valid j) =>
+  (forall k, 0 <= k < size attempts => size (nth [] attempts k) = expected_size) =>
   exists chain, winning_attempt attempts valid = Some chain /\
     size chain = expected_size.
 proof.
