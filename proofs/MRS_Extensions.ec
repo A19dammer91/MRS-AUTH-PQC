@@ -131,8 +131,7 @@ proof.
   rewrite /R3.
   have h1 : !(p <= 0 \/ q <= 0 \/ r <= 0 \/ N <= 0) by smt().
   rewrite ifF 1:h1 /=.
-  rewrite hdiv /=.
-  by rewrite ifT 1:/#.
+  smt().
 qed.
 
 (* ----------------------------------------------------------------- *)
