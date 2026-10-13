@@ -15,10 +15,9 @@
 (*    - `A0 q N` is the ordinary residue N mod q.                     *)
 (*                                                                    *)
 (*  Proof strategy:                                                   *)
-(*    - All `split; smt()` patterns are expanded where they fail.     *)
-(*    - Modular reasoning about `(k * q + b) %% q = b %% q` uses      *)
-(*      `smt(modzDl modzMl)`, but only after `ring` has put the       *)
-(*      expression into the shape that `modzDl` expects.              *)
+(*    - Fragile `rewrite` / `smt()` patterns expanded.                 *)
+(*    - Modular reasoning about `(a * q + b) %% q = b %% q` uses      *)
+(*      `ring` to commute multiplication, then `modzDl` / `modzMl`.   *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv.
@@ -71,21 +70,15 @@ pred is_valid_A (p q N A : int) =
 
 lemma residue_q_def (q N : int) :
   residue_q q N = N %% q.
-proof.
-  by rewrite /residue_q.
-qed.
+proof. by rewrite /residue_q. qed.
 
 lemma A0_def (q N : int) :
   A0 q N = N %% q.
-proof.
-  by rewrite /A0.
-qed.
+proof. by rewrite /A0. qed.
 
 lemma dr_9_def (N : int) :
   dr_9 N = dr_q 9 N.
-proof.
-  by rewrite /dr_9.
-qed.
+proof. by rewrite /dr_9. qed.
 
 (* The digital root is congruent to N modulo q.                       *)
 lemma dr_q_cong (q N : int) :
@@ -95,37 +88,40 @@ lemma dr_q_cong (q N : int) :
 proof.
   move=> hq hN.
   rewrite /dr_q.
-  case (N %% q = 0) => hzero.
-  - (* Case: N mod q = 0 *)
-    have hN_eq : N = (N %/ q) * q by smt(divz_eq).
+  have hNdiv : N = (N %/ q) * q + N %% q by smt(divz_eq).
+  case (N %% q = 0) => [hzero | hnonzero].
+  - (* Case N ≡ 0 (mod q) *)
     have hprev : (N - 1) %% q = q - 1.
+      have hN_eq : N = (N %/ q) * q by smt().
       have hdecomp : N - 1 = (N %/ q - 1) * q + (q - 1) by smt().
       rewrite hdecomp.
-      have hmod : ((N %/ q - 1) * q + (q - 1)) %% q = (q - 1) %% q
-        by smt(modzDl modzMl).
+      have hmod : ((N %/ q - 1) * q + (q - 1)) %% q = (q - 1) %% q.
+        have hcomm : (N %/ q - 1) * q = q * (N %/ q - 1) by ring.
+        rewrite hcomm; by apply modzDl.
       rewrite hmod.
-      have hrange : 0 <= q - 1 /\ q - 1 < q by smt().
-      smt().
-    rewrite hprev hN_eq.
-    have hfac : 1 + (q - 1) - N %/ q * q = (1 - N %/ q) * q by ring.
-    rewrite hfac.
-    by apply modzMl.
-  - (* Case: N mod q <> 0 *)
+      have hrange : 0 <= q - 1 < q by smt().
+      by smt().
+    rewrite hprev.
+    have hN_eq : N = (N %/ q) * q by smt().
+    rewrite hN_eq.
+    have hfac : 1 + (q - 1) - (N %/ q) * q = (1 - N %/ q) * q by ring.
+    rewrite hfac; by apply modzMl.
+  - (* Case N ≢ 0 (mod q) *)
     have hprev : (N - 1) %% q = N %% q - 1.
       have hdecomp : N - 1 = (N %/ q) * q + (N %% q - 1) by smt().
       rewrite hdecomp.
-      have hmod : ((N %/ q) * q + (N %% q - 1)) %% q = (N %% q - 1) %% q
-        by smt(modzDl modzMl).
+      have hmod : ((N %/ q) * q + (N %% q - 1)) %% q = (N %% q - 1) %% q.
+        have hcomm : (N %/ q) * q = q * (N %/ q) by ring.
+        rewrite hcomm; by apply modzDl.
       rewrite hmod.
-      have hrange : 0 <= N %% q - 1 /\ N %% q - 1 < q by smt().
-      smt().
+      have hrange : 0 <= N %% q - 1 < q by smt().
+      by smt().
     rewrite hprev.
     have hrearrange : 1 + (N %% q - 1) - N = -((N %/ q) * q)
       by smt(divz_eq).
     rewrite hrearrange.
-    have hfac : -((N %/ q) * q) = (-(N %/ q)) * q by ring.
-    rewrite hfac.
-    by apply modzMl.
+    have hfac : -((N %/ q) * q) = (- (N %/ q)) * q by ring.
+    rewrite hfac; by apply modzMl.
 qed.
 
 (* Specialization to the modulus 9.                                   *)
@@ -134,7 +130,7 @@ lemma dr_9_cong (N : int) :
   (dr_9 N - N) %% 9 = 0.
 proof.
   move=> hN.
-  have hq : 0 < 9 by smt().
+  have hq : 0 < 9 by trivial.
   have h := dr_q_cong 9 N hq hN.
   by rewrite /dr_9.
 qed.
@@ -147,14 +143,8 @@ lemma dr_q_range (q N : int) :
 proof.
   move=> hq hN.
   rewrite /dr_q.
-  have hmod :
-    0 <= (N - 1) %% q /\ (N - 1) %% q < q
-    by smt(divz_eq).
-  split.
-  - (* 1 <= 1 + (N - 1) %% q *)
-    smt().
-  - (* 1 + (N - 1) %% q <= q *)
-    smt().
+  have hmod : 0 <= (N - 1) %% q < q by smt(divz_eq).
+  split; smt().
 qed.
 
 (* For modulus 9, the digital root lies between 1 and 9.              *)
@@ -163,7 +153,7 @@ lemma dr_9_range (N : int) :
   1 <= dr_9 N /\ dr_9 N <= 9.
 proof.
   move=> hN.
-  have hq : 0 < 9 by smt().
+  have hq : 0 < 9 by trivial.
   have h := dr_q_range 9 N hq hN.
   by rewrite /dr_9.
 qed.
@@ -174,7 +164,7 @@ lemma residue_zero_iff (q N : int) :
   (N %% q = 0 <=> exists k, N = k * q).
 proof.
   move=> hq.
-  smt(divz_eq).
+  by smt(divz_eq).
 qed.
 
 (* ================================================================= *)
@@ -189,17 +179,13 @@ lemma dr_q_residue_cases (q N : int) :
 proof.
   move=> hq hN.
   rewrite /dr_q.
-  have hNdiv :
-    N = (N %/ q) * q + N %% q
-    by smt(divz_eq).
-  have hprevdiv :
-    N - 1 = ((N - 1) %/ q) * q + (N - 1) %% q
-    by smt(divz_eq).
   split.
   - move=> hrem.
-    smt().
+    have h : (N - 1) %% q = N %% q - 1 by smt(divz_eq).
+    by rewrite h; ring.
   - move=> hrem.
-    smt().
+    have h : (N - 1) %% q = q - 1 by smt(divz_eq).
+    by rewrite h; ring.
 qed.
 
 (* ================================================================= *)
@@ -210,16 +196,14 @@ lemma is_rep_equation (p q N A B : int) :
   is_rep p q N A B =>
   p * A + q * B = N.
 proof.
-  rewrite /is_rep.
-  smt().
+  by rewrite /is_rep => -[_ [_ ->]].
 qed.
 
 lemma is_rep_bounds (p q N A B : int) :
   is_rep p q N A B =>
   1 <= A /\ 0 <= B.
 proof.
-  rewrite /is_rep.
-  smt().
+  by rewrite /is_rep => -[-> [-> _]].
 qed.
 
 lemma is_rep_implies_valid_A (p q N A B : int) :
@@ -231,14 +215,14 @@ lemma is_rep_implies_valid_A (p q N A B : int) :
 proof.
   move=> hq hEq hA hB.
   rewrite /is_valid_A.
+  split; first by exact hA.
   split.
-  - smt().
-  split.
-  - smt().
-  - rewrite hEq.
-    have hmod : (q * B) %% q = 0
-      by apply modzMl.
-    smt().
+  - (* p * A <= N *)
+    have : p * A <= p * A + q * B by smt().
+    by rewrite -hEq.
+  - (* (N - p * A) %% q = 0 *)
+    have -> : N - p * A = q * B by rewrite -hEq; ring.
+    by apply modzMl.
 qed.
 
 (* The B-coordinate corresponding to a valid A.                       *)
@@ -255,10 +239,11 @@ proof.
   move=> [hA [hbound hmod]].
   have hdiv :
     N - p * A =
-      ((N - p * A) %/ q) * q +
-      (N - p * A) %% q
+      ((N - p * A) %/ q) * q + (N - p * A) %% q
     by smt(divz_eq).
-  smt().
+  rewrite hmod in hdiv.
+  have -> : N - p * A = ((N - p * A) %/ q) * q by smt().
+  by ring.
 qed.
 
 lemma is_valid_A_gives_rep (p q N A : int) :
@@ -270,12 +255,9 @@ proof.
   move=> hq hvalid hB.
   rewrite /is_rep.
   split.
-  - rewrite /is_valid_A in hvalid.
-    smt().
-  split.
-  - exact hB.
-  - have hEq := B_from_A_equation p q N A hq hvalid.
-    smt().
+  - rewrite /is_valid_A in hvalid; smt().
+  split; first by exact hB.
+  exact (B_from_A_equation p q N A hq hvalid).
 qed.
 
 (* ================================================================= *)
@@ -303,16 +285,13 @@ lemma dr_19_9_cong (N : int) :
 proof.
   move=> hN.
   rewrite /Astart_19_9.
-  have hq : 0 < 9 by smt().
-  have h := dr_q_cong 9 N hq hN.
-  smt().
+  have hq : 0 < 9 by trivial.
+  exact (dr_q_cong 9 N hq hN).
 qed.
 
 lemma A0_19_9_def (N : int) :
   A0_19_9 N = N %% 9.
-proof.
-  by rewrite /A0_19_9 /A0.
-qed.
+proof. by rewrite /A0_19_9 /A0. qed.
 
 lemma Astart_19_9_range (N : int) :
   0 < N =>
@@ -320,17 +299,15 @@ lemma Astart_19_9_range (N : int) :
 proof.
   move=> hN.
   rewrite /Astart_19_9.
-  have hq : 0 < 9 by smt().
-  have h := dr_q_range 9 N hq hN.
-  smt().
+  have hq : 0 < 9 by trivial.
+  exact (dr_q_range 9 N hq hN).
 qed.
 
 lemma rep_19_9_equation (N A B : int) :
   is_rep_19_9 N A B =>
   19 * A + 9 * B = N.
 proof.
-  rewrite /is_rep_19_9 /is_rep.
-  smt().
+  by rewrite /is_rep_19_9 /is_rep => -[_ [_ ->]].
 qed.
 
 (* ================================================================= *)
@@ -352,23 +329,39 @@ lemma A_upper_bound_19_9 (N A B : int) :
   19 * A <= N.
 proof.
   rewrite /is_rep_19_9 /is_rep.
-  smt().
+  move=> [_ [hB hEq]].
+  have : 19 * A <= 19 * A + 9 * B by smt().
+  by rewrite -hEq.
 qed.
 
 (* Every representation has A in the residue class of N modulo 9.     *)
+(* Because 19 ≡ 1 (mod 9), we have 19*A ≡ A (mod 9), hence A ≡ N.     *)
 lemma rep_19_9_congruence (N A B : int) :
   is_rep_19_9 N A B =>
   (A - N) %% 9 = 0.
 proof.
   rewrite /is_rep_19_9 /is_rep.
   move=> [hA [hB hEq]].
-  have hmod : (9 * B) %% 9 = 0
-    by apply modzMl.
-  have hpmod : (19 * A) %% 9 = A %% 9.
-    have hdecomp : 19 * A = 9 * (2 * A) + A by ring.
-    rewrite hdecomp.
-    by smt(modzDl modzMl).
-  smt().
+  (* N = 19*A + 9*B  ⇒  N ≡ 19*A ≡ A (mod 9) *)
+  have h19 : 19 %% 9 = 1 by trivial.
+  have hmod9 : (19 * A) %% 9 = A %% 9.
+    have -> : 19 = 2 * 9 + 1 by trivial.
+    have -> : (2 * 9 + 1) * A = 2 * 9 * A + A by ring.
+    have -> : (2 * 9 * A + A) %% 9 = A %% 9.
+      have hcomm : 2 * 9 * A = 9 * (2 * A) by ring.
+      rewrite hcomm; by apply modzDl.
+    done.
+  have h9B : (9 * B) %% 9 = 0 by apply modzMl.
+  (* From hEq: N %% 9 = (19*A + 9*B) %% 9 = A %% 9 *)
+  have hNmod : N %% 9 = A %% 9.
+    rewrite -hEq.
+    have -> : (19 * A + 9 * B) %% 9 = ((19 * A) %% 9 + (9 * B) %% 9) %% 9
+      by smt(modzDml).
+    rewrite hmod9 h9B.
+    by smt().
+  (* Therefore A ≡ N (mod 9) *)
+  have : (A - N) %% 9 = 0 by smt().
+  done.
 qed.
 
 (* ================================================================= *)
@@ -379,63 +372,73 @@ lemma dr_9_1991 :
   dr_9 1991 = 2.
 proof.
   rewrite /dr_9 /dr_q.
-  smt().
+  (* 1991 - 1 = 1990; 1990 / 9 = 221 * 9 = 1989, remainder 1 *)
+  (* therefore 1 + 1 = 2 *)
+  by trivial.
 qed.
 
 lemma residue_9_1991 :
   A0 9 1991 = 2.
 proof.
   rewrite /A0.
-  smt().
+  by trivial.
 qed.
 
 lemma dr_9_958 :
   dr_9 958 = 4.
 proof.
   rewrite /dr_9 /dr_q.
-  smt().
+  (* 958 - 1 = 957; 957 / 9 = 106 * 9 = 954, remainder 3 *)
+  (* therefore 1 + 3 = 4 *)
+  by trivial.
 qed.
 
 lemma rep_958_4_98 :
   is_rep_19_9 958 4 98.
 proof.
   rewrite /is_rep_19_9 /is_rep.
-  smt().
+  (* 19*4 + 9*98 = 76 + 882 = 958 *)
+  by trivial.
 qed.
 
 lemma rep_958_13_79 :
   is_rep_19_9 958 13 79.
 proof.
   rewrite /is_rep_19_9 /is_rep.
-  smt().
+  (* 19*13 + 9*79 = 247 + 711 = 958 *)
+  by trivial.
 qed.
 
 lemma rep_958_22_60 :
   is_rep_19_9 958 22 60.
 proof.
   rewrite /is_rep_19_9 /is_rep.
-  smt().
+  (* 19*22 + 9*60 = 418 + 540 = 958 *)
+  by trivial.
 qed.
 
 lemma rep_958_31_41 :
   is_rep_19_9 958 31 41.
 proof.
   rewrite /is_rep_19_9 /is_rep.
-  smt().
+  (* 19*31 + 9*41 = 589 + 369 = 958 *)
+  by trivial.
 qed.
 
 lemma rep_958_40_22 :
   is_rep_19_9 958 40 22.
 proof.
   rewrite /is_rep_19_9 /is_rep.
-  smt().
+  (* 19*40 + 9*22 = 760 + 198 = 958 *)
+  by trivial.
 qed.
 
 lemma rep_958_49_3 :
   is_rep_19_9 958 49 3.
 proof.
   rewrite /is_rep_19_9 /is_rep.
-  smt().
+  (* 19*49 + 9*3 = 931 + 27 = 958 *)
+  by trivial.
 qed.
 
 (* ================================================================= *)
