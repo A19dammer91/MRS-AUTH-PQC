@@ -17,6 +17,6 @@ MRS_Equiv.ec        0
 MRS_Encoding.ec     2
 MRS_Chain.ec        0
 MRS_Sampler.ec      9
-MRS_Deny.ec         0
+MRS_Deny.ec         2
 MRS_AUTH.ec         16
 MRS_Honey.ec        4
