@@ -16,8 +16,7 @@
 (*                                                                    *)
 (*  Proof strategy:                                                   *)
 (*    - Fragile `rewrite` / `smt()` patterns expanded.                 *)
-(*    - Modular reasoning about `(a * q + b) %% q = b %% q` uses      *)
-(*      `ring` to commute multiplication, then `modzDl` / `modzMl`.   *)
+(*    - Modular arithmetic uses `modzMDl` / `modzMl` / `modzDml`.    *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv.
@@ -96,8 +95,7 @@ proof.
       have hdecomp : N - 1 = (N %/ q - 1) * q + (q - 1) by smt().
       rewrite hdecomp.
       have hmod : ((N %/ q - 1) * q + (q - 1)) %% q = (q - 1) %% q.
-        have hcomm : (N %/ q - 1) * q = q * (N %/ q - 1) by ring.
-        rewrite hcomm; by apply modzDl.
+        by apply modzMDl.
       rewrite hmod.
       have hrange : 0 <= q - 1 < q by smt().
       by smt().
@@ -111,8 +109,7 @@ proof.
       have hdecomp : N - 1 = (N %/ q) * q + (N %% q - 1) by smt().
       rewrite hdecomp.
       have hmod : ((N %/ q) * q + (N %% q - 1)) %% q = (N %% q - 1) %% q.
-        have hcomm : (N %/ q) * q = q * (N %/ q) by ring.
-        rewrite hcomm; by apply modzDl.
+        by apply modzMDl.
       rewrite hmod.
       have hrange : 0 <= N %% q - 1 < q by smt().
       by smt().
@@ -347,9 +344,7 @@ proof.
   have hmod9 : (19 * A) %% 9 = A %% 9.
     have -> : 19 = 2 * 9 + 1 by trivial.
     have -> : (2 * 9 + 1) * A = 2 * 9 * A + A by ring.
-    have -> : (2 * 9 * A + A) %% 9 = A %% 9.
-      have hcomm : 2 * 9 * A = 9 * (2 * A) by ring.
-      rewrite hcomm; by apply modzDl.
+    have -> : (2 * 9 * A + A) %% 9 = A %% 9 by apply modzMDl.
     done.
   have h9B : (9 * B) %% 9 = 0 by apply modzMl.
   (* From hEq: N %% 9 = (19*A + 9*B) %% 9 = A %% 9 *)
