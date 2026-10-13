@@ -109,20 +109,23 @@ lemma A0_eq_dr_q (p q N : int) :
   (N %% q = q - 1 /\ dr_q q N = q).
 proof.
   move=> hp hq hpq hN.
+  have hroot : dr_q q N = 1 + ((N - 1) %% q).
+    rewrite /dr_q.
+    have hNpos : ! (N <= 0) by smt().
+    have hqpos : ! (q <= 0) by smt().
+    by rewrite hNpos hqpos.
   case (N %% q = 0) => hzero.
   - right.
     split.
-    + have hqpos : 0 < q by smt().
-      have hNpos : 0 < N by smt().
-      have hprev : (N - 1) %% q = q - 1 by smt(divz_eq).
-      rewrite dr_q_eq_mod // hprev.
+    + have hprev : (N - 1) %% q = q - 1 by smt(divz_eq).
+      rewrite hroot hprev.
       smt().
-    + rewrite dr_q_eq_mod //.
+    + rewrite hroot.
       have hprev : (N - 1) %% q = q - 1 by smt(divz_eq).
       rewrite hprev.
       smt().
   - left.
-    rewrite dr_q_eq_mod //.
+    rewrite hroot.
     have hprev : (N - 1) %% q = N %% q - 1 by smt(divz_eq).
     rewrite hprev.
     smt().
