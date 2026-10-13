@@ -2,14 +2,15 @@
 (*  MRS_DenyProof.ec                                                  *)
 (*  Proof of the deniability theorem (replaces the last axiom).       *)
 (*                                                                    *)
-(*  Proof plan (MRSChain and MRSRep have no global state):            *)
-(*    DenyGame ~ DenyAlt   : the adversary always gets ch0; the two   *)
-(*                           chains are swapped when bit = 1.         *)
-(*    DenyAlt  ~ DenyLate  : the challenge bit is sampled last.       *)
-(*    Pr[DenyLate : res] = 1/2, because the bit is fair and           *)
-(*                           independent of the guess.                *)
+(*  Plan (MRSChain and MRSRep have no global state):                  *)
+(*    DenyGame ~ DenyAlt  : adversary always gets ch0 (chains are     *)
+(*                          swapped when bit = 1).                    *)
+(*    DenyAlt  ~ DenyLate : the challenge bit is sampled last.        *)
+(*    DenyLate ~ DenyLate : flipping the bit (x -> 1 - x) gives       *)
+(*                          Pr[res] = Pr[!res]; with Pr[true] = 1     *)
+(*                          this yields Pr[res] = 1/2.                *)
 (*                                                                    *)
-(*  Needs: islossless A.guess (otherwise the statement is false).     *)
+(*  Needs: islossless A.guess.                                        *)
 (* ================================================================= *)
 
 require import AllCore Bool Int IntDiv Real List Distr.
@@ -21,10 +22,11 @@ require import MRS_Core MRS_Distr MRS_Chain MRS_Deny.
 
 lemma duniform_int_ll (n : int) : is_lossless (duniform_int n).
 proof.
-  rewrite /duniform_int.
   case (n < 0) => h.
-  - by rewrite h /=; exact dunit_ll.
-  - rewrite h /=.
+  - have -> : duniform_int n = dunit 0 by rewrite /duniform_int h /=.
+    exact dunit_ll.
+  - have -> : duniform_int n = Distr.duniform (range 0 (n + 1))
+      by rewrite /duniform_int h /=.
     apply duniform_ll.
     smt(size_range size_eq0).
 qed.
@@ -56,24 +58,24 @@ lemma build_sim :
 proof. proc; sim. qed.
 
 (* ----------------------------------------------------------------- *)
-(* B. Fairness of the bit against an arbitrary guess                  *)
+(* B. Support and symmetry of the challenge bit                       *)
 (* ----------------------------------------------------------------- *)
 
-lemma bit_half (g : bool) :
-  Distr.mu (duniform_int 1) (fun (bit : int) => g = (bit = 1)) = 1%r / 2%r.
+lemma supp_duniform_int_1 (x : int) :
+  x \in duniform_int 1 <=> (x = 0 \/ x = 1).
 proof.
-  have h1 := challenge_bit_uniform_one.
-  rewrite /mu1 in h1.
-  case g => hg.
-  - have -> : (fun (bit : int) => g = (bit = 1)) = pred1 1.
-      by apply fun_ext => x; rewrite /pred1 /=; smt().
-    exact h1.
-  - have -> : (fun (bit : int) => g = (bit = 1)) = predC (pred1 1).
-      by apply fun_ext => x; rewrite /predC /pred1 /=; smt().
-    rewrite mu_not.
-    have hll := duniform_int_ll 1.
-    rewrite /is_lossless /weight in hll.
-    smt().
+  rewrite /duniform_int ifF 1:/#.
+  rewrite supp_duniform mem_range.
+  smt().
+qed.
+
+lemma bit_mu1_symm (x : int) :
+  x \in duniform_int 1 =>
+  mu1 (duniform_int 1) x = mu1 (duniform_int 1) (1 - x).
+proof.
+  move=> /supp_duniform_int_1 [hx | hx].
+  - by rewrite hx /= challenge_bit_uniform_zero challenge_bit_uniform_one.
+  - by rewrite hx /= challenge_bit_uniform_zero challenge_bit_uniform_one.
 qed.
 
 (* ----------------------------------------------------------------- *)
@@ -141,20 +143,49 @@ proof.
   sim.
 qed.
 
-(* Step 3: with the bit last, the success probability is 1/2. *)
+(* Step 3: flipping the bit flips the result. *)
+lemma late_flip (A <: MRSAdversary) :
+  equiv [DenyLate(A).main ~ DenyLate(A).main :
+    ={arg, glob A} ==> res{1} = !res{2}].
+proof.
+  proc.
+  seq 3 3 : (={glob A, g}).
+  - call (_ : true). call build_sim. call build_sim. skip. smt().
+  wp.
+  rnd (fun (x : int) => 1 - x) (fun (x : int) => 1 - x).
+  skip.
+  progress; smt(supp_duniform_int_1 bit_mu1_symm).
+qed.
+
+(* Step 4: Pr[true] = 1. *)
+lemma late_ll (A <: MRSAdversary) &m (N depth : int) (tri : int list) :
+  islossless A.guess =>
+  Pr[DenyLate(A).main(N, depth, tri) @ &m : true] = 1%r.
+proof.
+  move=> hA.
+  byphoare (_ : arg = (N, depth, tri) ==> true) => //.
+  proc.
+  wp. rnd. call hA. call build_ll. call build_ll. skip.
+  smt(duniform_int_ll).
+qed.
+
+(* Step 5: Pr[res] = 1/2 for the late game. *)
 lemma late_half (A <: MRSAdversary) &m (N depth : int) (tri : int list) :
   islossless A.guess =>
   Pr[DenyLate(A).main(N, depth, tri) @ &m : res] = 1%r / 2%r.
 proof.
   move=> hA.
-  byphoare (_ : arg = (N, depth, tri) ==> res) => //.
-  proc.
-  seq 3 : true 1%r (1%r / 2%r) 0%r 0%r.
-  - call hA. call build_ll. call build_ll. skip. smt().
-  - wp. rnd (fun (bit : int) => g = (bit = 1)). skip. progress.
-    + by apply bit_half.
-  - hoare. skip. smt().
-  - hoare. skip. smt().
+  have h1 :
+    Pr[DenyLate(A).main(N, depth, tri) @ &m : res]
+    = Pr[DenyLate(A).main(N, depth, tri) @ &m : !res].
+  - byequiv (late_flip A); smt().
+  have h2 :
+    Pr[DenyLate(A).main(N, depth, tri) @ &m : !res]
+    = 1%r - Pr[DenyLate(A).main(N, depth, tri) @ &m : res].
+  - rewrite Pr[mu_not].
+    rewrite (late_ll A &m N depth tri hA).
+    done.
+  smt().
 qed.
 
 (* ----------------------------------------------------------------- *)
@@ -170,10 +201,10 @@ proof.
   have -> :
     Pr[DenyGame(A).main(N, depth, tri) @ &m : res]
     = Pr[DenyAlt(A).main(N, depth, tri) @ &m : res].
-  - by byequiv (deny_alt_equiv A).
+  - byequiv (deny_alt_equiv A); smt().
   have -> :
     Pr[DenyAlt(A).main(N, depth, tri) @ &m : res]
     = Pr[DenyLate(A).main(N, depth, tri) @ &m : res].
-  - by byequiv (deny_late_equiv A).
+  - byequiv (deny_late_equiv A); smt().
   exact (late_half A &m N depth tri hA).
 qed.
