@@ -273,8 +273,13 @@ qed.
 (* Single-attempt sampler                                            *)
 (* ================================================================= *)
 
+type dioph_pair = {
+  dp_a : int;
+  dp_b : int;
+}.
+
 type attempt_result = {
-  ar_layer : DiophantinePair;
+  ar_layer : dioph_pair;
   ar_valid : bool;
 }.
 
@@ -289,15 +294,15 @@ axiom attempt_layer_reconstructs (p : layer_params) (r : int) :
   p.`lp_valid => 171 <= p.`lp_eprime =>
   0 <= r => r < total_weight p p.`lp_k0 =>
   (attempt_layer p r).`ar_layer =
-    {| a = a_at p (select_t p p.`lp_k0 r);
-       b = b_at p (select_t p p.`lp_k0 r) |}.
+    {| dp_a = a_at p (select_t p p.`lp_k0 r);
+       dp_b = b_at p (select_t p p.`lp_k0 r) |}.
 
 lemma attempt_layer_is_valid_pair (p : layer_params) (r : int) :
   p.`lp_valid => 171 <= p.`lp_eprime =>
   0 <= r => r < total_weight p p.`lp_k0 =>
   (attempt_layer p r).`ar_layer =
-    {| a = a_at p (select_t p p.`lp_k0 r);
-       b = b_at p (select_t p p.`lp_k0 r) |} /\
+    {| dp_a = a_at p (select_t p p.`lp_k0 r);
+       dp_b = b_at p (select_t p p.`lp_k0 r) |} /\
   (attempt_layer p r).`ar_valid.
 proof.
   move=> hp he hr hrng.
@@ -310,8 +315,8 @@ lemma attempt_layer_is_representation (N : int) (p : layer_params) (r : int) :
   0 < N => p = mk_params N =>
   p.`lp_valid => 171 <= p.`lp_eprime =>
   0 <= r => r < total_weight p p.`lp_k0 =>
-  19 * (attempt_layer p r).`ar_layer.`a
-    + 9 * (attempt_layer p r).`ar_layer.`b = N.
+  19 * (attempt_layer p r).`ar_layer.`dp_a
+    + 9 * (attempt_layer p r).`ar_layer.`dp_b = N.
 proof.
   move=> hN hp hpv he hr hrng.
   have [hrec _] := attempt_layer_is_valid_pair p r hpv he hr hrng.
