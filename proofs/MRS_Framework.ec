@@ -349,62 +349,6 @@ proof.
     smt().
 qed.
 
-lemma rep_characterisation_backward (p q N : int) :
-  0 < p => 0 < q => p %% q = 1 => p * q <= N =>
-  forall A,
-    (exists k,
-       0 <= k /\
-       k <= (N %/ p - (N %% q)) %/ q /\
-       A = (N %% q) + q * k) =>
-    is_valid_A p q N A.
-proof.
-  move=> hp hq hpq hN A.
-  move=> [k [hk_ge0 [hk_le hA_eq]]].
-  exists (B0 p q N - p * k).
-  rewrite /is_rep.
-  split.
-  - have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
-    smt().
-  - split.
-    + rewrite /B0.
-      have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
-      have hp_ge1 : 1 <= p by smt().
-      have hprod_le : p * (N %% q) <= p * (q - 1) by smt().
-      have hnn : 0 <= N - p * (N %% q) by smt().
-      apply divz_ge0. smt().
-    + rewrite /B0.
-      have [hmod_ge0 hmod_lt] := my_modz_range N q hq.
-      have hp_ge1 : 1 <= p by smt().
-      have hprod_le : p * (N %% q) <= p * (q - 1) by smt().
-      have hnn : 0 <= N - p * (N %% q) by smt().
-      have hdecomp := divz_eq (N - p * (N %% q)) q.
-      have hmod : (N - p * (N %% q)) %% q = 0 by smt().
-      smt().
-qed.
-
-lemma rep_characterisation (p q N : int) :
-  0 < p => 0 < q => p %% q = 1 => p * q <= N =>
-  forall A,
-    is_valid_A p q N A <=>
-    (exists k,
-       0 <= k /\
-       k <= (N %/ p - (N %% q)) %/ q /\
-       A = (N %% q) + q * k).
-proof.
-  move=> hp hq hpq hN A.
-  split.
-  - by apply rep_characterisation_forward.
-  - by apply rep_characterisation_backward.
-qed.
-
-lemma R_counts (p q N : int) :
-  0 < p => 0 < q => p %% q = 1 => p * q <= N =>
-  R p q N = (N %/ p - (N %% q)) %/ q + 1.
-proof.
-  move=> hp hq hpq hN.
-  by apply R_formula.
-qed.
-
 (* ================================================================= *)
 (* Section 6: Family boundary                                         *)
 (* ================================================================= *)
