@@ -327,6 +327,47 @@ proof.
 (* Correctness of sample_mrs_timed                                    *)
 (* ----------------------------------------------------------------- *)
 
+op Bp_val (N : int) : int = -2 * N.
+
+op k_min_val (N : int) : int = (-N + 162 + 8) %/ 9.
+
+op k_max_val (N : int) : int = (-2 * N) %/ 19.
+
+op shift_val (N kmin : int) : int =
+  (dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9.
+
+op first_k_val (N kmin : int) : int = kmin + shift_val N kmin.
+
+lemma triangle_shift_correct (N kmin : int) :
+  162 < N =>
+  0 < Bp_val N - 19 * first_k_val N kmin =>
+  dr (Bp_val N - 19 * first_k_val N kmin) = dr (2 * dr N).
+proof.
+  move=> hN hpos.
+  have hNpos : 0 < N by smt().
+  have h2drN_pos : 0 < 2 * dr N by smt(dr_range).
+  rewrite /first_k_val /shift_val.
+  have hB_eq : Bp_val N - 19 * (kmin + (dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9) =
+               (Bp_val N - 19 * kmin) - 19 * ((dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9) by ring.
+  rewrite hB_eq.
+  pose shift = ((dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9).
+  have h19 : 19 * shift = 9 * (2 * shift) + shift by ring.
+  rewrite h19.
+  have hsub : (Bp_val N - 19 * kmin) - (9 * (2 * shift) + shift) =
+              ((Bp_val N - 19 * kmin) - shift) - 9 * (2 * shift) by ring.
+  rewrite hsub.
+  set x := (Bp_val N - 19 * kmin) - shift.
+  have hx_pos : 0 < x by smt().
+  have hk_nonneg : 0 <= 2 * shift by smt(modz_ge0).
+  have hpos_x : 9 * (2 * shift) < x by smt().
+  have hdr_eq : dr (x - 9 * (2 * shift)) = dr x by apply dr_sub_9k.
+  rewrite hdr_eq.
+  have hx_cong : (x - dr (2 * dr N)) %% 9 = 0 by smt().
+  have hdx := dr_range x hx_pos.
+  have hd2 := dr_range (2 * dr N) h2drN_pos.
+  by smt().
+qed.
+
 lemma temporal_barrier_math_step (bcp firstk finalk N : int) :
   bcp = -2 * N =>
   (finalk - firstk) %% 9 = 0 =>
@@ -350,7 +391,7 @@ proof.
   + by [].
   rewrite hbcp.
   rewrite /Bp_val.
-  smt(triangle_shift_correct).
+  by smt(triangle_shift_correct).
 qed.
 
 lemma temporal_barrier_correctness (N : int) (deadline : real) :
