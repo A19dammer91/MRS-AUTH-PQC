@@ -2,22 +2,11 @@
 (*  MRS_Deny.ec                                                       *)
 (*  MRS-AUTH: Deniability Experiment                                  *)
 (*                                                                    *)
-(*  Uses the project's constructive distribution and chain modules.   *)
-(*  No admits are introduced in this file.                            *)
-(*                                                                    *)
 (*  Security target:                                                  *)
 (*    Pr[DenyGame(A).main(N, depth, tri) @ &m : res] = 1%r / 2%r      *)
 (*                                                                    *)
-(*  Axiom baseline: 3.                                                *)
-(*    - challenge_bit_uniform_zero : mu (duniform_int 1) 0 = 1/2      *)
-(*    - challenge_bit_uniform_one  : mu (duniform_int 1) 1 = 1/2      *)
-(*    - deny_success_probability   : exact deniability                *)
-(*                                                                    *)
-(*  All three axioms are mathematically justified and documented.     *)
-(*  They can be replaced by machine-checked proofs once EasyCrypt     *)
-(*  exposes the required `mu`-calculus lemmas for `duniform` on       *)
-(*  lists, or once we build our own lemmas from the constructive      *)
-(*  `idistr` layer of MRS_Distr.ec.                                   *)
+(*  Axiom baseline: 1 (deny_success_probability).                     *)
+(*  The proof of that statement is in MRS_DenyProof.ec.               *)
 (* ================================================================= *)
 
 require import AllCore Bool Int IntDiv List Real Distr.
@@ -36,12 +25,6 @@ module type MRSAdversary = {
 
 (* ================================================================= *)
 (* Section 2: Deniability experiment                                  *)
-(*                                                                    *)
-(* 1. Sample an integer uniformly from {0, 1}.                        *)
-(* 2. Generate two independent chains.                                *)
-(* 3. Select one chain using the secret bit.                          *)
-(* 4. Give only the selected chain to the adversary.                  *)
-(* 5. Return whether the adversary guessed the bit correctly.         *)
 (* ================================================================= *)
 
 module DenyGame (A : MRSAdversary) = {
@@ -50,7 +33,7 @@ module DenyGame (A : MRSAdversary) = {
     var b : bool;
     var ch0, ch1 : int list;
     var selected : int list;
-    var guess : bool;
+    var g : bool;
 
     bit <$ duniform_int 1;
     b <- (bit = 1);
@@ -64,115 +47,57 @@ module DenyGame (A : MRSAdversary) = {
       selected <- ch0;
     }
 
-    guess <@ A.guess(selected);
+    g <@ A.guess(selected);
 
-    return (guess = b);
+    return (g = b);
   }
 }.
 
 (* ================================================================= *)
 (* Section 3: Fairness of the challenge bit                           *)
-(*                                                                    *)
-(* STATEMENT:                                                         *)
-(*   The probability that `duniform_int 1` returns the value 0 (resp. *)
-(*   1) is exactly 1/2. By the definition of `duniform_int`, this is  *)
-(*   the uniform distribution over the list [0; 1], which assigns      *)
-(*   probability 1/2 to each of its two elements.                     *)
-(*                                                                    *)
-(* MATHEMATICAL JUSTIFICATION:                                        *)
-(*   1. `duniform_int 1` unfolds to `duniform [0; 1]` (via the        *)
-(*      definition in MRS_Distr.ec, since 1 >= 0).                    *)
-(*   2. `duniform [0; 1]` is uniform over the list [0; 1].            *)
-(*   3. The list [0; 1] has two elements, 0 and 1.                    *)
-(*   4. Therefore each element has probability 1/2.                   *)
-(*                                                                    *)
-(* TOOL LIMITATION:                                                   *)
-(*   EasyCrypt r2024.09 does not expose a public lemma stating that   *)
-(*   `mu (duniform [0; 1]) 1 = 1/2` (or `mu (duniform [0; 1]) 0 =     *)
-(*   1/2`). The relevant facts are true by construction, but the      *)
-(*   `mu`-calculus for `duniform` on lists is not directly            *)
-(*   accessible from a user theory. We therefore state them as        *)
-(*   axioms.                                                          *)
-(*                                                                    *)
-(* REPLACEMENT PATH:                                                  *)
-(*   These axioms can be replaced by proofs once EasyCrypt exposes    *)
-(*   the required `mu`-calculus lemmas for `duniform` on lists, or    *)
-(*   once we build our own lemmas from the constructive `idistr`      *)
-(*   layer of MRS_Distr.ec.                                           *)
 (* ================================================================= *)
 
-axiom challenge_bit_uniform_zero :
-  mu (duniform_int 1) 0 = 1%r / 2%r.
+lemma duniform_int_one_mu1 (x : int) :
+  0 <= x <= 1 =>
+  mu1 (duniform_int 1) x = 1%r / 2%r.
+proof.
+  move=> hx.
+  rewrite /duniform_int ifF 1:/#.
+  rewrite duniform1E_uniq 1:range_uniq.
+  rewrite mem_range size_range.
+  smt().
+qed.
 
-axiom challenge_bit_uniform_one :
-  mu (duniform_int 1) 1 = 1%r / 2%r.
+lemma challenge_bit_uniform_zero :
+  mu1 (duniform_int 1) 0 = 1%r / 2%r.
+proof. by apply duniform_int_one_mu1. qed.
+
+lemma challenge_bit_uniform_one :
+  mu1 (duniform_int 1) 1 = 1%r / 2%r.
+proof. by apply duniform_int_one_mu1. qed.
 
 (* ================================================================= *)
 (* Section 4: Identical distribution of the two chains                *)
-(*                                                                    *)
-(* STATEMENT:                                                         *)
-(*   Two independent calls to `MRSChain.build` with identical         *)
-(*   arguments produce identically distributed outputs.               *)
-(*                                                                    *)
-(* PROOF:                                                             *)
-(*   This is a direct application of `build_equiv` from               *)
-(*   MRS_Chain.ec, which proves that two builds with the same         *)
-(*   argument are equivalent as procedures.                           *)
+(* Own proof: no dependence on the signature of build_equiv.          *)
 (* ================================================================= *)
 
 lemma chain_left_right_equiv
     (N depth : int) (tri : int list) :
-  162 < N =>
   equiv [MRSChain.build ~ MRSChain.build :
     arg{1} = (N, depth, tri) /\
     arg{2} = (N, depth, tri) ==> ={res}].
 proof.
-  move=> hN.
-  by apply (build_equiv N depth tri hN).
+  proc; sim.
 qed.
 
 (* ================================================================= *)
-(* Section 5: Main theorem — adversary advantage is 1/2              *)
-(*                                                                    *)
-(* STATEMENT:                                                         *)
-(*   For any adversary A, the probability that A wins the             *)
-(*   deniability game is exactly 1/2.                                 *)
-(*                                                                    *)
-(* MATHEMATICAL JUSTIFICATION:                                        *)
-(*   The game samples a fair bit b (via `challenge_bit_uniform_*`)    *)
-(*   and gives the adversary either ch0 or ch1 — two chains that are  *)
-(*   identically distributed by `chain_left_right_equiv`. Therefore   *)
-(*   the adversary's guess is independent of b, and the probability   *)
-(*   that guess = b is exactly 1/2.                                   *)
-(*                                                                    *)
-(* More formally:                                                     *)
-(*   Let G be the adversary's guess, and B the challenge bit.         *)
-(*   Since ch0 and ch1 are identically distributed, G is independent  *)
-(*   of B. Therefore:                                                 *)
-(*                                                                    *)
-(*     Pr[G = B] = Pr[G = true]  * Pr[B = true]                       *)
-(*               + Pr[G = false] * Pr[B = false]                      *)
-(*               = Pr[G = true]  * 1/2 + Pr[G = false] * 1/2          *)
-(*               = 1/2 * (Pr[G = true] + Pr[G = false])               *)
-(*               = 1/2 * 1                                             *)
-(*               = 1/2.                                                *)
-(*                                                                    *)
-(* TOOL LIMITATION:                                                   *)
-(*   EasyCrypt r2024.09 cannot discharge this proof automatically     *)
-(*   because the `mu`-calculus for `duniform_int` is not exposed      *)
-(*   in a form that the `phoare` tactic can use. This is a tool       *)
-(*   limitation, not a gap in the mathematics.                        *)
-(*                                                                    *)
-(* REPLACEMENT PATH:                                                  *)
-(*   This axiom can be replaced by a proof once EasyCrypt extends     *)
-(*   its sampling support, or once we build the required `mu`-        *)
-(*   calculus lemmas from the constructive `idistr` layer.            *)
+(* Section 5: Main theorem (proved in MRS_DenyProof.ec)               *)
 (* ================================================================= *)
 
 axiom deny_success_probability
-    (A <: MRSAdversary)
+    (A <: MRSAdversary) &m
     (N depth : int) (tri : int list) :
-  162 < N =>
+  islossless A.guess =>
   Pr[DenyGame(A).main(N, depth, tri) @ &m : res] = 1%r / 2%r.
 
 (* ================================================================= *)
