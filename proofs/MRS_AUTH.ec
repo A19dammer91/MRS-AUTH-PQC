@@ -304,7 +304,7 @@ proof.
 
   rewrite /first_k_val /shift_val.
 
-  have hB_eq :
+    have hB_eq :
     Bp_val N - 19 *
       (kmin + (dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9) =
     (Bp_val N - 19 * kmin) -
@@ -312,10 +312,16 @@ proof.
     by ring.
   rewrite hB_eq.
 
-  have h19 : 19 * ((dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9) = 
-             9 * (2 * ((dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9)) + 
-             ((dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9) by ring.
+  pose shift := (dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9.
+
+  have h19 : 19 * shift = 9 * (2 * shift) + shift by ring.
   rewrite h19.
+
+  have hsub :
+    (Bp_val N - 19 * kmin) - (9 * (2 * shift) + shift) =
+    ((Bp_val N - 19 * kmin) - shift) - 9 * (2 * shift)
+    by ring.
+  rewrite hsub.
 
 (* ----------------------------------------------------------------- *)
 (* Correctness of sample_mrs_timed                                    *)
