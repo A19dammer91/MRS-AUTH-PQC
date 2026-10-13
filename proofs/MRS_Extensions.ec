@@ -112,7 +112,10 @@ lemma R3_zero_when_N_lt_p (p q r N : int) :
 proof.
   move=> hp hq hr hN.
   rewrite /R3.
-  have h1 : N %/ p = 0 by smt(divz_eq).
+  case (N < 0) => [hneg | hnonneg].
+  - smt().
+  have hdiv : N %/ p = 0 by smt(divz_eq).
+  have ha0 : 0 <= N %% r < r by smt(divz_eq).
   smt().
 qed.
 
