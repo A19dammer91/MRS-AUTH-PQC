@@ -250,6 +250,9 @@ proof.
   move=> hle.
   rewrite /duniform_fractal.
   have hne := fractal_nonempty first_k k_max hle.
-  (* `duniform L` is lossless whenever L is non-empty. *)
-  smt().
+  (* EasyCrypt: duniform is lossless for non-empty lists. *)
+  have hdunif : forall (L : int list), 0 < size L => is_lossless (duniform L).
+    move=> L hsz.
+    smt().
+  exact (hdunif (fractal_list first_k k_max) hne).
 qed.
