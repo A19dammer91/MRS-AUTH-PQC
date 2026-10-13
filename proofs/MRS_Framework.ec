@@ -15,9 +15,11 @@
 (*    - `A0 q N` is the ordinary residue N mod q.                     *)
 (*                                                                    *)
 (*  Proof strategy:                                                   *)
-(*    - `split; smt()` patterns are expanded where they fail.         *)
-(*    - Modular reasoning about `(a * q + b) %% q = b %% q` uses      *)
-(*      `ring` to commute multiplication, then `modzDl`.              *)
+(*    - All `split; smt()` patterns are expanded where they fail.     *)
+(*    - Modular reasoning about `(k * q + b) %% q = b %% q` uses      *)
+(*      `smt(modzDl modzMl)` rather than `apply modzDl`, which        *)
+(*      fails when the left summand is a product rather than the      *)
+(*      divisor itself.                                               *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv.
@@ -94,22 +96,14 @@ lemma dr_q_cong (q N : int) :
 proof.
   move=> hq hN.
   rewrite /dr_q.
-  have hNdiv :
-    N = (N %/ q) * q + N %% q
-    by smt(divz_eq).
-  have hprevdiv :
-    N - 1 = ((N - 1) %/ q) * q + (N - 1) %% q
-    by smt(divz_eq).
   case (N %% q = 0) => hzero.
   - (* Case: N mod q = 0 *)
+    have hN_eq : N = (N %/ q) * q by smt(divz_eq).
     have hprev : (N - 1) %% q = q - 1.
-      have hN_eq : N = (N %/ q) * q by smt().
       have hdecomp : N - 1 = (N %/ q - 1) * q + (q - 1) by smt().
       rewrite hdecomp.
-      have hmod : ((N %/ q - 1) * q + (q - 1)) %% q = (q - 1) %% q.
-        have hcomm : (N %/ q - 1) * q = q * (N %/ q - 1) by ring.
-        rewrite hcomm.
-        by apply modzDl.
+      have hmod : ((N %/ q - 1) * q + (q - 1)) %% q = (q - 1) %% q
+        by smt(modzDl modzMl).
       rewrite hmod.
       have hrange : 0 <= q - 1 /\ q - 1 < q by smt().
       smt().
@@ -121,10 +115,8 @@ proof.
     have hprev : (N - 1) %% q = N %% q - 1.
       have hdecomp : N - 1 = (N %/ q) * q + (N %% q - 1) by smt().
       rewrite hdecomp.
-      have hmod : ((N %/ q) * q + (N %% q - 1)) %% q = (N %% q - 1) %% q.
-        have hcomm : (N %/ q) * q = q * (N %/ q) by ring.
-        rewrite hcomm.
-        by apply modzDl.
+      have hmod : ((N %/ q) * q + (N %% q - 1)) %% q = (N %% q - 1) %% q
+        by smt(modzDl modzMl).
       rewrite hmod.
       have hrange : 0 <= N %% q - 1 /\ N %% q - 1 < q by smt().
       smt().
@@ -246,7 +238,7 @@ proof.
   - smt().
   - rewrite hEq.
     have hmod : (q * B) %% q = 0
-      by smt(modzMl).
+      by apply modzMl.
     smt().
 qed.
 
@@ -374,7 +366,7 @@ proof.
   have hmod : (9 * B) %% 9 = 0
     by apply modzMl.
   have hpmod : (19 * A) %% 9 = A %% 9
-    by smt(divz_eq).
+    by smt(modzDl modzMl).
   smt().
 qed.
 
