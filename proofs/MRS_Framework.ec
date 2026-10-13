@@ -103,7 +103,7 @@ proof.
     have hN_eq : N = (N %/ q) * q by smt().
     rewrite hN_eq.
     have hfac : 1 + (q - 1) - (N %/ q) * q = (1 - N %/ q) * q by ring.
-    rewrite hfac; by apply modzMl.   (* (k * q) %% q = 0 *)
+    rewrite hfac; by apply modzMl.
   - (* Case N ≢ 0 (mod q) *)
     have hprev : (N - 1) %% q = N %% q - 1.
       have hdecomp : N - 1 = (N %/ q) * q + (N %% q - 1) by smt().
@@ -118,7 +118,7 @@ proof.
       by smt(divz_eq).
     rewrite hrearrange.
     have hfac : -((N %/ q) * q) = (- (N %/ q)) * q by ring.
-    rewrite hfac; by apply modzMl.   (* (k * q) %% q = 0 *)
+    rewrite hfac; by apply modzMl.
 qed.
 
 (* Specialization to the modulus 9.                                   *)
@@ -219,7 +219,7 @@ proof.
     by rewrite -hEq.
   - (* (N - p * A) %% q = 0 *)
     have -> : N - p * A = q * B by rewrite -hEq; ring.
-    by apply modzMr.   (* (q * B) %% q = 0 *)
+    by apply modzMr.
 qed.
 
 (* The B-coordinate corresponding to a valid A.                       *)
@@ -238,9 +238,9 @@ proof.
     N - p * A =
       ((N - p * A) %/ q) * q + (N - p * A) %% q
     by smt(divz_eq).
-  rewrite hmod in hdiv.
-  have -> : N - p * A = ((N - p * A) %/ q) * q by smt().
-  by ring.
+  have heq : N - p * A = ((N - p * A) %/ q) * q.
+    by rewrite hdiv hmod; ring.
+  rewrite -heq; by ring.
 qed.
 
 lemma is_valid_A_gives_rep (p q N A : int) :
@@ -339,22 +339,19 @@ lemma rep_19_9_congruence (N A B : int) :
 proof.
   rewrite /is_rep_19_9 /is_rep.
   move=> [hA [hB hEq]].
-  (* N = 19*A + 9*B  ⇒  N ≡ 19*A ≡ A (mod 9) *)
   have h19 : 19 %% 9 = 1 by trivial.
   have hmod9 : (19 * A) %% 9 = A %% 9.
     have -> : 19 = 2 * 9 + 1 by trivial.
     have -> : (2 * 9 + 1) * A = 2 * 9 * A + A by ring.
     have -> : (2 * 9 * A + A) %% 9 = A %% 9 by apply modzMDl.
     done.
-  have h9B : (9 * B) %% 9 = 0 by apply modzMr.   (* (q * B) %% q = 0 *)
-  (* From hEq: N %% 9 = (19*A + 9*B) %% 9 = A %% 9 *)
+  have h9B : (9 * B) %% 9 = 0 by apply modzMr.
   have hNmod : N %% 9 = A %% 9.
     rewrite -hEq.
     have -> : (19 * A + 9 * B) %% 9 = ((19 * A) %% 9 + (9 * B) %% 9) %% 9
       by smt(modzDml).
     rewrite hmod9 h9B.
     by smt().
-  (* Therefore A ≡ N (mod 9) *)
   have : (A - N) %% 9 = 0 by smt().
   done.
 qed.
@@ -367,8 +364,6 @@ lemma dr_9_1991 :
   dr_9 1991 = 2.
 proof.
   rewrite /dr_9 /dr_q.
-  (* 1991 - 1 = 1990; 1990 / 9 = 221 * 9 = 1989, remainder 1 *)
-  (* therefore 1 + 1 = 2 *)
   by trivial.
 qed.
 
@@ -383,8 +378,6 @@ lemma dr_9_958 :
   dr_9 958 = 4.
 proof.
   rewrite /dr_9 /dr_q.
-  (* 958 - 1 = 957; 957 / 9 = 106 * 9 = 954, remainder 3 *)
-  (* therefore 1 + 3 = 4 *)
   by trivial.
 qed.
 
@@ -392,7 +385,6 @@ lemma rep_958_4_98 :
   is_rep_19_9 958 4 98.
 proof.
   rewrite /is_rep_19_9 /is_rep.
-  (* 19*4 + 9*98 = 76 + 882 = 958 *)
   by trivial.
 qed.
 
@@ -400,7 +392,6 @@ lemma rep_958_13_79 :
   is_rep_19_9 958 13 79.
 proof.
   rewrite /is_rep_19_9 /is_rep.
-  (* 19*13 + 9*79 = 247 + 711 = 958 *)
   by trivial.
 qed.
 
@@ -408,7 +399,6 @@ lemma rep_958_22_60 :
   is_rep_19_9 958 22 60.
 proof.
   rewrite /is_rep_19_9 /is_rep.
-  (* 19*22 + 9*60 = 418 + 540 = 958 *)
   by trivial.
 qed.
 
@@ -416,7 +406,6 @@ lemma rep_958_31_41 :
   is_rep_19_9 958 31 41.
 proof.
   rewrite /is_rep_19_9 /is_rep.
-  (* 19*31 + 9*41 = 589 + 369 = 958 *)
   by trivial.
 qed.
 
@@ -424,7 +413,6 @@ lemma rep_958_40_22 :
   is_rep_19_9 958 40 22.
 proof.
   rewrite /is_rep_19_9 /is_rep.
-  (* 19*40 + 9*22 = 760 + 198 = 958 *)
   by trivial.
 qed.
 
@@ -432,7 +420,6 @@ lemma rep_958_49_3 :
   is_rep_19_9 958 49 3.
 proof.
   rewrite /is_rep_19_9 /is_rep.
-  (* 19*49 + 9*3 = 931 + 27 = 958 *)
   by trivial.
 qed.
 
