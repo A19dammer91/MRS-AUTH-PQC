@@ -17,9 +17,8 @@
 (*  Proof strategy:                                                   *)
 (*    - All `split; smt()` patterns are expanded where they fail.     *)
 (*    - Modular reasoning about `(k * q + b) %% q = b %% q` uses      *)
-(*      `smt(modzDl modzMl)` rather than `apply modzDl`, which        *)
-(*      fails when the left summand is a product rather than the      *)
-(*      divisor itself.                                               *)
+(*      `smt(modzDl modzMl)`, but only after `ring` has put the       *)
+(*      expression into the shape that `modzDl` expects.              *)
 (* ================================================================= *)
 
 require import AllCore Int IntDiv.
@@ -365,7 +364,9 @@ proof.
   move=> [hA [hB hEq]].
   have hmod : (9 * B) %% 9 = 0
     by apply modzMl.
-  have hpmod : (19 * A) %% 9 = A %% 9
+  have hpmod : (19 * A) %% 9 = A %% 9.
+    have hdecomp : 19 * A = 9 * (2 * A) + A by ring.
+    rewrite hdecomp.
     by smt(modzDl modzMl).
   smt().
 qed.
