@@ -228,7 +228,10 @@ qed.
 (* ================================================================= *)
 
 (* ----------------------------------------------------------------- *)
-(* Named intermediate values                                          *)
+(* Named values                                                       *)
+(*                                                                    *)
+(* Anchor A = N and B' = -2N, so that for every k:                    *)
+(*   19 * (N + 9k) + 9 * (B' - 19k) = N.                              *)
 (* ----------------------------------------------------------------- *)
 
 op Bp_val (N : int) : int = -2 * N.
@@ -242,51 +245,52 @@ op shift_val (N kmin : int) : int =
 
 op first_k_val (N kmin : int) : int = kmin + shift_val N kmin.
 
+lemma Bp_val_eq (N : int) : Bp_val N = -2 * N.
+proof. by rewrite /Bp_val. qed.
+
+lemma first_k_ge_kmin (N kmin : int) : kmin <= first_k_val N kmin.
+proof. rewrite /first_k_val /shift_val; smt(modz_ge0). qed.
+
 (* ----------------------------------------------------------------- *)
-(* The module                                                         *)
+(* Digital-root alignment                                             *)
 (*                                                                    *)
-(* All local variables use lowercase-first names, as required by      *)
-(* EasyCrypt. Uppercase-first names are reserved for modules and      *)
-(* algebraic constructors.                                            *)
+(* dr(y - 19 s) and t are both in [1,9] and congruent mod 9, hence    *)
+(* equal. The congruences are made explicit with divz_eq.             *)
 (* ----------------------------------------------------------------- *)
 
-module TemporalBarrier = {
-  proc sample_mrs_timed(N : int, deadline : real) : (int * int * real) option = {
-    var anc, bcp, kmin, kmax, firstk, finalk, xa, xb, duration;
-
-    anc <- N;
-    bcp <- -2 * N;
-    kmin <- (-anc + 162 + 8) %/ 9;
-    kmax <- bcp %/ 19;
-    firstk <- kmin + ((dr (bcp - 19 * kmin) - dr (2 * dr N)) %% 9);
-    finalk <$ duniform_fractal firstk kmax;
-    xa <- anc + 9 * finalk;
-    xb <- bcp - 19 * finalk;
-    duration <- step_to_time (total_steps N);
-
-    return (if (kmax < kmin) then None
-            else if (kmax < firstk) then None
-            else if (deadline < step_to_time (total_steps N)) then None
-            else Some (xa, xb, duration));
-  }
-}.
-
-(* ----------------------------------------------------------------- *)
-(* Helper: dr is invariant under subtraction of 9*k                   *)
-(* ----------------------------------------------------------------- *)
+lemma dr_align (y t s : int) :
+  1 <= t => t <= 9 =>
+  s = (dr y - t) %% 9 =>
+  0 < y - 19 * s =>
+  dr (y - 19 * s) = t.
+proof.
+  move=> ht1 ht9 hs hpos.
+  have hs0 : 0 <= s by smt(modz_ge0).
+  have hy : 0 < y by smt().
+  have [hy1 hy9] := dr_range y hy.
+  have [hz1 hz9] := dr_range (y - 19 * s) hpos.
+  have hcy := dr_cong9 y hy.
+  have hcz := dr_cong9 (y - 19 * s) hpos.
+  have e1 := divz_eq (dr y - t) 9.
+  have e2 := divz_eq (dr y - y) 9.
+  have e3 := divz_eq (dr (y - 19 * s) - (y - 19 * s)) 9.
+  smt().
+qed.
 
 lemma dr_sub_9k (x k : int) :
   0 <= k => 9 * k < x =>
   dr (x - 9 * k) = dr x.
 proof.
   move=> hk hlt.
-  have hx_pos : 0 < x by smt().
-  have hx9k_pos : 0 < x - 9 * k by smt().
-  have hdx := dr_range (x - 9 * k) hx9k_pos.
-  have hdrx := dr_range x hx_pos.
-  have hcong1 := dr_cong9 (x - 9 * k) hx9k_pos.
-  have hcong2 := dr_cong9 x hx_pos.
-  by smt().
+  have hx : 0 < x by smt().
+  have hz : 0 < x - 9 * k by smt().
+  have [h1 h2] := dr_range x hx.
+  have [h3 h4] := dr_range (x - 9 * k) hz.
+  have c1 := dr_cong9 x hx.
+  have c2 := dr_cong9 (x - 9 * k) hz.
+  have e1 := divz_eq (dr x - x) 9.
+  have e2 := divz_eq (dr (x - 9 * k) - (x - 9 * k)) 9.
+  smt().
 qed.
 
 (* ----------------------------------------------------------------- *)
@@ -299,105 +303,87 @@ lemma triangle_shift_correct (N kmin : int) :
   dr (Bp_val N - 19 * first_k_val N kmin) = dr (2 * dr N).
 proof.
   move=> hN hpos.
-  have hNpos : 0 < N by smt().
-  have h2drN_pos : 0 < 2 * dr N by smt(dr_range).
-  
-  rewrite /first_k_val /shift_val.
-  
-  have hB_eq : Bp_val N - 19 * (kmin + (dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9) =
-               (Bp_val N - 19 * kmin) - 19 * ((dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9) by ring.
-  rewrite hB_eq.
-  
-  pose shift = ((dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) %% 9).
-  
-  have h19 : 19 * shift = 9 * (2 * shift) + shift by ring.
-  rewrite h19.
-  
-  have hsub : (Bp_val N - 19 * kmin) - (9 * (2 * shift) + shift) =
-              ((Bp_val N - 19 * kmin) - shift) - 9 * (2 * shift) by ring.
-  rewrite hsub.
-
-  pose x = ((Bp_val N - 19 * kmin) - shift).
-
-  have hx_pos : 0 < x by smt().
-  have hk_nonneg : 0 <= 2 * shift by smt(modz_ge0).
-  have hpos_x : 9 * (2 * shift) < x by smt().
-  
-  have hdr_eq : dr (x - 9 * (2 * shift)) = dr x by apply dr_sub_9k.
-  rewrite hdr_eq.
-  
-  have hx_cong : (x - dr (2 * dr N)) %% 9 = 0 by smt().
-  have hdx := dr_range x hx_pos.
-  have hd2 := dr_range (2 * dr N) h2drN_pos.
-  by smt().
+  have hN0 : 0 < N by smt().
+  have [hd1 hd9] := dr_range N hN0.
+  have hp2 : 0 < 2 * dr N by smt().
+  have [ht1 ht9] := dr_range (2 * dr N) hp2.
+  have hfk : Bp_val N - 19 * first_k_val N kmin
+           = (Bp_val N - 19 * kmin) - 19 * shift_val N kmin
+    by rewrite /first_k_val; ring.
+  rewrite hfk.
+  apply (dr_align (Bp_val N - 19 * kmin) (dr (2 * dr N))
+                  (shift_val N kmin) ht1 ht9).
+  - by rewrite /shift_val.
+  - smt().
 qed.
 
 (* ----------------------------------------------------------------- *)
-(* Non-interference under a strict deadline                           *)
+(* The module                                                         *)
+(*                                                                    *)
+(* Reads directly from the named values. Since first_k >= kmin        *)
+(* (first_k_ge_kmin), the test kmax < kmin is implied by              *)
+(* kmax < firstk and is not repeated.                                 *)
 (* ----------------------------------------------------------------- *)
 
-lemma temporal_barrier_noninterference
-    (N1 N2 : int) (deadline : real) :
-  162 < N1 => 162 < N2 =>
-  deadline < step_to_time (total_steps N1) =>
-  deadline < step_to_time (total_steps N2) =>
-  equiv [TemporalBarrier.sample_mrs_timed ~
-         TemporalBarrier.sample_mrs_timed :
-    arg{1} = (N1, deadline) /\ arg{2} = (N2, deadline) ==>
-    res{1} = None /\ res{2} = None].
+module TemporalBarrier = {
+  proc sample_mrs_timed(N : int, deadline : real) : (int * int * real) option = {
+    var kmin, kmax, firstk, finalk : int;
+
+    kmin   <- k_min_val N;
+    kmax   <- k_max_val N;
+    firstk <- first_k_val N kmin;
+    finalk <$ duniform_fractal firstk kmax;
+
+    return (if kmax < firstk \/ deadline < step_to_time (total_steps N)
+            then None
+            else Some (N + 9 * finalk,
+                       Bp_val N - 19 * finalk,
+                       step_to_time (total_steps N)));
+  }
+}.
+
+(* ----------------------------------------------------------------- *)
+(* Support of the sampler                                             *)
+(* ----------------------------------------------------------------- *)
+
+lemma supp_duniform_fractal (a b k : int) :
+  k \in duniform_fractal a b => k \in fractal_list a b.
+proof. by rewrite /duniform_fractal supp_duniform. qed.
+
+(* ----------------------------------------------------------------- *)
+(* Barrier properties (partial correctness)                           *)
+(* ----------------------------------------------------------------- *)
+
+(* Past the deadline nothing but None is ever returned. *)
+lemma temporal_barrier_timeout (n : int) (d : real) :
+  d < step_to_time (total_steps n) =>
+  hoare [TemporalBarrier.sample_mrs_timed :
+    N = n /\ deadline = d ==> res = None].
 proof.
-  move=> hN1 hN2 hto1 hto2.
-  proc.
-  seq 4 4 : true.
-  - by auto.
-  if => />.
-  - by auto.
-  if => />.
-  - by auto.
-  seq 1 1 : true.
-  - by auto.
-  if => />.
-  - by auto.
-  seq 1 1 : true.
-  - by auto.
-  seq 2 2 : true.
-  - by auto.
-  seq 1 1 : true.
-  - by auto.
-  if => />.
-  - by auto.
-  - by smt().
+  move=> hd.
+  proc. wp. rnd. wp. skip.
+  smt().
 qed.
 
-(* ----------------------------------------------------------------- *)
-(* Conditional uniformity                                             *)
-(* ----------------------------------------------------------------- *)
-
-lemma temporal_barrier_conditional_uniform
-    (N : int) (deadline : real) :
-  162 < N =>
-  step_to_time (total_steps N) <= deadline =>
-  equiv [TemporalBarrier.sample_mrs_timed ~
-         TemporalBarrier.sample_mrs_timed :
-    ={arg} /\ arg{1} = (N, deadline) ==> ={res}].
+(* Every returned pair is a representation of n. *)
+lemma temporal_barrier_valid_output (n : int) (d : real) :
+  hoare [TemporalBarrier.sample_mrs_timed :
+    N = n /\ deadline = d ==>
+    forall xa xb t, res = Some (xa, xb, t) => 19 * xa + 9 * xb = n].
 proof.
-  move=> hN hdeadline.
-  proc.
-  seq 4 4 : (={anc, bcp, kmin, kmax} /\ anc{1} = N /\ bcp{1} = -2 * N).
-  - by auto.
-  if => />.
-  - by auto.
-  seq 1 1 : (={anc, bcp, kmin, kmax, firstk}).
-  - by auto.
-  if => />.
-  - by auto.
-  seq 1 1 : (={anc, bcp, kmin, kmax, firstk, finalk}).
-  - by rnd.
-  seq 2 2 : (={anc, bcp, kmin, kmax, firstk, finalk, xa, xb}).
-  - by auto.
-  seq 1 1 : (={anc, bcp, kmin, kmax, firstk, finalk, xa, xb, duration}).
-  - by auto.
-  if => />.
-  - by exfalso; smt().
-  - by auto.
+  proc. wp. rnd. wp. skip.
+  smt(Bp_val_eq).
+qed.
+
+(* Every returned pair comes from a k in the fractal list. *)
+lemma temporal_barrier_support (n : int) (d : real) :
+  hoare [TemporalBarrier.sample_mrs_timed :
+    N = n /\ deadline = d ==>
+    forall xa xb t, res = Some (xa, xb, t) =>
+      exists k,
+        k \in fractal_list (first_k_val n (k_min_val n)) (k_max_val n)
+        /\ xa = n + 9 * k /\ xb = Bp_val n - 19 * k].
+proof.
+  proc. wp. rnd. wp. skip.
+  smt(supp_duniform_fractal).
 qed.
