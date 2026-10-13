@@ -432,9 +432,15 @@ proof.
   move=> hn.
   proc. wp. rnd. wp. skip.
   move=> &m [hN hd] k hk xa xb t.
+  (* Stap 1: bewijs N{m} = n *)
+  have hN_eq : N{m} = n by smt().
+  (* Stap 2: herschrijf hk naar n in plaats van N{m} *)
   have hk' :
-    k \in duniform_fractal (first_k_val n (k_min_val n)) (k_max_val n)
-    by smt().
+    k \in duniform_fractal (first_k_val n (k_min_val n)) (k_max_val n).
+    rewrite /duniform_fractal.
+    rewrite /duniform_fractal in hk.
+    rewrite hN_eq in hk.
+    exact hk.
   have htri := triangle_of_list n k hn (supp_duniform_fractal _ _ _ hk').
   smt().
 qed.
