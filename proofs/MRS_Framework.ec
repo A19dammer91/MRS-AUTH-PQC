@@ -309,16 +309,9 @@ qed.
 (* Section 7: Representation count formula                            *)
 (* ================================================================= *)
 
-(* Count of representations of N in the (19, 9) system,               *)
-(* for N >= 171 (the first triangle-valid N).                         *)
-(*                                                                    *)
-(* This formula uses the digital root dr_q 9 N (in {1, ..., 9})       *)
-(* rather than the ordinary residue N mod 9 (in {0, ..., 8}).         *)
-(* This is the Positive Anchor Convention.                            *)
 op R_19_9 (N : int) : int =
   ((N %/ 19 - dr_q 9 N) %/ 9) + 1.
 
-(* Upper bound on A in every representation.                          *)
 lemma A_upper_bound_19_9 (N A B : int) :
   is_rep_19_9 N A B =>
   19 * A <= N.
@@ -329,8 +322,6 @@ proof.
   by rewrite -hEq.
 qed.
 
-(* Every representation has A in the residue class of N modulo 9.     *)
-(* Because 19 ≡ 1 (mod 9), we have 19*A ≡ A (mod 9), hence A ≡ N.     *)
 lemma rep_19_9_congruence (N A B : int) :
   is_rep_19_9 N A B =>
   (A - N) %% 9 = 0.
@@ -340,9 +331,8 @@ proof.
   have h19 : 19 %% 9 = 1 by trivial.
   have hmod9 : (19 * A) %% 9 = A %% 9.
     have -> : 19 = 2 * 9 + 1 by trivial.
-    have -> : (2 * 9 + 1) * A = 2 * 9 * A + A by ring.
-    have -> : (2 * 9 * A + A) %% 9 = A %% 9 by apply modzMDl.
-    done.
+    have -> : (2 * 9 + 1) * A = (2 * A) * 9 + A by ring.
+    by rewrite (modzMDl (2 * A) A 9).
   have h9B : (9 * B) %% 9 = 0 by apply modzMr.
   have hNmod : N %% 9 = A %% 9.
     rewrite -hEq.
