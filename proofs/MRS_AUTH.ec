@@ -252,30 +252,38 @@ op first_k_val (N kmin : int) : int = kmin + shift_val N kmin.
 
 module TemporalBarrier = {
   proc sample_mrs_timed(N : int, deadline : real) : (int * int * real) option = {
-    var anc, bcp, kmin, kmax, firstk, finalk, xa, xb, duration;
+    var anc      : int;
+    var bcp      : int;
+    var kmin     : int;
+    var kmax     : int;
+    var firstk   : int;
+    var finalk   : int;
+    var xa       : int;
+    var xb       : int;
+    var duration : real;
 
-    anc <- N;
-    bcp <- -2 * N;
-    kmin <- (-anc + 162 + 8) %/ 9;
-    kmax <- bcp %/ 19;
+    anc      <- N;
+    bcp      <- -2 * N;
+    kmin     <- (-anc + 162 + 8) %/ 9;
+    kmax     <- bcp %/ 19;
 
     if (kmax < kmin) {
       return None;
     }
 
-    firstk <- kmin + ((dr (bcp - 19 * kmin) - dr (2 * dr N)) %% 9);
+    firstk   <- kmin + ((dr (bcp - 19 * kmin) - dr (2 * dr N)) %% 9);
 
     if (kmax < firstk) {
       return None;
     }
 
-    finalk <$ duniform_fractal firstk kmax;
+    finalk   <$ duniform_fractal firstk kmax;
 
-    xa <- anc + 9 * finalk;
-    xb <- bcp - 19 * finalk;
+    xa       <- anc + 9 * finalk;
+    xb       <- bcp - 19 * finalk;
     duration <- step_to_time (total_steps N);
 
-    if (deadline < step_to_time (total_steps N)) {
+    if (deadline < duration) {
       return None;
     }
 
