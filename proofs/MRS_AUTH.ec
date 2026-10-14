@@ -406,16 +406,19 @@ lemma temporal_barrier_noninterference
   first_k_val N2 (k_min_val N2) <= k_max_val N2 =>
   dl < step_to_time (total_steps N1) =>
   dl < step_to_time (total_steps N2) =>
-  equiv [TemporalBarrier.sample_mrs_timed ~
+  equiv [TemporalBarrier.sample_mrs_timed \~
          TemporalBarrier.sample_mrs_timed :
     arg{1} = (N1, dl) /\ arg{2} = (N2, dl) ==>
     res{1} = None /\ res{2} = None].
 proof.
   move=> h1 h2 hf1 hf2 hd1 hd2.
   proc.
-  wp. rnd{1}. rnd{2}. wp. skip.
+  wp; rnd{1}; rnd{2}; wp; skip.
   progress.
-  smt(duniform_fractal_ll).
+  - by apply duniform_fractal_ll.
+  - by apply duniform_fractal_ll.
+  - smt().
+  - smt().
 qed.
 
 (* ================================================================= *)
