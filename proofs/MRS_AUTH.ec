@@ -526,11 +526,7 @@ proof.
         smt(rust_cleared_unobservable).
   - right.
     exists (n + 9 * k) (Bp_val n - 19 * k).
-    rewrite hc /=.
-    split.
-    + smt(Bp_val_eq).
-    + move=> hpos.
-      exact (triangle_of_list n k hn (supp_duniform_fractal _ _ _ hk) hpos).
+    smt(Bp_val_eq htri).
 qed.
 
 lemma refinement_backward_security (n dm : int) :
