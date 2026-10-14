@@ -1,4 +1,3 @@
-
 (* MRS_Chain.ec *)
 require import AllCore Int IntDiv List.
 require import MRS_Core.
