@@ -415,7 +415,7 @@ proof.
   proc.
   wp. rnd{1}. rnd{2}. wp. skip.
   progress.
-  try smt(duniform_fractal_ll h1 h2 hf1 hf2 hd1 hd2).
+  by smt(duniform_fractal_ll).
 qed.
 
 (* ================================================================= *)
