@@ -520,10 +520,14 @@ lemma refinement_pure (n dm k : int) :
      (0 < xb => dr xb = dr (2 * dr n))).
 proof.
   move=> hn hk.
+  have hsupp := supp_duniform_fractal _ _ _ hk.
+  have htri : 0 < Bp_val n - 19 * k =>
+              dr (Bp_val n - 19 * k) = dr (2 * dr n)
+    by move=> hpos; exact (triangle_of_list n k hn hsupp hpos).
   case (k_max_val n < first_k_val n (k_min_val n) \/ dm < total_steps n)
     => hc.
   - left.
-        smt(rust_cleared_unobservable).
+    smt(rust_cleared_unobservable).
   - right.
     exists (n + 9 * k) (Bp_val n - 19 * k).
     smt(Bp_val_eq htri).
