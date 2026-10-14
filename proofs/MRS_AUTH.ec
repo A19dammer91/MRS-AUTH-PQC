@@ -530,7 +530,7 @@ proof.
     smt(rust_cleared_unobservable).
   - right.
     exists (n + 9 * k) (Bp_val n - 19 * k).
-    smt(Bp_val_eq htri).
+        smt(Bp_val_eq).
 qed.
 
 lemma refinement_backward_security (n dm : int) :
