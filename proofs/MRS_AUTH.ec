@@ -1,15 +1,5 @@
-(* ================================================================= *)
-(*  MRS_AUTH.ec                                                       *)
-(*  Time-based Authentication                                         *)
-(*                                                                    *)
-(*  Under the Positive Anchor Convention (A_0 = dr(N) >= 1,           *)
-(*  Frobenius boundary 162).                                          *)
-(*                                                                    *)
-(*  Three main components:                                            *)
-(*   I. Temporal Barrier (timing + zeroize)                           *)
-(*  II. HMAC as PRF and EUF-CMA security                              *)
-(* III. Forward Secrecy                                               *)
-(* ================================================================= *)
+(* MRS_AUTH.ec: temporal barrier, fractal ladder, zeroize.          *)
+(* Positive Anchor Convention: A_0 = dr(N) >= 1, Frobenius bound 162. *)
 
 require import AllCore Int IntDiv Real Distr List FSet SmtMap.
 require import StdOrder StdBigop.
@@ -17,12 +7,8 @@ import IntOrder RealOrder.
 require import MRS_Core.
 
 (* ================================================================= *)
-(* Section 1: Temporal Barrier                                          *)
+(* Section 1: digital-root lemmas                                     *)
 (* ================================================================= *)
-
-(* ----------------------------------------------------------------- *)
-(* Digital-root lemmas for the temporal barrier                       *)
-(* ----------------------------------------------------------------- *)
 
 lemma dr_homomorphism (x y : int) :
   0 < x => 0 < y =>
@@ -79,34 +65,35 @@ proof.
 qed.
 
 (* ================================================================= *)
-(* Section 2: Time constants and fractal sampling                     *)
+(* Section 2: time model (concrete) and fractal sampling              *)
 (* ================================================================= *)
 
-(* ----------------------------------------------------------------- *)
-(* Abstract time model                                                *)
-(* ----------------------------------------------------------------- *)
+op step_to_time (s : int) : real = s%r.
 
-op step_to_time : int -> real.
-
-axiom step_time_monotonic : forall (s1 s2 : int),
+lemma step_time_monotonic (s1 s2 : int) :
   s1 <= s2 => step_to_time s1 <= step_to_time s2.
+proof. rewrite /step_to_time; smt(le_fromint). qed.
 
-axiom step_time_pos : forall (s : int),
+lemma step_time_pos (s : int) :
   0 < s => 0%r < step_to_time s.
+proof. rewrite /step_to_time; smt(lt_fromint). qed.
 
-(* ----------------------------------------------------------------- *)
-(* Step counts                                                        *)
-(* ----------------------------------------------------------------- *)
+op step_eea_particular : int = 1.
+op step_bounds : int = 1.
+op step_triangle_shift : int = 1.
+op step_sample_fractal : int = 1.
 
-op step_eea_particular : int.
-op step_bounds : int.
-op step_triangle_shift : int.
-op step_sample_fractal : int.
+lemma step_eea_particular_pos : 0 < step_eea_particular.
+proof. rewrite /step_eea_particular; smt(). qed.
 
-axiom step_eea_particular_pos : 0 < step_eea_particular.
-axiom step_bounds_pos : 0 < step_bounds.
-axiom step_triangle_shift_pos : 0 < step_triangle_shift.
-axiom step_sample_fractal_pos : 0 < step_sample_fractal.
+lemma step_bounds_pos : 0 < step_bounds.
+proof. rewrite /step_bounds; smt(). qed.
+
+lemma step_triangle_shift_pos : 0 < step_triangle_shift.
+proof. rewrite /step_triangle_shift; smt(). qed.
+
+lemma step_sample_fractal_pos : 0 < step_sample_fractal.
+proof. rewrite /step_sample_fractal; smt(). qed.
 
 op total_steps (N : int) : int =
   step_eea_particular + step_bounds + step_triangle_shift + step_sample_fractal.
@@ -128,12 +115,7 @@ proof.
   smt().
 qed.
 
-(* ----------------------------------------------------------------- *)
-(* Fractal list                                                       *)
-(*                                                                    *)
-(* The fractal list contains all integers k in [first_k, k_max]       *)
-(* such that (k - first_k) is divisible by 9.                         *)
-(* ----------------------------------------------------------------- *)
+(* The fractal list: all k in [first_k, k_max] with (k - first_k) = 0 mod 9. *)
 
 op fractal_list (first_k k_max : int) : int list =
   filter (fun k => (k - first_k) %% 9 = 0)
@@ -141,10 +123,6 @@ op fractal_list (first_k k_max : int) : int list =
 
 op duniform_fractal (first_k k_max : int) : int distr =
   duniform (fractal_list first_k k_max).
-
-(* ----------------------------------------------------------------- *)
-(* Fractal-list membership                                            *)
-(* ----------------------------------------------------------------- *)
 
 lemma fractal_mem_iff (first_k k_max k : int) :
   mem (fractal_list first_k k_max) k <=>
@@ -155,10 +133,6 @@ proof.
   rewrite mem_range.
   smt().
 qed.
-
-(* ----------------------------------------------------------------- *)
-(* Fractal-list properties                                            *)
-(* ----------------------------------------------------------------- *)
 
 lemma fractal_first_k_mem (first_k k_max : int) :
   first_k <= k_max =>
@@ -198,21 +172,6 @@ proof.
   smt().
 qed.
 
-(* ----------------------------------------------------------------- *)
-(* Losslessness of duniform_fractal                                   *)
-(*                                                                    *)
-(* EasyCrypt r2024.09 exposes only the predicates `is_lossless`,      *)
-(* `is_full`, and `is_uniform` for `'a distr`. There is no public     *)
-(* `mu` or `weight` operator on `int distr`.                          *)
-(*                                                                    *)
-(* We can therefore state losslessness, which uses `is_lossless`.     *)
-(*                                                                    *)
-(* The support property (that `final_k` lies in the fractal list) is  *)
-(* established implicitly by the `<$`-sampling rule in section 3:     *)
-(* when `final_k <$ duniform_fractal first_k k_max`, EasyCrypt knows  *)
-(* that `final_k` is in `fractal_list first_k k_max`.                 *)
-(* ----------------------------------------------------------------- *)
-
 lemma duniform_fractal_ll (first_k k_max : int) :
   first_k <= k_max =>
   is_lossless (duniform_fractal first_k k_max).
@@ -224,7 +183,7 @@ proof.
 qed.
 
 (* ================================================================= *)
-(* Section 3: Temporal Barrier                                        *)
+(* Section 3: temporal barrier                                        *)
 (* ================================================================= *)
 
 op Bp_val (N : int) : int = -2 * N.
@@ -426,39 +385,194 @@ proof.
 qed.
 
 (* ================================================================= *)
-(* Section 4: Zeroize                                                 *)
+(* Section 3b: the fractal ladder                                     *)
+(*                                                                    *)
+(* ladder(N) = { k : first_k <= k <= k_max, k = first_k mod 9 }.      *)
+(* Every rung carries the same digital signature:                     *)
+(*   19*A + 9*B = N,  dr A = dr N,  dr B = dr (2 * dr N).             *)
 (* ================================================================= *)
 
-(* ----------------------------------------------------------------- *)
-(* Abstract memory states                                             *)
-(*                                                                    *)
-(* The temporal barrier holds a pair (A, B) while active, or has      *)
-(* been cleared by zeroize, or was never initialized.                 *)
-(* ----------------------------------------------------------------- *)
+op fractal_ladder (N : int) : int list =
+  fractal_list (first_k_val N (k_min_val N)) (k_max_val N).
+
+lemma ladder_def (N : int) :
+  fractal_ladder N = fractal_list (first_k_val N (k_min_val N)) (k_max_val N).
+proof. by rewrite /fractal_ladder. qed.
+
+lemma ladder_mem (N k : int) :
+  k \in fractal_ladder N <=>
+  (first_k_val N (k_min_val N) <= k /\ k <= k_max_val N /\
+   (k - first_k_val N (k_min_val N)) %% 9 = 0).
+proof.
+  rewrite ladder_def.
+  exact (fractal_mem_iff _ _ _).
+qed.
+
+lemma ladder_bounds (n k : int) :
+  k \in fractal_ladder n =>
+  first_k_val n (k_min_val n) <= k /\ k <= k_max_val n.
+proof.
+  move=> hk.
+  rewrite ladder_def in hk.
+  exact (fractal_bounded _ _ _ hk).
+qed.
+
+lemma dr_add_9k (x j : int) :
+  0 <= j => 0 < x =>
+  dr (x + 9 * j) = dr x.
+proof.
+  move=> hj hx.
+  have hz : 0 < x + 9 * j by smt().
+  have [h1 h2] := dr_range x hx.
+  have [h3 h4] := dr_range (x + 9 * j) hz.
+  have c1 := dr_cong9 x hx.
+  have c2 := dr_cong9 (x + 9 * j) hz.
+  have e1 := divz_eq (dr x - x) 9.
+  have e2 := divz_eq (dr (x + 9 * j) - (x + 9 * j)) 9.
+  smt().
+qed.
+
+lemma k_max_val_le0 (N : int) : 0 <= N => k_max_val N <= 0.
+proof.
+  move=> hN.
+  rewrite /k_max_val.
+  have e := divz_eq (-2 * N) 19.
+  have r := modz_ge0 (-2 * N) 19.
+  smt().
+qed.
+
+(* Signature of A *)
+lemma ladder_A_dr (n k : int) :
+  162 < n => k \in fractal_ladder n =>
+  0 < n + 9 * k =>
+  dr (n + 9 * k) = dr n.
+proof.
+  move=> hn hk hpos.
+  have hb := ladder_bounds n k hk.
+  have hn0 : 0 <= n by smt().
+  have hle := k_max_val_le0 n hn0.
+  have hk0 : k <= 0 by smt().
+  have ->: n + 9 * k = n - 9 * (-k) by ring.
+  apply dr_sub_9k; smt().
+qed.
+
+(* Signature of B *)
+lemma ladder_B_dr (n k : int) :
+  162 < n => k \in fractal_ladder n =>
+  0 < Bp_val n - 19 * k =>
+  dr (Bp_val n - 19 * k) = dr (2 * dr n).
+proof.
+  move=> hn hk hpos.
+  rewrite ladder_def in hk.
+  exact (triangle_of_list n k hn hk hpos).
+qed.
+
+(* The full signature of one rung *)
+lemma ladder_signature (n k : int) :
+  162 < n => k \in fractal_ladder n =>
+  0 < n + 9 * k => 0 < Bp_val n - 19 * k =>
+  19 * (n + 9 * k) + 9 * (Bp_val n - 19 * k) = n /\
+  dr (n + 9 * k) = dr n /\
+  dr (Bp_val n - 19 * k) = dr (2 * dr n).
+proof.
+  move=> hn hk hA hB.
+  split; first smt(Bp_val_eq).
+  split.
+  - exact (ladder_A_dr n k hn hk hA).
+  - exact (ladder_B_dr n k hn hk hB).
+qed.
+
+(* Step invariance: the same signature repeats one rung higher *)
+lemma ladder_A_step (n k : int) :
+  0 < n + 9 * k =>
+  dr (n + 9 * (k + 9)) = dr (n + 9 * k).
+proof.
+  move=> hpos.
+  have ->: n + 9 * (k + 9) = (n + 9 * k) + 9 * 9 by ring.
+  have h9 : 0 <= 9 by smt().
+  exact (dr_add_9k (n + 9 * k) 9 h9 hpos).
+qed.
+
+lemma ladder_B_step (n k : int) :
+  171 < Bp_val n - 19 * k =>
+  dr (Bp_val n - 19 * (k + 9)) = dr (Bp_val n - 19 * k).
+proof.
+  move=> h.
+  exact (dr_step_9_chain (Bp_val n) k h).
+qed.
+
+(* The ladder is closed under the step of 9 *)
+lemma ladder_next (n k : int) :
+  k \in fractal_ladder n => k + 9 <= k_max_val n =>
+  (k + 9) \in fractal_ladder n.
+proof.
+  move=> hk hle.
+  rewrite ladder_mem in hk.
+  rewrite ladder_mem.
+  have [h1 [h2 h3]] := hk.
+  split; first smt().
+  split; first smt().
+  have ->: k + 9 - first_k_val n (k_min_val n)
+         = (k - first_k_val n (k_min_val n)) + 9 by ring.
+  by rewrite modzDr.
+qed.
+
+(* From which N on the ladder is non-empty *)
+lemma shift_val_range (N kmin : int) :
+  0 <= shift_val N kmin /\ shift_val N kmin <= 8.
+proof.
+  rewrite /shift_val.
+  have r0 := modz_ge0 (dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) 9.
+  have r1 := ltz_pmod (dr (Bp_val N - 19 * kmin) - dr (2 * dr N)) 9.
+  smt().
+qed.
+
+lemma first_k_le_kmax (N : int) :
+  4760 <= N =>
+  first_k_val N (k_min_val N) <= k_max_val N.
+proof.
+  move=> hN.
+  have hs := shift_val_range N (k_min_val N).
+  have kmin_def : k_min_val N = (-N + 162 + 8) %/ 9 by rewrite /k_min_val.
+  have kmax_def : k_max_val N = (-2 * N) %/ 19 by rewrite /k_max_val.
+  have e1 := divz_eq (-N + 162 + 8) 9.
+  have e2 := divz_eq (-2 * N) 19.
+  have a1 := modz_ge0 (-N + 162 + 8) 9.
+  have a2 := ltz_pmod (-N + 162 + 8) 9.
+  have b1 := modz_ge0 (-2 * N) 19.
+  have b2 := ltz_pmod (-2 * N) 19.
+  rewrite /first_k_val.
+  smt().
+qed.
+
+lemma ladder_nonempty (n : int) :
+  4760 <= n => 1 <= size (fractal_ladder n).
+proof.
+  move=> hn.
+  rewrite ladder_def.
+  exact (fractal_nonempty _ _ (first_k_le_kmax n hn)).
+qed.
+
+(* ================================================================= *)
+(* Section 4: zeroize                                                 *)
+(* ================================================================= *)
 
 type mem_state = [ Valid of (int * int) | Cleared | Uninitialized ].
 
-(* Zeroize maps any state to Cleared. *)
 op zeroize (m : mem_state) : mem_state = Cleared.
 
 lemma zeroize_idempotent (m : mem_state) :
   zeroize (zeroize m) = zeroize m.
 proof. by rewrite /zeroize. qed.
 
-(* What an external attacker can observe. *)
 op attacker_obs (m : mem_state) : bool =
   with m = Valid ab       => true
   with m = Cleared        => false
   with m = Uninitialized  => false.
 
-(* After zeroize, the attacker observes nothing. *)
 lemma zeroize_unobservable (m : mem_state) :
   attacker_obs (zeroize m) = false.
 proof. by rewrite /zeroize /attacker_obs /=. qed.
-
-(* ----------------------------------------------------------------- *)
-(* The Rust-side memory state                                         *)
-(* ----------------------------------------------------------------- *)
 
 type rust_mem_state =
   [ RustValid of (int * int) | RustCleared | RustUninit ].
@@ -468,7 +582,6 @@ op rust_to_abstract (rs : rust_mem_state) : mem_state =
   with rs = RustCleared  => Cleared
   with rs = RustUninit   => Uninitialized.
 
-(* After the Rust side is cleared, the abstract view is Cleared. *)
 lemma rust_to_abstract_cleared (rs : rust_mem_state) :
   rust_to_abstract RustCleared = zeroize (rust_to_abstract rs).
 proof. by rewrite /zeroize /rust_to_abstract /=. qed.
@@ -491,14 +604,6 @@ module RustTemporalBarrier = {
             else RustValid (N + 9 * finalk, Bp_val N - 19 * finalk));
   }
 }.
-
-(* ----------------------------------------------------------------- *)
-(* Backward security refinement                                       *)
-(*                                                                    *)
-(* Either the attacker observes nothing (the Rust state is cleared),  *)
-(* or the output is a representation of n, and when xb > 0 it is      *)
-(* triangle-valid.                                                    *)
-(* ----------------------------------------------------------------- *)
 
 lemma rust_cleared_unobservable :
   attacker_obs (rust_to_abstract RustCleared) = false.
@@ -530,9 +635,24 @@ proof.
     smt(rust_cleared_unobservable).
   - right.
     exists (n + 9 * k) (Bp_val n - 19 * k).
-        smt(Bp_val_eq).
+    smt(Bp_val_eq).
 qed.
 
+(* Step 1: the program returns the pure function of the sampled k *)
+lemma refinement_step1 (n dm : int) :
+  hoare [RustTemporalBarrier.sample_with_zeroize :
+    N = n /\ deadline_micros = dm ==>
+    exists k,
+      k \in duniform_fractal (first_k_val n (k_min_val n)) (k_max_val n) /\
+      res = (if k_max_val n < first_k_val n (k_min_val n) \/ dm < total_steps n
+             then RustCleared
+             else RustValid (n + 9 * k, Bp_val n - 19 * k))].
+proof.
+  proc. wp. rnd. wp. skip.
+  progress; smt().
+qed.
+
+(* Step 2: combine with the pure lemma *)
 lemma refinement_backward_security (n dm : int) :
   162 < n =>
   hoare [RustTemporalBarrier.sample_with_zeroize :
@@ -544,10 +664,8 @@ lemma refinement_backward_security (n dm : int) :
         (0 < xb => dr xb = dr (2 * dr n)))].
 proof.
   move=> hn.
-  proc. wp. rnd. wp. skip.
-  fail.
+  conseq (refinement_step1 n dm).
+  all: by move=> &m; smt(refinement_pure).
 qed.
 
-(* ================================================================= *)
-(* End of MRS_AUTH.ec                                                 *)
-(* ================================================================= *)
+(* End of MRS_AUTH.ec *)
