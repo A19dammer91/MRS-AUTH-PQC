@@ -414,9 +414,8 @@ proof.
   move=> h1 h2 hf1 hf2 hd1 hd2.
   proc.
   wp. rnd{1}. rnd{2}. wp. skip.
-  progress.
-  by smt(duniform_fractal_ll).
-qed.
+    progress.
+  - smt(duniform_fractal_ll).
 
 (* ================================================================= *)
 (* Section 4: Zeroize                                                 *)
