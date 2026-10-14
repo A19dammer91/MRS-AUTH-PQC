@@ -523,7 +523,7 @@ proof.
   case (k_max_val n < first_k_val n (k_min_val n) \/ dm < total_steps n)
     => hc.
   - left.
-    by rewrite hc /= rust_cleared_unobservable.
+        smt(rust_cleared_unobservable).
   - right.
     exists (n + 9 * k) (Bp_val n - 19 * k).
     rewrite hc /=.
