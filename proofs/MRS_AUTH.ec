@@ -528,12 +528,12 @@ proof.
     by rewrite hc /= rust_cleared_unobservable.
   - right.
     exists (n + 9 * k) (Bp_val n - 19 * k).
-    split; first by rewrite hvalid /=.
     split.
-    + rewrite /Bp_val; by ring.
+    + by rewrite hvalid.
+    split.
+    + rewrite /Bp_val; smt().
     + move=> hxb.
-      apply (triangle_of_list n k hn hsupp).
-      exact hxb.
+      by apply (triangle_of_list n k hn hsupp hxb).
 qed.
 
 (* ================================================================= *)
