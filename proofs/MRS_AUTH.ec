@@ -529,7 +529,12 @@ proof.
     by rewrite hc /= rust_cleared_unobservable.
   - right.
     exists (n + 9 * k) (Bp_val n - 19 * k).
-    smt(Bp_val_eq).
+    split.
+    + by rewrite hc /=.
+    split.
+    + rewrite /Bp_val; ring.
+    + move=> hxb.
+      by apply htri.
 qed.
 
 (* ================================================================= *)
