@@ -521,20 +521,23 @@ proof.
     k \in duniform_fractal (first_k_val n (k_min_val n)) (k_max_val n)
     by rewrite -hN.
   have hsupp := supp_duniform_fractal _ _ _ hk'.
-  have htri := triangle_of_list n k hn hsupp.
   rewrite hN hd.
   case (k_max_val n < first_k_val n (k_min_val n) \/ dm < total_steps n)
-    => hc.
-  - left.
+    => [hc | hvalid].
+  - (* Cleared case *)
+    left.
     by rewrite hc /= rust_cleared_unobservable.
-  - right.
+  - (* Valid case *)
+    right.
     exists (n + 9 * k) (Bp_val n - 19 * k).
+    split; first by rewrite hvalid /=.
     split.
-    + by rewrite hc /=.
-    split.
-    + rewrite /Bp_val; ring.
-    + move=> hxb.
-      by apply htri.
+    + (* 19 * xa + 9 * xb = n *)
+      rewrite /Bp_val. ring.
+    + (* triangle property when xb > 0 *)
+      move=> hxb.
+      have hpos : 0 < Bp_val n - 19 * k by exact hxb.
+      by apply (triangle_of_list n k hn hsupp hpos).
 qed.
 
 (* ================================================================= *)
