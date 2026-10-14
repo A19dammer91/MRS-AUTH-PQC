@@ -330,19 +330,16 @@ section HoneyProof.
   (* ------------------------------------------------------------- *)
   (* Main theorem: M blobs are pseudorandom                         *)
   (* ------------------------------------------------------------- *)
-  lemma honey_pseudorandom &m :
+    lemma honey_pseudorandom &m :
     `| Pr[Hyb(D, AE).main(0) @ &m : res] -
        Pr[Hyb(D, AE).main(M) @ &m : res] | <= M%r * eps.
   proof.
-    have g0 := hybrid_gap 0 1 &m (by smt()) (by smt(M_val)) (by smt()).
-    have g1 := hybrid_gap 1 2 &m (by smt()) (by smt(M_val)) (by smt()).
-    have g2 := hybrid_gap 2 3 &m (by smt()) (by smt(M_val)) (by smt()).
-    have g3 := hybrid_gap 3 4 &m (by smt()) (by smt(M_val)) (by smt()).
-    have g4 := hybrid_gap 4 M &m (by smt()) (by smt(M_val)) (by smt(M_val)).
-    have -> : M%r = 5%r by rewrite M_val.
-    move: g0 g1 g2 g3 g4.
-    rewrite !ler_norml.
-    smt().
+    have g0 := hybrid_gap 0 1 &m.
+    have g1 := hybrid_gap 1 2 &m.
+    have g2 := hybrid_gap 2 3 &m.
+    have g3 := hybrid_gap 3 4 &m.
+    have g4 := hybrid_gap 4 M &m.
+    smt(M_val ler_norml).
   qed.
 
 end section HoneyProof.
