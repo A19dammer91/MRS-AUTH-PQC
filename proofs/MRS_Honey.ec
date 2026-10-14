@@ -341,5 +341,3 @@ section HoneyProof.
     have g4 := hybrid_gap 4 M &m.
     smt(M_val ler_norml).
   qed.
-
-end section HoneyProof.
