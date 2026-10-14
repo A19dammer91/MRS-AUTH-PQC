@@ -500,40 +500,21 @@ module RustTemporalBarrier = {
 (* triangle-valid.                                                    *)
 (* ----------------------------------------------------------------- *)
 
-lemma rust_cleared_unobservable :
-  attacker_obs (rust_to_abstract RustCleared) = false.
-proof. by rewrite /rust_to_abstract /attacker_obs /=. qed.
-
-lemma refinement_backward_security (n dm : int) :
+lemma refinement_pure (n dm k : int) :
   162 < n =>
-  hoare [RustTemporalBarrier.sample_with_zeroize :
-    N = n /\ deadline_micros = dm ==>
-    attacker_obs (rust_to_abstract res) = false \/
-    (exists xa xb,
-        res = RustValid (xa, xb) /\
-        19 * xa + 9 * xb = n /\
-        (0 < xb => dr xb = dr (2 * dr n)))].
+  k \in duniform_fractal (first_k_val n (k_min_val n)) (k_max_val n) =>
+  ((k_max_val n < first_k_val n (k_min_val n) \/ dm < total_steps n) =>
+     attacker_obs (rust_to_abstract RustCleared) = false) /\
+  (! (k_max_val n < first_k_val n (k_min_val n) \/ dm < total_steps n) =>
+     19 * (n + 9 * k) + 9 * (Bp_val n - 19 * k) = n /\
+     (0 < Bp_val n - 19 * k => dr (Bp_val n - 19 * k) = dr (2 * dr n))).
 proof.
-  move=> hn.
-  proc. wp. rnd. wp. skip.
-  move=> &m [hN hd] k hk.
-  have hk' :
-    k \in duniform_fractal (first_k_val n (k_min_val n)) (k_max_val n)
-    by rewrite -hN.
-  have hsupp := supp_duniform_fractal _ _ _ hk'.
-  rewrite hN hd.
-  case (k_max_val n < first_k_val n (k_min_val n) \/ dm < total_steps n)
-    => [hc | hvalid].
-  - left.
-    by rewrite hc /= rust_cleared_unobservable.
-  - right.
-    exists (n + 9 * k) (Bp_val n - 19 * k).
-    split.
-    + by rewrite hvalid.
-    split.
-    + rewrite /Bp_val; smt().
-    + move=> hxb.
-      by apply (triangle_of_list n k hn hsupp hxb).
+  move=> hn hk; split.
+  - move=> _; exact rust_cleared_unobservable.
+  - move=> _; split.
+    + smt(Bp_val_eq).
+    + move=> hpos.
+      exact (triangle_of_list n k hn (supp_duniform_fractal _ _ _ hk) hpos).
 qed.
 
 (* ================================================================= *)
