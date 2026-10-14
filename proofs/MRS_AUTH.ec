@@ -402,7 +402,7 @@ lemma temporal_barrier_valid_output (n : int) (d : real) :
     forall xa xb t, res = Some (xa, xb, t) => 19 * xa + 9 * xb = n].
 proof.
   proc. wp. rnd. wp. skip.
-  move=> &m [hN hD] k hk xa xb t.
+  move=> &m [hN hD] k hk xa xb t hres.
   smt(Bp_val_eq).
 qed.
 
@@ -416,9 +416,9 @@ lemma temporal_barrier_support (n : int) (d : real) :
         /\ xa = n + 9 * k /\ xb = Bp_val n - 19 * k].
 proof.
   proc. wp. rnd. wp. skip.
-  move=> &m [hN hD] k hk xa xb t.
-  have hsupp := supp_duniform_fractal _ _ _ hk.
-  smt().
+  move=> &m [hN hD] k hk xa xb t hres.
+  exists k.
+  smt(supp_duniform_fractal).
 qed.
 
 (* Triangle-validity of the returned representation. *)
@@ -431,12 +431,13 @@ lemma temporal_barrier_triangle (n : int) (d : real) :
 proof.
   move=> hn.
   proc. wp. rnd. wp. skip.
-  move=> &m [hN hD] k hk.
-  have hn' : 162 < N{m} by smt().
-  have hsupp := supp_duniform_fractal _ _ _ hk.
-  have htri := triangle_of_list N{m} k hn' hsupp.
-  move=> xa xb t.
-  smt(Bp_val_eq).
+  move=> &m [hN hD] k hk xa xb t hres hxb.
+  have hk2 : k \in fractal_list (first_k_val n (k_min_val n)) (k_max_val n)
+    by smt(supp_duniform_fractal).
+  have hx : xb = Bp_val n - 19 * k by smt().
+  have hpos : 0 < Bp_val n - 19 * k by smt().
+  have htri := triangle_of_list n k hn hk2 hpos.
+  by rewrite hx.
 qed.
 
 (* ----------------------------------------------------------------- *)
@@ -452,19 +453,14 @@ lemma temporal_barrier_noninterference
   dl < step_to_time (total_steps N2) =>
   equiv [TemporalBarrier.sample_mrs_timed ~
          TemporalBarrier.sample_mrs_timed :
-    N{1} = N1 /\ deadline{1} = dl /\
-    N{2} = N2 /\ deadline{2} = dl ==>
+    arg{1} = (N1, dl) /\ arg{2} = (N2, dl) ==>
     res{1} = None /\ res{2} = None].
 proof.
   move=> h1 h2 hf1 hf2 hd1 hd2.
   proc.
-  rnd{1}. rnd{2}.
-  wp. skip.
+  wp. rnd{1}. rnd{2}. wp. skip.
   progress.
-  - smt(duniform_fractal_ll).
-  - smt(duniform_fractal_ll).
-  - smt().
-  - smt().
+  all: smt(duniform_fractal_ll).
 qed.
 
 (* ----------------------------------------------------------------- *)
