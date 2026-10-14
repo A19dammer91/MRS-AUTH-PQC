@@ -413,7 +413,11 @@ lemma temporal_barrier_noninterference
 proof.
   move=> h1 h2 hf1 hf2 hd1 hd2.
   proc.
-  wp; rnd{1}; rnd{2}; wp; skip.
+  wp.
+  rnd{1}.
+  rnd{2}.
+  wp.
+  skip.
   progress.
   - by apply duniform_fractal_ll.
   - by apply duniform_fractal_ll.
