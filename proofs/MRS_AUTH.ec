@@ -431,15 +431,16 @@ lemma temporal_barrier_triangle (n : int) (d : real) :
 proof.
   move=> hn.
   proc. wp. rnd. wp. skip.
-  move=> &m [hN hd] k hk xa xb t.
-  have hN_eq : N{m} = n by smt().
-  have hk' :
-    k \in duniform_fractal
-      (first_k_val n (k_min_val n))
-      (k_max_val n) by smt(hN_eq, hk).
-  have htri := triangle_of_list n k hn
-    (supp_duniform_fractal _ _ _ hk').
-  smt().
+  move=> &m [hN hd] k hk xa xb t hres hxb.
+  rewrite hN in hk.
+  have hk' := supp_duniform_fractal _ _ _ hk.
+  have htri := triangle_of_list n k hn hk'.
+  move: hres.
+  case (k_max_val n < first_k_val n (k_min_val n)
+        \/ deadline{m} < step_to_time (total_steps n)) => hc.
+  - by rewrite hN hc /=.
+  - rewrite hN hc /= => -[<- <- _].
+    by rewrite hN in hxb; smt(Bp_val_eq).
 qed.
 
 (* ----------------------------------------------------------------- *)
