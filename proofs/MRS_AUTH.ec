@@ -406,7 +406,7 @@ lemma temporal_barrier_noninterference
   first_k_val N2 (k_min_val N2) <= k_max_val N2 =>
   dl < step_to_time (total_steps N1) =>
   dl < step_to_time (total_steps N2) =>
-  equiv [TemporalBarrier.sample_mrs_timed \~
+  equiv [TemporalBarrier.sample_mrs_timed ~
          TemporalBarrier.sample_mrs_timed :
     arg{1} = (N1, dl) /\ arg{2} = (N2, dl) ==>
     res{1} = None /\ res{2} = None].
