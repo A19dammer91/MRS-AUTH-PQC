@@ -545,11 +545,7 @@ lemma refinement_backward_security (n dm : int) :
 proof.
   move=> hn.
   proc. wp. rnd. wp. skip.
-  move=> &m [hN hd] k.
-  rewrite hN hd.
-  move=> hk.
-  have hp := refinement_pure n dm k hn hk.
-  smt().
+  fail.
 qed.
 
 (* ================================================================= *)
