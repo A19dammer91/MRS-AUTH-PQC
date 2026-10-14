@@ -402,7 +402,7 @@ lemma temporal_barrier_valid_output (n : int) (d : real) :
     forall xa xb t, res = Some (xa, xb, t) => 19 * xa + 9 * xb = n].
 proof.
   proc. wp. rnd. wp. skip.
-  move=> &m [hN hD] k hk xa xb t hres.
+  move=> &m [hN hD] k hk.
   smt(Bp_val_eq).
 qed.
 
@@ -416,8 +416,7 @@ lemma temporal_barrier_support (n : int) (d : real) :
         /\ xa = n + 9 * k /\ xb = Bp_val n - 19 * k].
 proof.
   proc. wp. rnd. wp. skip.
-  move=> &m [hN hD] k hk xa xb t hres.
-  exists k.
+  move=> &m [hN hD] k hk.
   smt(supp_duniform_fractal).
 qed.
 
@@ -431,13 +430,13 @@ lemma temporal_barrier_triangle (n : int) (d : real) :
 proof.
   move=> hn.
   proc. wp. rnd. wp. skip.
-  move=> &m [hN hD] k hk xa xb t hres hxb.
+  move=> &m [hN hD] k hk.
   have hk2 : k \in fractal_list (first_k_val n (k_min_val n)) (k_max_val n)
     by smt(supp_duniform_fractal).
-  have hx : xb = Bp_val n - 19 * k by smt().
-  have hpos : 0 < Bp_val n - 19 * k by smt().
-  have htri := triangle_of_list n k hn hk2 hpos.
-  by rewrite hx.
+  have htri : 0 < Bp_val n - 19 * k =>
+              dr (Bp_val n - 19 * k) = dr (2 * dr n)
+    by smt(triangle_of_list).
+  smt(Bp_val_eq).
 qed.
 
 (* ----------------------------------------------------------------- *)
