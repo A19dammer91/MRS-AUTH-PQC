@@ -545,12 +545,11 @@ lemma refinement_backward_security (n dm : int) :
 proof.
   move=> hn.
   proc. wp. rnd. wp. skip.
-  move=> &m [hN hd] k hk.
-  have hk' : k \in duniform_fractal (first_k_val n (k_min_val n))
-                                     (k_max_val n)
-    by smt().
-    have hp := refinement_pure n dm k hn hk'.
-  fail.
+  move=> &m [hN hd] k.
+  rewrite hN hd.
+  move=> hk.
+  have hp := refinement_pure n dm k hn hk.
+  smt().
 qed.
 
 (* ================================================================= *)
