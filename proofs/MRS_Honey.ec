@@ -218,8 +218,8 @@ module HoneyGen = {
 (* ================================================================= *)
 section HoneyProof.
 
-  declare module AE <: AEAD.
-  declare module D <: HDist {-AE, -O_rand}.
+  declare module AE <: AEAD {-O_rand}.
+  declare module D  <: HDist {-AE, -O_rand}.
 
   declare axiom aead_secure :
     forall (R <: AE_Dist {-AE, -O_rand}) (a : int) &m,
