@@ -549,8 +549,8 @@ proof.
   have hk' : k \in duniform_fractal (first_k_val n (k_min_val n))
                                      (k_max_val n)
     by smt().
-  have hp := refinement_pure n dm k hn hk'.
-  smt().
+    have hp := refinement_pure n dm k hn hk'.
+  fail.
 qed.
 
 (* ================================================================= *)
