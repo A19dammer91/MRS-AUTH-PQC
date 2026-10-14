@@ -325,10 +325,6 @@ qed.
 
 (* ----------------------------------------------------------------- *)
 (* The module                                                         *)
-(*                                                                    *)
-(* Reads directly from the named values. Since first_k >= kmin        *)
-(* (first_k_ge_kmin), the test kmax < kmin is implied by              *)
-(* kmax < firstk and is not repeated.                                 *)
 (* ----------------------------------------------------------------- *)
 
 module TemporalBarrier = {
@@ -357,48 +353,9 @@ lemma supp_duniform_fractal (a b k : int) :
 proof. by rewrite /duniform_fractal supp_duniform. qed.
 
 (* ----------------------------------------------------------------- *)
-(* Barrier properties (partial correctness)                           *)
+(* Triangle-validity of a fractal-list element                        *)
 (* ----------------------------------------------------------------- *)
 
-(* Past the deadline nothing but None is ever returned. *)
-lemma temporal_barrier_timeout (n : int) (d : real) :
-  d < step_to_time (total_steps n) =>
-  hoare [TemporalBarrier.sample_mrs_timed :
-    N = n /\ deadline = d ==> res = None].
-proof.
-  move=> hd.
-  proc. wp. rnd. wp. skip.
-  smt().
-qed.
-
-(* Every returned pair is a representation of n. *)
-lemma temporal_barrier_valid_output (n : int) (d : real) :
-  hoare [TemporalBarrier.sample_mrs_timed :
-    N = n /\ deadline = d ==>
-    forall xa xb t, res = Some (xa, xb, t) => 19 * xa + 9 * xb = n].
-proof.
-  proc. wp. rnd. wp. skip.
-  smt(Bp_val_eq).
-qed.
-
-(* Every returned pair comes from a k in the fractal list. *)
-lemma temporal_barrier_support (n : int) (d : real) :
-  hoare [TemporalBarrier.sample_mrs_timed :
-    N = n /\ deadline = d ==>
-    forall xa xb t, res = Some (xa, xb, t) =>
-      exists k,
-        k \in fractal_list (first_k_val n (k_min_val n)) (k_max_val n)
-        /\ xa = n + 9 * k /\ xb = Bp_val n - 19 * k].
-proof.
-  proc. wp. rnd. wp. skip.
-  smt(supp_duniform_fractal).
-qed.
-
-(* ----------------------------------------------------------------- *)
-(* Triangle-validity of the returned representation                   *)
-(* ----------------------------------------------------------------- *)
-
-(* Any k of the fractal list with xb > 0 is aligned. *)
 lemma triangle_of_list (n k : int) :
   162 < n =>
   k \in fractal_list (first_k_val n (k_min_val n)) (k_max_val n) =>
@@ -422,6 +379,49 @@ proof.
   exact (triangle_shift_correct n (k_min_val n) hn hx).
 qed.
 
+(* ----------------------------------------------------------------- *)
+(* Barrier properties (partial correctness)                           *)
+(* ----------------------------------------------------------------- *)
+
+(* Past the deadline nothing but None is ever returned. *)
+lemma temporal_barrier_timeout (n : int) (d : real) :
+  d < step_to_time (total_steps n) =>
+  hoare [TemporalBarrier.sample_mrs_timed :
+    N = n /\ deadline = d ==> res = None].
+proof.
+  move=> hd.
+  proc. wp. rnd. wp. skip.
+  move=> &m [hN hD] k hk.
+  smt().
+qed.
+
+(* Every returned pair is a representation of n. *)
+lemma temporal_barrier_valid_output (n : int) (d : real) :
+  hoare [TemporalBarrier.sample_mrs_timed :
+    N = n /\ deadline = d ==>
+    forall xa xb t, res = Some (xa, xb, t) => 19 * xa + 9 * xb = n].
+proof.
+  proc. wp. rnd. wp. skip.
+  move=> &m [hN hD] k hk xa xb t.
+  smt(Bp_val_eq).
+qed.
+
+(* Every returned pair comes from a k in the fractal list. *)
+lemma temporal_barrier_support (n : int) (d : real) :
+  hoare [TemporalBarrier.sample_mrs_timed :
+    N = n /\ deadline = d ==>
+    forall xa xb t, res = Some (xa, xb, t) =>
+      exists k,
+        k \in fractal_list (first_k_val n (k_min_val n)) (k_max_val n)
+        /\ xa = n + 9 * k /\ xb = Bp_val n - 19 * k].
+proof.
+  proc. wp. rnd. wp. skip.
+  move=> &m [hN hD] k hk xa xb t.
+  have hsupp := supp_duniform_fractal _ _ _ hk.
+  smt().
+qed.
+
+(* Triangle-validity of the returned representation. *)
 lemma temporal_barrier_triangle (n : int) (d : real) :
   162 < n =>
   hoare [TemporalBarrier.sample_mrs_timed :
@@ -431,23 +431,16 @@ lemma temporal_barrier_triangle (n : int) (d : real) :
 proof.
   move=> hn.
   proc. wp. rnd. wp. skip.
-  move=> &m [hN hd] k hk xa xb t hres hxb.
-  rewrite hN in hk.
-  have hk' := supp_duniform_fractal _ _ _ hk.
-  have htri := triangle_of_list n k hn hk'.
-  move: hres.
-  case (k_max_val n < first_k_val n (k_min_val n)
-        \/ deadline{m} < step_to_time (total_steps n)) => hc.
-  - by rewrite hN hc /=.
-  - rewrite hN hc /= => -[<- <- _].
-    by rewrite hN in hxb; smt(Bp_val_eq).
+  move=> &m [hN hD] k hk.
+  have hn' : 162 < N{m} by smt().
+  have hsupp := supp_duniform_fractal _ _ _ hk.
+  have htri := triangle_of_list N{m} k hn' hsupp.
+  move=> xa xb t.
+  smt(Bp_val_eq).
 qed.
 
 (* ----------------------------------------------------------------- *)
 (* Non-interference under a strict deadline                           *)
-(*                                                                    *)
-(* The fractal lists must be non-empty (first_k <= k_max): otherwise  *)
-(* duniform has total mass 0 and the two runs are not comparable.     *)
 (* ----------------------------------------------------------------- *)
 
 lemma temporal_barrier_noninterference
@@ -459,13 +452,19 @@ lemma temporal_barrier_noninterference
   dl < step_to_time (total_steps N2) =>
   equiv [TemporalBarrier.sample_mrs_timed ~
          TemporalBarrier.sample_mrs_timed :
-    arg{1} = (N1, dl) /\ arg{2} = (N2, dl) ==>
+    N{1} = N1 /\ deadline{1} = dl /\
+    N{2} = N2 /\ deadline{2} = dl ==>
     res{1} = None /\ res{2} = None].
 proof.
   move=> h1 h2 hf1 hf2 hd1 hd2.
   proc.
-  wp. rnd{1}. rnd{2}. wp. skip.
-  progress; smt(duniform_fractal_ll).
+  rnd{1}. rnd{2}.
+  wp. skip.
+  progress.
+  - smt(duniform_fractal_ll).
+  - smt(duniform_fractal_ll).
+  - smt().
+  - smt().
 qed.
 
 (* ----------------------------------------------------------------- *)
