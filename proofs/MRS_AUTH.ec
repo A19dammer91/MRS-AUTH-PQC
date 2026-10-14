@@ -415,14 +415,8 @@ proof.
   proc.
   wp. rnd{1}. rnd{2}. wp. skip.
   progress.
-  all: smt(duniform_fractal_ll).
+  try smt(duniform_fractal_ll h1 h2 hf1 hf2 hd1 hd2).
 qed.
-
-lemma temporal_barrier_same_input :
-  equiv [TemporalBarrier.sample_mrs_timed ~
-         TemporalBarrier.sample_mrs_timed :
-    ={arg} ==> ={res}].
-proof. proc; sim. qed.
 
 (* ================================================================= *)
 (* Section 4: Zeroize                                                 *)
