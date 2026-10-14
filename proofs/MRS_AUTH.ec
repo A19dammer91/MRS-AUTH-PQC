@@ -524,20 +524,16 @@ proof.
   rewrite hN hd.
   case (k_max_val n < first_k_val n (k_min_val n) \/ dm < total_steps n)
     => [hc | hvalid].
-  - (* Cleared case *)
-    left.
+  - left.
     by rewrite hc /= rust_cleared_unobservable.
-  - (* Valid case *)
-    right.
+  - right.
     exists (n + 9 * k) (Bp_val n - 19 * k).
     split; first by rewrite hvalid /=.
     split.
-    + (* 19 * xa + 9 * xb = n *)
-      rewrite /Bp_val. ring.
-    + (* triangle property when xb > 0 *)
-      move=> hxb.
-      have hpos : 0 < Bp_val n - 19 * k by exact hxb.
-      by apply (triangle_of_list n k hn hsupp hpos).
+    + rewrite /Bp_val; by ring.
+    + move=> hxb.
+      apply (triangle_of_list n k hn hsupp).
+      exact hxb.
 qed.
 
 (* ================================================================= *)
