@@ -123,21 +123,23 @@ jobs:
         run: |
           set -o pipefail
           fail=0
-          for f in \
-              MRS_FloorSum.ec \  
-              MRS_DigitSum.ec \  
-              MRS_Distr.ec \  
-              MRS_Framework.ec \  
-              MRS_Extensions.ec \  
-              MRS_Core.ec \  
-              MRS_Equiv.ec \  
-              MRS_Encoding.ec \  
-              MRS_Chain.ec \  
-              MRS_Sampler.ec \  
-              MRS_Deny.ec \  
-              MRS_DenyProof.ec \  
-              MRS_AUTH.ec \  
-              MRS_Honey.ec; do
+          files=(
+            MRS_FloorSum.ec
+            MRS_DigitSum.ec
+            MRS_Distr.ec
+            MRS_Framework.ec
+            MRS_Extensions.ec
+            MRS_Core.ec
+            MRS_Equiv.ec
+            MRS_Encoding.ec
+            MRS_Chain.ec
+            MRS_Sampler.ec
+            MRS_Deny.ec
+            MRS_DenyProof.ec
+            MRS_AUTH.ec
+            MRS_Honey.ec
+          )
+          for f in "${files[@]}"; do
             echo "=========================================="
             echo "== Verifying $f"
             echo "=========================================="
