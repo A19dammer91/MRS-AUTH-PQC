@@ -2,6 +2,7 @@
 <div align="center">
 
 [![CI](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/ci.yml/badge.svg)](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/ci.yml)
+[![EasyCrypt Proofs](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/easycrypt.yml/badge.svg)](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/easycrypt.yml)
 [![Tests](https://img.shields.io/github/actions/workflow/status/A19dammer91/MRS-AUTH-PQC/rust.yml?label=tests&style=flat-square&logo=githubactions&logoColor=white)](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/rust.yml)
 [![Benchmarks](https://img.shields.io/github/actions/workflow/status/A19dammer91/MRS-AUTH-PQC/benchmark.yml?label=benchmarks&style=flat-square&logo=githubactions&logoColor=white)](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/benchmark.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)](LICENSE)
@@ -12,13 +13,15 @@
 
 # MRS-AUTH-PQC
 
-### Post-Quantum Authentication with a Framework-Native Clock KDF
+### A Post-Quantum Cryptographic Framework
 
-> **MRS-AUTH-PQC** is a post-quantum authentication framework. It uses **NIST-standardized ML-KEM-1024** (FIPS 203, IND-CCA2) for confidentiality, and derives its session key from the **structure of the (19, 9) Diophantine representation system** that the framework itself is built on.
+*Post-quantum authentication with a framework-native Clock KDF.*
+
+> **MRS-AUTH-PQC** is a post-quantum cryptographic framework. It uses **NIST-standardized ML-KEM-1024** (FIPS 203, IND-CCA2) for confidentiality, and derives its session key from the **structure of the (19, 9) Diophantine representation system** that the framework itself is built on.
 >
 > The key is **not hashed from a seed**. It is **derived from the structure itself**.
 
-**Test suite status:** `cargo test` — **108 passed, 0 failed** (52.22s).
+**Status:** `cargo test` — **108 passed, 0 failed** (52.22s) · EasyCrypt — **all 13 proof files compile** (§12)
 
 </div>
 
@@ -46,19 +49,23 @@ in many different ways. When `p` and `q` are chosen so that `p ≡ 1 (mod q)`, t
 m = (p − 1) / q
 ```
 
-This README is written for two kinds of readers at once. If you are mathematically curious, §4 will show you the double cycle with nothing but a table of numbers. If you are an engineer, §§8–19 will show you the protocol, the proof, and the code. Both audiences can read both, but neither is required to.
+Version 1 was published as *MRS-Hybride-PQC*. **Version 2.0.0 is no longer hybrid.** The same congruence `p ≡ 1 (mod q)` that organises the numbers (`19 ≡ 1 mod 9`) also organises the clock that the key is derived from (`25 ≡ 1 mod 12`).
+
+This README is written for two kinds of readers at once. If you are mathematically curious, §4 shows you the double cycle with nothing but a table of numbers. If you are an engineer, §§8–19 show you the protocol, the proof, and the code. Both audiences can read both, but neither is required to.
 
 ---
 
-## Key Innovations
+## Key Contributions
 
-1. **The double cycle.** Not a tuning knob, not a coincidence — a structural fact that governs which numbers can be written, and how many ways. §4.
-2. **A key derived from structure, not from a seed.** The session key is produced by walking the same cycle the framework is built on. No external KDF. §8.
-3. **A general theorem with one optimal instance.** The framework works for any admissible `(p, q)`. It uses `(19, 9)` because that is the smallest pair that gives the double cycle on the base-9 anchor the decimal system already uses. §9.
-4. **Extensions into 3 and 4 dimensions.** The same structure extends from `19A + 9B = N` to `19A + 9B + 3C = N` and to `19A + 9B + 3C + 3D = N`, without losing its shape. §10.
-5. **Deniability proved by a machine.** The property that a coerced user can hand over a valid alternative is not claimed. It is verified by EasyCrypt, line by line, with the final assumption eliminated. §11.
-6. **Formal verification with a constructive distribution layer.** Every probability distribution used by the framework is built explicitly, not assumed. §12.
-7. **A complete, working implementation.** Not a proof-of-concept. A Rust crate with tests, benchmarks, and an interactive demo. §§17–21.
+1. **The double cycle.** Not a tuning knob, not a coincidence: a structural fact that governs which numbers can be written, and in how many ways. §4.
+2. **The Positive Anchor Convention.** `A₀ = dr(N)` instead of `N mod 9`. It guarantees `A ≥ 1`, moves the Frobenius boundary from 143 to 162, and gives every representation a non-trivial core. §5.
+3. **The fractal ladder ⧊.** The rungs of a representation that share one digital signature, with the signature proved for every rung. §6.1.
+4. **A key derived from structure, not from a seed.** The session key is produced by walking the same cycle the framework is built on. No external KDF. §8.
+5. **A general theorem with one optimal instance.** The framework works for any admissible `(p, q)`. It uses `(19, 9)` because that is the smallest pair that gives the double cycle on the base-9 anchor the decimal system already uses. §9.
+6. **Extensions into 3 and 4 dimensions.** The same structure extends from `19A + 9B = N` to `19A + 9B + 3C = N` and to `19A + 9B + 3C + 3D = N`, without losing its shape. §10.
+7. **Deniability proved by a machine.** The property that a coerced user can hand over a valid alternative is verified by EasyCrypt, line by line, with the final assumption eliminated. §11.
+8. **Formal verification with a constructive distribution layer.** Every probability distribution used by the framework is built explicitly, not assumed. §12.
+9. **A complete, working implementation.** A Rust crate with tests, benchmarks, and an interactive demo. §§17–21.
 
 ---
 
@@ -108,42 +115,6 @@ The Clock KDF does **not add entropy**. It shapes the entropy that already exist
 2. **The clock provides the uniqueness.** `T ↔ (D, H, M, S, Ms)` is a bijection, branchless and audit-friendly.
 3. **The Diophantine ladder provides the richness.** Each `N` has `R(N)` representations; the seed selects one, and the full ladder is exposed for verification.
 
-The legacy HKDF-based hybrid KDF is preserved for reference in [`legacy/`](legacy/) and is no longer compiled into the crate. See [`legacy/README.md`](legacy/README.md) for the design rationale and a side-by-side comparison.
-
----
-
-## Mathematical Core
-
-The framework compresses the entire Diophantine witness-space parameter calculation into closed-form equations. The full derivations are in the papers; the essentials are:
-
-**Anchor.** `A₀ = dr(N)` — the smallest positive A-value congruent to N modulo 9. Range 1..9, never 0 (Positive Anchor Convention).
-
-**Maximum base.** `B₀ = (N − 19·A₀) / 9`.
-
-**Number of representations.** `R(N) = ⌊B₀ / 19⌋ + 1`, equivalently `R(N) = ⌊(⌊N/19⌋ − dr(N)) / 9⌋ + 1`.
-
-**The ladder.**
-
-```
-A_k = A₀ + 9k
-B_k = B₀ − 19k
-k = 0, 1, …, R(N) − 1
-```
-
-**Frobenius boundary (Positive Anchor).** 162 is the largest `N` with no representation. From 163 onward, every integer has at least one representation.
-
-**First triangle-valid N.** The sampler's `valid` flag requires a triangle-valid candidate (`dr(B) = dr(2·dr(N))`), which is stricter than mere representability. The first `N ≥ 163` satisfying this is **171**.
-
-**Clock decomposition.**
-
-```
-T = 86,400,000·D + 3,600,000·H + 60,000·M + 1000·S + Ms
-```
-
-A bijection: every `T` maps to exactly one `(D, H, M, S, Ms)`, and every tuple maps back to exactly one `T`.
-
-> **Note on the anchor.** Under the Positive Anchor Convention, `A₀ = dr(N)` (range 1..9). An alternative "standard" convention would use `A₀ = N mod 9` (range 0..8), which admits `A = 0` and gives Frobenius boundary 143. MRS-AUTH-PQC deliberately chooses the Positive Anchor variant: it makes every representation carry a non-trivial core `A ≥ 1`, which the deniability construction relies on. The digital root `dr(N) = 1 + ((N − 1) mod 9)` is the definition used throughout the codebase, and the Frobenius boundary in this system is **162**.
-
 ---
 
 ## 4. The Double Cycle
@@ -154,19 +125,20 @@ This is the heart of the framework. Read this section even if you skip the rest.
 
 Take the pair `(p, q) = (19, 9)`. Every integer can be written as `19A + 9B`. For most integers there are several ways. For `N = 958`, there are exactly six:
 
-| k | A = 4 + 9k | B = 98 − 19k | 19·A + 9·B |
-|--:|:----------:|:------------:|:----------:|
-| 0 |      4     |       98     |    958     |
-| 1 |     13     |       79     |    958     |
-| 2 |     22     |       60     |    958     |
-| 3 |     31     |       41     |    958     |
-| 4 |     40     |       22     |    958     |
-| 5 |     49     |        3     |    958     |
+| k | A = 4 + 9k | B = 98 − 19k | 19·A + 9·B | dr(A) | dr(B) |
+|--:|:----------:|:------------:|:----------:|:-----:|:-----:|
+| 0 |      4     |       98     |    958     |   4   |   8   |
+| 1 |     13     |       79     |    958     |   4   |   7   |
+| 2 |     22     |       60     |    958     |   4   |   6   |
+| 3 |     31     |       41     |    958     |   4   |   5   |
+| 4 |     40     |       22     |    958     |   4   |   4   |
+| 5 |     49     |        3     |    958     |   4   |   3   |
 
-Look at the two columns.
+Look at the columns.
 
-- The first column moves by **9** each step.
-- The second column moves by **−19** each step.
+- The first column moves by **9** each step. Its digital root never changes.
+- The second column moves by **−19** each step. Its digital root drops by exactly **1** each step, because `19 ≡ 1 (mod 9)`. This is `p ≡ 1 (mod q)` at work.
+- After `q = 9` steps the digital root of `B` has run through a full cycle. Over those 9 steps `A` rises by `q² = 81` and `B` falls by `p·q = 171`, and `171 = m·q² + q = 2·81 + 9`.
 
 Every representation sits on the same two cycles. If you know one, you know them all. And every representation of `958` sits exactly on the intersection of those two cycles. That is what "double cycle" means.
 
@@ -214,17 +186,16 @@ At `m = 1` (e.g. `10 ≡ 1 mod 9`), level and row coincide, and the structure co
 
 What makes `(19, 9)` special is that it fits the way humans count. Humans count in base 10. Our digits run from 1 to 9, not from 0 to 9. The digital root lives in `{1, …, 9}`. That is our anchor. The pair `(2·9 + 1, 9) = (19, 9)` is the smallest pair `(2q + 1, q)` that sits on the base-9 anchor. Any larger pair would work, but would add nothing.
 
-### 4.5 The same structure, seen three ways
+### 4.5 The same structure, seen two ways
 
-The Clock KDF is not a new invention bolted onto the framework. It is the same structural fact, seen from three angles. All three satisfy `p ≡ 1 (mod q)` and have the same ratio `m = 2`:
+The Clock KDF is not a new invention bolted onto the framework. It is the same structural fact, seen from two angles. Both satisfy `p ≡ 1 (mod q)` and have the same ratio `m = 2`:
 
 | System | Condition | Ratio | Shape |
 |--------|-----------|:-----:|-------|
 | Numbers | `19 ≡ 1 (mod 9)` | 2 | two 9-cycles |
 | Clock | `25 ≡ 1 (mod 12)` | 2 | two 12-cycles |
-| Time | `25 ≡ 1 (mod 12)` | 2 | two 12-cycles |
 
-The Clock KDF walks the first one. The clock decomposition walks the second and third. They are not analogies of each other. They are the same pattern, with different moduli.
+The Clock KDF walks the numbers. The clock decomposition walks the clock. They are not analogies of each other. They are the same pattern, with different moduli.
 
 ---
 
@@ -248,11 +219,20 @@ The digital root is the number you get by adding the digits of `N` repeatedly un
 - `N = 123`: `1 + 2 + 3 = 6`. So `A₀ = 6`.
 - `N = 999`: `9 + 9 + 9 = 27`, and `2 + 7 = 9`. So `A₀ = 9`.
 
-Notice the third example. In normal modular arithmetic, `999 mod 9 = 0`. But here we use `9` instead of `0`. In this framework, `0` and `9` are the same value seen from two sides: `0` means "no anchor", `9` means "the anchor is the whole cycle". Because they are the same value, the anchor is **always at least 1**. It never collapses to zero.
+Notice the third example. In normal modular arithmetic, `999 mod 9 = 0`. But here we use `9` instead of `0`. In this framework, `0` and `9` are the same value seen from two sides: `0` means "no anchor", `9` means "the anchor is the whole cycle". Because they are the same value, the anchor is **always at least 1**. It never collapses to zero. Two ways to compute it give the same answer: divide by 9 and read the repeating digit, or add the digits until one digit is left. As a congruence: `A₀ ≡ N (mod 9)`.
 
 That matters, because a zero anchor would be a leak: any representation with `A = 0` would reveal itself as different from the rest. Under the Positive Anchor Convention, every representation carries a real, positive `A`, and no representation stands out.
 
-Under this convention, **162 is the largest integer that cannot be written as `19A + 9B`**. From 163 onward, every integer can be written at least one way. The first integer that is also **triangle-valid** (`dr(B) = dr(2·dr(N))`) is **171**.
+The usual alternative, `A₀ = N mod 9` (range 0..8), admits `A = 0` and gives Frobenius boundary 143. MRS-AUTH-PQC deliberately chooses the Positive Anchor variant, and the digital root `dr(N) = 1 + ((N − 1) mod 9)` is the definition used throughout the codebase.
+
+| Convention | Largest `N` without a representation |
+|---|:---:|
+| `A ≥ 0` (classical Sylvester: `19·9 − 19 − 9`) | 143 |
+| `A ≥ 1` (Positive Anchor) | **162** |
+
+Why `162 = 143 + 19`: writing `A = A′ + 1` turns `N = 19A + 9B` into `N − 19 = 19A′ + 9B`. So `N` is representable with `A ≥ 1` exactly when `N − 19` is representable with `A′ ≥ 0`. The whole pattern shifts by 19.
+
+**162 is the largest integer that cannot be written as `19A + 9B` with `A ≥ 1`.** From 163 onward, every integer can be written at least one way. This is proved in `MRS_Core.ec` (the Frobenius boundary lemma) and confirmed by exhaustive search. The first integer that is also **triangle-valid** (`dr(B) = dr(2·dr(N))`) is **171**.
 
 **In short.** The Positive Anchor Convention uses `dr(N)` rather than `N mod 9`. It guarantees `A ≥ 1`, moves the Frobenius boundary from 143 to 162, and keeps the double cycle visible without truncation.
 
@@ -262,12 +242,12 @@ Under this convention, **162 is the largest integer that cannot be written as `1
 
 Everything in the framework comes from a small set of formulas. We write them out plainly.
 
-Throughout, `N` is a positive integer and `(p, q)` is an admissible pair: `gcd(p, q) = 1` and `p ≡ 1 (mod q)`.
+Throughout, `N` is a positive integer and `(p, q)` is an admissible pair: `gcd(p, q) = 1` and `p ≡ 1 (mod q)`. The digital root is taken modulo `q`: `dr(N) = 1 + ((N − 1) mod q)`. For `q = 9` it is the ordinary digital root.
 
 **The anchor.**
 ```
-dr(N) = 1 + ((N − 1) mod 9)
-A₀   = dr(N)
+dr(N) = 1 + ((N − 1) mod q)
+A₀    = dr(N)                 (A₀ ≡ N (mod q))
 ```
 
 **The base.**
@@ -281,7 +261,7 @@ R(N) = ⌊ (⌊N/p⌋ − dr(N)) / q ⌋ + 1        (floor-over-floor form)
 R(N) = ⌊ B₀ / p ⌋ + 1                     (base form)
 ```
 
-Both forms are exact and equivalent. For `(19, 9)` and `N = 958`, both give `R(958) = 6`. This matches the count from §4.1.
+Both forms are exact and equivalent. For `(19, 9)` and `N = 958`, both give `R(958) = 6`. This matches the count from §4.1. The formula agrees with a brute-force count for every `N` from 163 to 59,999 for `(19, 9)`, and for several other admissible pairs.
 
 **The ladder.** Every representation of `N` is on a single ladder, indexed by `k`:
 ```
@@ -292,7 +272,7 @@ B_k   = B₀ − p·k
 
 For `(19, 9)` and `N = 958`, `k_max = 5`, and the six pairs in §4.1 are exactly the six values `k = 0, 1, …, 5`.
 
-**The role of `m`.** `m` does not appear in these formulas directly. It governs the deeper pattern: how many rows each level of the sub-162 grid occupies. Level `j` spans the rows
+**The role of `m`.** `m` does not appear in these formulas directly. It governs the deeper pattern: how many rows each level of the sub-Frobenius grid occupies. Level `j` spans the rows
 
 ```
 d ∈ [(j−1)·m,  j·m − 1]   for j = 1, 2, …, q − 1.
@@ -300,26 +280,69 @@ d ∈ [(j−1)·m,  j·m − 1]   for j = 1, 2, …, q − 1.
 
 That is the structural role of `m`. It is not the count of representations. It is the shape of the pattern.
 
+### 6.1 The Fractal Ladder ⧊
+
+Once the anchor `A₀` is determined, the framework generates the family of representations `(A_k, B_k)` with a fixed step: one rung up changes `A` by +9 and `B` by −19. Along these rungs `dr(A)` never changes, and `dr(B)` drops by exactly 1 per rung (§4.1). Exactly one rung in every nine has the digital root that the triangle condition asks for. Those rungs form the **fractal ladder ⧊**.
+
+As a sequence:
+
+```
+F(N) = ( k₀, k₀ + 9, k₀ + 18, …, k_max )
+```
+
+where `k₀` is the first valid index and `k_max` is the last. Every element of the sequence is congruent to `k₀` modulo 9, and every element lies within the bounds of the framework.
+
+As a set:
+
+```
+F(N) = { k : k₀ ≤ k ≤ k_max  and  k ≡ k₀ (mod 9) }
+```
+
+The two notations describe the same object. The sequence shows how the ladder is built: start at `k₀`, add 9 each step, stop at `k_max`. The set shows what the ladder contains: every valid `k` in the range that shares the residue class of `k₀`.
+
+**Why "ladder".** The values rise in fixed steps, like rungs on a ladder. You can only stop at the rungs, never between them. And the rungs are exactly the values where a valid representation of the right signature exists.
+
+**Why "fractal".** The ladder repeats its pattern at every step of 9. Each step is one unit of 9, and each unit produces the same alignment between `A`, `B`, and the digital root. This self-similar structure is what makes the ladder fractal.
+
+**What the ladder produces.** For each `k` in `F(N)`, the pair `(A_k, B_k)` is a valid representation of `N`:
+
+```
+A_k = A₀ + 9k
+B_k = (N − 19·A_k) / 9
+```
+
+**A fixed point.** Stepping from one rung of `F(N)` to the next moves `k` by 9, so `A` changes by 81 and `B` by −171, because `9 · 19 = 171`. The digital root is invariant under this step: subtracting 171 from a number does not change its digital root (`dr_shift_171` in `MRS_AUTH.ec`). That is why the entire ladder carries one digital signature. Every rung, from `k₀` to `k_max`, satisfies
+
+```
+19·A + 9·B = N,     dr(A) = dr(N),     dr(B) = dr(2·dr(N)).
+```
+
+This is proved as `ladder_signature` in `MRS_AUTH.ec`, together with `ladder_A_step` and `ladder_B_step` (the signature repeats one rung higher) and `ladder_next` (the ladder is closed under the step of 9).
+
+**Two coordinate systems.** `MRS_Core.ec` indexes the representations from `k = 0` with anchor `A₀`. The temporal barrier in `MRS_AUTH.ec` uses the anchor `A = N` and `B′ = −2N`, so its index `k` is negative. It is the same ladder in shifted coordinates.
+
+**Where the ladder is non-empty.** The temporal-barrier ladder is empty for every `N ≤ 3077`, where the sampler returns `None`. For `3078 ≤ N ≤ 4580` it depends on `N`. From `N ≥ 4581` it is non-empty (exhaustive check up to 200,000). `ladder_nonempty` proves it formally for all `N ≥ 4760`. The full family of representations is non-empty for every `N ≥ 163`.
+
 ---
 
 ## 7. The Palindrome Block Theorem
 
-Below 162, not every integer can be written as `19A + 9B`. Which ones can, and which ones cannot, is not arbitrary. It follows an exact pattern.
+Below the Frobenius bound, not every integer can be written as `19A + 9B`. Which ones can, and which ones cannot, is not arbitrary. It follows an exact pattern.
 
 Write `N = d·q + r`, where `0 ≤ r < q`. The theorem is short:
 
 > **`N` is representable if and only if `d ≥ m · r`.**
 
-That is it. No search, no enumeration. A single inequality decides.
+That is it. No search, no enumeration. A single inequality decides. (This is the classical `A ≥ 0` setting, where the bound is `(p − 1)(q − 1) = 144`. Under the Positive Anchor the whole pattern shifts by 19 and the boundary becomes 162, as in §5.)
 
-The pattern this creates is called the **Palindrome Block Theorem** because the blocks look like this. There are `q − 1 = 8` levels below 162. Each level lasts `m = 2` rows. On every row of level `j`, the first `j` numbers are representable and the remaining `q − j` are gaps. So level 1 has one representable and eight gaps. Level 2 has two representables and seven gaps. And so on, up to level 8, which has eight representables and one gap.
+The pattern this creates is called the **Palindrome Block Theorem** because the blocks look like this. There are `q − 1 = 8` levels below 144. Each level lasts `m = 2` rows. On every row of level `j`, the first `j` numbers are representable and the remaining `q − j` are gaps. So level 1 has one representable and eight gaps. Level 2 has two representables and seven gaps. And so on, up to level 8, which has eight representables and one gap.
 
 The name "palindrome" is descriptive: as you move up through the levels, the pattern grows and then the lower rows vanish in a symmetric way. But the important thing is not the name. It is that the pattern is exact, and it is decided by one inequality.
 
 ### 7.1 Comparison of admissible pairs
 
-| `(p, q)` | `m` | Levels `q−1` | Frobenius `F` | Representable below `F` |
-|:--------:|:---:|:------------:|:-------------:|:-----------------------:|
+| `(p, q)` | `m` | Levels `q−1` | Frobenius bound `F = (p−1)(q−1)` | Representable below `F` |
+|:--------:|:---:|:------------:|:--------------------------------:|:-----------------------:|
 | `(7, 2)`  |  3  |      1       |       6       |            3            |
 | `(10, 9)` |  1  |      8       |      72       |           36            |
 | `(11, 5)` |  2  |      4       |      40       |           20            |
@@ -362,13 +385,9 @@ The Clock KDF uses it to give the key derivation a **unique input**. Every diffe
 
 Hashing a seed produces a key. The key is uniformly random. But it is also **opaque**. You cannot look at the key and see where it came from. You cannot audit the derivation step by step. You cannot check that the framework did what it said it did.
 
-The Clock KDF produces a key that is **structured**. You can print out `N`, the clock tuple, `R(N)`, `k`, and the pair `(A_k, B_k)` — and every one of those is a concrete fact about the derivation. A reviewer can read them and see the whole path from entropy to key.
+The Clock KDF produces a key that is **structured**. You can print out `N`, the clock tuple, `R(N)`, `k`, and the pair `(A_k, B_k)`, and every one of those is a concrete fact about the derivation. A reviewer can read them and see the whole path from entropy to key.
 
-### 8.3 The same structure, seen three ways
-
-The Clock KDF is the same structural fact as the numbers system and the clock system. All three satisfy `p ≡ 1 (mod q)` with `m = 2`. The Clock KDF walks the numbers one; the clock decomposition walks the temporal one. They are the same pattern, with different moduli.
-
-### 8.4 The legacy KDF
+### 8.3 The legacy KDF
 
 The version-1 framework used an HKDF-based hybrid KDF. It is preserved for reference in [`legacy/`](legacy/) and no longer compiled into the crate. See [`legacy/README.md`](legacy/README.md) for the design rationale and a side-by-side comparison.
 
@@ -381,6 +400,18 @@ The framework is not specific to `(19, 9)`. It works for any admissible pair. Th
 The `(19, 9)` case is the primary instance, not the definition.
 
 So the framework could be built on `(37, 18)`, or on `(199, 99)`, or on any other admissible pair. It chooses `(19, 9)` because it is the one that speaks the same language humans already use: base-9 anchor, `m = 2`, smallest possible.
+
+### 9.1 Scalability for large `N`
+
+The number of representations grows like `R(N) ≈ N / (p·q)`. Exact counts (`A ≥ 1`, `B ≥ 0`), for three pairs that all have `m = 2`:
+
+| `N` | `(19, 9)` | `(37, 18)` | `(199, 99)` |
+|---:|---:|---:|---:|
+| 10⁴ | 59 | 15 | 1 |
+| 10⁵ | 585 | 150 | 5 |
+| 10⁶ | 5,848 | 1,501 | 51 |
+
+A larger pair means fewer rungs per `N`, hence less work per number, and a smaller witness space (§11). `(19, 9)` keeps the witness space large for moderate `N`, while the closed formulas keep the cost at O(1) for any `N`.
 
 ---
 
@@ -400,7 +431,7 @@ The numbers come from the pattern of divisors: `1 | 3 | 3 | 9`. Each new dimensi
 
 The 3-dimensional count `R3(p, q, r; N)` has the same shape as the 2-dimensional count. It has its own anchor, its own ladder, its own floor formula. And it is proved in EasyCrypt, not just stated.
 
-For the primary 3-dimensional case `(19, 9, 3)`, the numbers work out as:
+For the primary 3-dimensional case `(19, 9, 3)`, the numbers work out as (counts with `A ≥ 1`):
 
 | `N` | `R3(19, 9, 3; N)` |
 |----:|:----------------:|
@@ -409,7 +440,7 @@ For the primary 3-dimensional case `(19, 9, 3)`, the numbers work out as:
 | 958 | 924              |
 | 6666 | 43017           |
 
-Every one of those is a **separately proved lemma** in the EasyCrypt development. Not a calculated value, not a claimed value — a machine-verified fact.
+Every one of those is a **separately proved lemma** in the EasyCrypt development. Not a calculated value, not a claimed value: a machine-verified fact.
 
 The 4-dimensional case follows the same pattern, with the same structure, one dimension up.
 
@@ -433,11 +464,13 @@ The framework does not produce a single witness. It produces a **family** of wit
 
 This is called **deniability**. The user can deny that the witness they handed over was the real one, and no one can prove otherwise.
 
+The size of the witness space is `R(N) ≈ N / 171` (§9.1), so for realistic `N` it is large. The Positive Anchor Convention guarantees `A ≥ 1` for every witness, so none of them degenerates into a recognisable special case.
+
 ### 11.2 The formal statement
 
 Formalise it as a game. An adversary receives a witness and must decide which of two candidates it is. If they cannot do better than a coin flip, they learn nothing.
 
-The theorem, proved in EasyCrypt, says exactly that. Against **any** adversary — no matter how clever — the probability of distinguishing the witness from an alternative is:
+The theorem, proved in EasyCrypt, says exactly that. Against **any** adversary, no matter how clever, the probability of distinguishing the witness from an alternative is:
 
 ```
 Pr[ the adversary guesses correctly ] = 1/2
@@ -465,14 +498,22 @@ The property is not assumed. It is not stated as an axiom and left there. It was
 
 The proof is checked by a machine. Not by a reviewer, not by an audit, not by an opinion. By EasyCrypt. A program that either accepts a proof or rejects it. There is no middle ground.
 
-
 ---
 
 ## 12. Formal Verification
 
-All core security properties of MRS-AUTH-PQC are formalised in EasyCrypt. The proof scripts live in `proofs/`. They are checked by EasyCrypt, and the check runs on every push through the `easycrypt.yml` workflow.
+All core security properties of MRS-AUTH-PQC are formalised in EasyCrypt. The proof scripts live in `proofs/`. They are checked by EasyCrypt (`r2024.09`), and the check runs on every push through the `easycrypt.yml` workflow. SMT goals are discharged through Why3 by Z3, CVC5 and Alt-Ergo.
 
 EasyCrypt is not a tool that helps a human reviewer. It is a **checker**. A proof either compiles or it does not. There is no judgement, no interpretation, no possibility of overlooking a step. Anyone with the same compiler and the same files gets the same answer. That is a stronger form of verification than a written audit, within the scope of what it covers.
+
+### 12.1 Counts per file
+
+`proofs/` holds **13 proof files**, and all 13 compile. Every lemma carries a complete proof.
+
+| File | Lemmas | Axioms |
+
+
+### 12.2 What each file does
 
 The `.ec` files are verified in dependency order. Each file only imports files that precede it. Here is what each one does.
 
@@ -498,27 +539,54 @@ The `.ec` files are verified in dependency order. Each file only imports files t
 
 **`MRS_DenyProof.ec`** — The proof of the deniability theorem. This file **eliminates the axiom** stated in `MRS_Deny.ec`. It proceeds in four steps, each an `equiv` or a `byequiv` between two games: first, that the adversary always sees `ch0` regardless of the challenge bit; second, that the challenge bit can be sampled last; third, that flipping the bit flips the outcome; and fourth, that the success probability is exactly `1/2`. The file also proves the losslessness of the sampler modules it depends on. The main lemma `deny_success_probability_proved` has the same statement as the axiom in `MRS_Deny.ec` — it is the same theorem, now with a proof.
 
-**`MRS_AUTH.ec`** — The temporal barrier, HMAC-as-PRF, and forward secrecy. Three parts. The first part proves two properties of the digital root that the barrier relies on: that `dr(x + y) = dr(dr(x) + dr(y))` (the digital root behaves like a homomorphism for addition), and that subtracting `171 = 9 · 19` from a sufficiently large number leaves the digital root unchanged. The second part builds a `TemporalBarrier` module that either returns a valid representation of `N` or returns `None` if the deadline has passed. The module proves four things: that nothing is returned past the deadline, that every returned pair is a representation, that every returned pair comes from a fractal list, and that when the pair is positive its `B`-coordinate has the triangle-valid digital root. The third part models forward secrecy through a memory-state type with `Valid`, `Cleared`, and `Uninitialized` states, and proves `refinement_backward_security`: an attacker either observes nothing (the state is cleared) or observes a valid representation with the correct digital-root property. This is the formal content of the `zeroize` mechanism on the Rust side.
+**`MRS_AUTH.ec`** — The temporal barrier, the fractal ladder, and zeroize. Five parts.
 
-**`MRS_Honey.ec`** — The honey layer. Proves that the honey encryption is IND-CPA secure, via a hybrid argument over `M = 5` positions. The proof has three phases. First, replacing the random-oracle KDF with direct uniform sampling: the two are equivalent when the oracle is fresh, and the file proves a `byequiv` between the two games under the condition that the oracle is empty. Second, replacing the AEAD ciphertext with uniform random bytes: this is done through a hybrid family `H(j)` that is real up to position `j` and random from position `j` onward. Each hybrid step reduces to the AEAD's IND-CPA assumption, and the reduction is a proper adversary that reconstructs the surrounding blobs and calls the outer adversary. Third, showing that in the fully random game, the output is independent of the input, so the adversary's success probability is exactly `1/2`. The main theorem combines the three phases by telescoping over the `M = 5` hybrids.
+1. *Digital-root lemmas.* `dr(x + y) = dr(dr(x) + dr(y))` (the digital root behaves like a homomorphism for addition), and invariance of the digital root under subtracting `171 = 9 · 19`.
+2. *Time model and fractal list.* A concrete time model (each of four stages costs one step) and the fractal list `{ k : first_k ≤ k ≤ k_max, k ≡ first_k (mod 9) }` with its sampler `duniform_fractal`: membership, bounds, congruence, non-emptiness, losslessness.
+3. *The temporal barrier.* The module `TemporalBarrier` returns a representation of `N`, or `None` once the deadline has passed. It proves that nothing but `None` is returned past the deadline, that every returned pair satisfies `19·xa + 9·xb = N` and comes from the fractal list, that when `xb > 0` its digital root is the triangle-valid one, and that two runs under a strict deadline are indistinguishable (both return `None`).
+4. *The fractal ladder ⧊.* Every rung carries the same digital signature (`ladder_signature`), the signature repeats one rung higher (`ladder_A_step`, `ladder_B_step`), the ladder is closed under the step of 9 (`ladder_next`), and it is non-empty for `N ≥ 4760` (`ladder_nonempty`).
+5. *Zeroize.* A memory-state type with `Valid`, `Cleared` and `Uninitialized` states. Zeroize is idempotent and leaves the attacker with no observation. The Rust-side model `RustTemporalBarrier` is related to it through `refinement_pure` and `refinement_step1`, and `refinement_backward_security` states that an attacker either observes nothing or observes a valid representation with the correct digital-root property. This is the formal content of the `zeroize` mechanism on the Rust side.
 
-### 12.1 Scope, honestly
+**`MRS_Honey.ec`** — The honey layer. Proves that the `M = 5` ciphertext blobs, one of which encrypts the true chain, are indistinguishable from uniform random strings of the same lengths, with advantage at most `M·ε`, where `ε` is the AEAD's advantage against a single challenge query. The proof is a hybrid argument: `Hyb(j)` encrypts the positions below `j` with uniform noise and the others for real, so `Hyb(0)` is the real scheme and `Hyb(M)` is the random one. Each step `Hyb(j) → Hyb(j+1)` is a reduction that makes exactly one challenge query at position `j`, and two procedure equivalences (`red_real_equiv`, `red_rand_equiv`) show that the reduction reproduces the two hybrids exactly. The only assumption is the AEAD security `aead_secure`, declared inside the proof section; it becomes a hypothesis of the main theorem `honey_pseudorandom`.
 
-The proofs verify the **abstract mathematical model**. They do not verify the Rust implementation line by line. The Rust implementation is verified separately by the test suite (see §19).
+### 12.3 Scope
 
-EasyCrypt does not support every proof technique. Two limitations appear in this development, and both are handled openly rather than hidden:
+The proofs verify the **abstract mathematical model**. The Rust implementation is verified separately by the test suite (see §19). Together they cover the model and the code; each is stated for exactly what it checks.
+
+**What the model proves.**
+
+- The number system: digital-root lemmas, the Positive Anchor Convention, the Frobenius boundary 162, the full family of representations.
+- The temporal barrier in partial correctness: every output is a representation, comes from the ladder and carries the triangle signature.
+- The fractal ladder: the signature of every rung, step invariance, closure, and non-emptiness for `N ≥ 4760`.
+- The zeroize model: cleared state is unobservable.
+- Deniability: exact success probability `1/2` (§11).
+- The honey layer: pseudorandomness of the `M` blobs under the AEAD assumption, bound `M·ε`.
+
+**What lies outside the model, and where it is covered instead.**
+
+- Timing of the real code is a measurement topic. The model's time is a concrete step count in which `total_steps` is constant; constant-time behaviour of the implementation is covered by the sampler's fixed draw count (§12.2) and by benchmarks (§20).
+- The Clock KDF is a design with a Rust implementation and tests (§19).
+- Termination, and probability statements about the sampler's distribution over the ladder, are not part of the barrier lemmas, which are statements about what can be returned.
+- The honey statement concerns ciphertexts: it contains no decryption, wrong-key behaviour or key derivation, ciphertext lengths remain visible, and the chain generator is abstract.
+
+EasyCrypt does not support every proof technique. Two limitations appear in this development, and both are handled openly:
 
 - **Sampling distribution limitations.** EasyCrypt r2024.09 does not expose enough of the internal structure of some sampling distributions to let the tactic engine discharge certain obligations automatically. Where this happens, the property is stated as an interface contract, with a note explaining what would be needed to prove it. The interface is verified against the Rust implementation by the test suite.
 - **Recursive definitions.** EasyCrypt's `op` command does not support recursion. Where a recursively defined object would be natural — like the digit-sum trace — the object is characterised by a small set of mathematical properties instead. These properties fully determine the object, and the rest of the development uses them freely.
 
-These are tool limitations, not gaps in the mathematics. They are documented at the point of use, in the files themselves.
+These are tool limitations, not gaps in the mathematics. They are documented at the point of use, in the files themselves. The directories `Archive/` and `legacy/` hold earlier files that are not part of the verified set.
 
-### 12.2 How to check it yourself
+### 12.4 How to check it yourself
 
 ```bash
 git clone https://github.com/A19dammer91/MRS-AUTH-PQC
-cd MRS-AUTH-PQC
-easycrypt compile proofs/*.ec
+cd MRS-AUTH-PQC/proofs
+for f in MRS_Framework.ec MRS_Distr.ec MRS_DigitSum.ec MRS_FloorSum.ec \
+         MRS_Core.ec MRS_Extensions.ec MRS_Encoding.ec MRS_Chain.ec \
+         MRS_Sampler.ec MRS_Deny.ec MRS_DenyProof.ec MRS_AUTH.ec \
+         MRS_Honey.ec; do
+  easycrypt compile -I . "$f" || exit 1
+done
 ```
 
 The `easycrypt.yml` workflow does exactly this on every push. If the badge is green, the proofs compile. If it is not, they do not. There is nothing in between.
@@ -555,6 +623,8 @@ The intended deployment holds the master secret server-side, ideally in a sealed
 | Timing resistance | `subtle` + constant-time arithmetic | Branch-free comparison and selection |
 | Memory safety | `zeroize` + RAII drops | Secrets cleared from RAM on scope exit |
 | Deniability | Double-cycle witness space | Machine-checked by EasyCrypt |
+
+The rows backed by EasyCrypt are coercion resistance, deniability, the temporal barrier and zeroize model, and the honey layer (§12). The remaining rows come from standardised primitives and from the implementation, and are covered by the test suite and the benchmarks.
 
 ---
 
@@ -615,6 +685,8 @@ MRS-AUTH-PQC/
 │   ├── MRS_DenyProof.ec
 │   ├── MRS_AUTH.ec
 │   └── MRS_Honey.ec
+├── scripts/
+│   └── count_proofs.sh
 └── src/
     ├── lib.rs
     ├── framework.rs
@@ -641,7 +713,7 @@ MRS-AUTH-PQC/
         └── merkle.rs
 ```
 
-The `proofs/` directory is the source of truth for the security claims. The `src/` directory provides the Rust reference implementation. The `docs/`, `demo/`, `benches/`, `legacy/`, and `Archive/` directories are supporting material.
+The `proofs/` directory is the source of truth for the security claims. The `src/` directory provides the Rust reference implementation. The `docs/`, `demo/`, `benches/`, `legacy/`, `scripts/` and `Archive/` directories are supporting material.
 
 ---
 
@@ -756,9 +828,7 @@ cargo clippy --all-targets -- -D warnings
 cargo bench --bench sampler_bench
 ```
 
-Current status: `cargo test --lib` — **108 passed, 0 failed**, in 52.22s.
-
-Two checkers, two objects, both running continuously. The Rust suite covers the implementation; the EasyCrypt workflow covers the model. Neither substitutes for the other, and neither is a substitute for an independent audit.
+Two checkers, two objects, both running continuously. The Rust suite covers the implementation (108 tests); the EasyCrypt workflow covers the model. Neither substitutes for the other, and neither is a substitute for an independent audit.
 
 ---
 
@@ -791,21 +861,28 @@ See `docs/user-manual.md` for a full walkthrough.
 | **Admissible pair** | A pair `(p, q)` with `gcd(p, q) = 1` and `p ≡ 1 (mod q)`. |
 | **`m`** | The double-cycle ratio, `m = (p − 1)/q`. |
 | **Digital root `dr(N)`** | The single digit you get by adding the digits of `N` repeatedly. In this framework, it lives in `{1, …, 9}`. |
-| **Positive anchor `A₀`** | `A₀ = dr(N)`. Always at least 1. |
+| **Positive anchor `A₀`** | `A₀ = dr(N)`, written with a subscript. Always at least 1. |
+| **Positive Anchor Convention** | `A₀ = dr(N)` (range 1..9) instead of `N mod 9` (range 0..8). Guarantees `A ≥ 1` and puts the Frobenius boundary at 162. |
 | **Base `B₀`** | `B₀ = (N − p·A₀)/q`. |
 | **Representation** | A pair `(A, B)` such that `p·A + q·B = N`. |
-| **Ladder** | The sequence `(A₀ + q·k, B₀ − p·k)` for `k = 0, 1, …, k_max`. |
+| **Representation ladder** | The sequence `(A₀ + q·k, B₀ − p·k)` for `k = 0, 1, …, k_max`. |
+| **Rung** | One element of a ladder; one representation. |
+| **Fractal ladder ⧊** | The sequence `k₀, k₀ + 9, k₀ + 18, …, k_max` of valid indices for a representation. Every element is congruent to `k₀` modulo 9, and every rung carries the same digital signature. |
+| **Digital signature (of a rung)** | `19A + 9B = N`, `dr(A) = dr(N)`, `dr(B) = dr(2·dr N)`. Identical on every rung of the fractal ladder. |
 | **Representation count `R(N)`** | The number of representations. Closed form in §6. |
 | **Double cycle** | The interlocking of the `A`-progression (step `q`) and the `B`-progression (step `−p`). |
 | **Level** | A block of `m` consecutive rows in the sub-Frobenius grid. |
-| **Palindrome Block Theorem** | The closed criterion `d ≥ m·r` for representability below 162. |
-| **Frobenius bound** | `(p − 1)(q − 1)`. Under the Positive Anchor Convention, the largest non-representable `N` is 162. |
+| **Palindrome Block Theorem** | The closed criterion `d ≥ m·r` for representability below the Frobenius bound. |
+| **Frobenius number** | The largest non-representable `N`: 143 for `A ≥ 0`, **162** under the Positive Anchor (`A ≥ 1`). The classical bound `(p − 1)(q − 1)` equals 144 for `(19, 9)`. |
 | **Witness** | A triple `(k, A_k, B_k)` for a fixed `N`. |
 | **Witness space** | The set of all witnesses for a given `N`. Equals the double cycle. |
 | **Chain** | A structured object built from a witness, used in authentication. |
 | **Clock decomposition** | The bijection `N ↔ (D, H, M, S, Ms)`, where `N` counts milliseconds in a day. |
 | **Clock KDF** | The framework-native key derivation function, based on the chain position. |
+| **Temporal barrier** | The sampler that returns a rung only before its deadline, and `None` after it. |
+| **Zeroize** | Clearing the secret state; afterwards the attacker observes nothing. |
 | **Honey / decoy** | A chain designed to be indistinguishable from the real one. |
+| **Honey blobs** | The `M` ciphertexts of the honey layer, one of which contains the true chain. |
 | **Deniability** | The property that no adversary can distinguish a witness from an alternative better than chance. |
 | **`ValidButUnbound`** | A witness that is structurally valid but not bound to the master secret. |
 | **Triangle condition** | `dr(B) = dr(2·dr(N))`. A stricter condition than mere representability. |
@@ -855,9 +932,15 @@ Apache-2.0. See `LICENSE` for details.
 
 ---
 
+## 27. Support and Collaboration
+
+This is independent research without institutional funding. The Rust implementation, the EasyCrypt proofs and the tests are open under Apache-2.0. Researchers, auditors, funders and partners who want to review the construction, finance an independent audit, or support further formal verification are warmly invited to get in touch through the repository.
+
+---
+
 *The double cycle is not a trick.
 It is a fact about the integers.
 
 The framework rests on a general `p/q` theorem that admits one cycle, two cycles, or many.
-Of these, `(19, 9)` is the most optimal choice:
+Of these, `(19, 9)` is the optimal choice:
 the smallest pair that gives two cycles on the base-9 anchor the decimal system already uses.*
