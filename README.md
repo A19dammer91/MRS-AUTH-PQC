@@ -12,20 +12,62 @@
 [![Interactive Demo](https://img.shields.io/badge/demo-security%20game-ff69b4?style=flat-square&logo=googlechrome&logoColor=white)](demo/mrs-auth-security-game.html)
 
 # MRS-AUTH-PQC
-
-### A Post-Quantum Cryptographic Framework
-
+A Post-Quantum Cryptographic Framework  
 *Post-quantum authentication with a framework-native Clock KDF.*
 
-> **MRS-AUTH-PQC** is a post-quantum cryptographic framework. It uses **NIST-standardized ML-KEM-1024** (FIPS 203, IND-CCA2) for confidentiality, and derives its session key from the **structure of the (19, 9) Diophantine representation system** that the framework itself is built on.
->
-> The key is **not hashed from a seed**. It is **derived from the structure itself**.
-
-**Status:** `cargo test` — **108 passed, 0 failed** (52.22s) · EasyCrypt — **all 13 proof files compile** (§12)
-
-</div>
+> 🔒 **Mathematical Invariance:** The session key is derived directly from the mathematical structure of the (19, 9) Diophantine representation system. It is framework-native and not hashed from an external seed primitive.
+> 
+Status: cargo test — 108 passed, 0 failed (52.22s) · EasyCrypt — all 13 proof files compile (§12)
 
 ---
+
+## Quick Start & Integration
+
+To directly integrate the framework into a distributed or zero-trust environment, deploy the high-level orchestrator:
+
+```rust
+use mrs_auth_pqc::MrsAuthFramework;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 1. Generate a NIST Level 5 ML-KEM-1024 keypair
+    let keypair = MrsAuthFramework::keygen()?;
+    
+    // 2. Cryptographic session parameters
+    let session_id = b"session-2026-10-15";
+    let nonce = [7u8; 12];
+    let associated_data = b"metadata-auth";
+    let plaintext = b"Top secret post-quantum payload";
+    
+    // 3. Encryption & structure derivation (Clock KDF)
+    let envelope = MrsAuthFramework::full_encrypt(
+        &keypair.public_key,
+        session_id,
+        &nonce,
+        associated_data,
+        plaintext,
+    )?;
+    
+    // 4. Decryption & formal validation
+    let decrypted = MrsAuthFramework::full_decrypt(
+        &keypair.secret_key,
+        &envelope,
+        session_id,
+        &nonce,
+        associated_data,
+    )?;
+    
+    assert_eq!(decrypted, plaintext);
+    println!("Post-Quantum Transport & Authentication Successful.");
+    Ok(())
+}
+```
+
+> 🛡️ **Formal Verification:** Every execution path of the sampling layer used in this Quick Start is backed by the machine-checked proofs in `proofs/` to guarantee an exact `1/2` success probability against physical coercion.
+> 
+
+---
+
+
 
 ## What is MRS-AUTH-PQC?
 
