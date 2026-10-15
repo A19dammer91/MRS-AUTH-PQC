@@ -138,6 +138,8 @@ jobs:
             MRS_DenyProof.ec
             MRS_AUTH.ec
             MRS_Honey.ec
+            MRS_Deny.ec
+            MRS_DenyProof.ec
           )
           for f in "${files[@]}"; do
             echo "=========================================="
