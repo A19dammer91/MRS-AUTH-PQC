@@ -1,7 +1,6 @@
 name: Rust Tests
 
 on:
-  workflow_dispatch:
 
 jobs:
   test:
