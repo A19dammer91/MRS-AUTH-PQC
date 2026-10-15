@@ -664,7 +664,7 @@ lemma refinement_backward_security (n dm : int) :
         (0 < xb => dr xb = dr (2 * dr n)))].
 proof.
   move=> hn.
-  conseq (refinement_step1 n dm).
+  apply (refinement_step1 n dm).
   all: by move=> &m; smt(refinement_pure).
 qed.
 
