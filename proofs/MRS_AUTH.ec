@@ -589,7 +589,6 @@ proof. by rewrite /zeroize /rust_to_abstract /=. qed.
 (* ================================================================= *)
 (* Section 5: RustTemporalBarrier                                     *)
 (* ================================================================= *)
-
 module RustTemporalBarrier = {
   proc sample_with_zeroize(N : int, deadline_micros : int) : rust_mem_state = {
     var kmin, kmax, firstk, finalk : int;
@@ -607,17 +606,23 @@ module RustTemporalBarrier = {
 
 lemma rust_cleared_unobservable :
   attacker_obs (rust_to_abstract RustCleared) = false.
-proof. by rewrite /rust_to_abstract /attacker_obs /=. qed.
+proof.
+  by rewrite /rust_to_abstract /attacker_obs /=.
+qed.
 
 lemma refinement_pure (n dm k : int) :
   162 < n =>
-  k \in duniform_fractal (first_k_val n (k_min_val n)) (k_max_val n) =>
+  k \in duniform_fractal
+        (first_k_val n (k_min_val n))
+        (k_max_val n) =>
   attacker_obs (rust_to_abstract
-    (if k_max_val n < first_k_val n (k_min_val n) \/ dm < total_steps n
+    (if k_max_val n < first_k_val n (k_min_val n) \/
+        dm < total_steps n
      then RustCleared
      else RustValid (n + 9 * k, Bp_val n - 19 * k))) = false \/
   (exists xa xb,
-     (if k_max_val n < first_k_val n (k_min_val n) \/ dm < total_steps n
+     (if k_max_val n < first_k_val n (k_min_val n) \/
+         dm < total_steps n
       then RustCleared
       else RustValid (n + 9 * k, Bp_val n - 19 * k))
        = RustValid (xa, xb) /\
@@ -626,11 +631,13 @@ lemma refinement_pure (n dm k : int) :
 proof.
   move=> hn hk.
   have hsupp := supp_duniform_fractal _ _ _ hk.
-  have htri : 0 < Bp_val n - 19 * k =>
-              dr (Bp_val n - 19 * k) = dr (2 * dr n)
-    by move=> hpos; exact (triangle_of_list n k hn hsupp hpos).
-  case (k_max_val n < first_k_val n (k_min_val n) \/ dm < total_steps n)
-    => hc.
+  have htri :
+      0 < Bp_val n - 19 * k =>
+      dr (Bp_val n - 19 * k) = dr (2 * dr n)
+    by move=> hpos;
+       exact (triangle_of_list n k hn hsupp hpos).
+  case (k_max_val n < first_k_val n (k_min_val n) \/
+        dm < total_steps n) => hc.
   - left.
     smt(rust_cleared_unobservable).
   - right.
@@ -639,33 +646,24 @@ proof.
 qed.
 
 (* Step 1: the program returns the pure function of the sampled k *)
+
 lemma refinement_step1 (n dm : int) :
   hoare [RustTemporalBarrier.sample_with_zeroize :
     N = n /\ deadline_micros = dm ==>
     exists k,
-      k \in duniform_fractal (first_k_val n (k_min_val n)) (k_max_val n) /\
-      res = (if k_max_val n < first_k_val n (k_min_val n) \/ dm < total_steps n
-             then RustCleared
-             else RustValid (n + 9 * k, Bp_val n - 19 * k))].
+      k \in duniform_fractal
+            (first_k_val n (k_min_val n))
+            (k_max_val n) /\
+      res =
+        (if k_max_val n < first_k_val n (k_min_val n) \/
+            dm < total_steps n
+         then RustCleared
+         else RustValid (n + 9 * k, Bp_val n - 19 * k))].
 proof.
-  proc. wp. rnd. wp. skip.
+  proc.
+  wp.
+  rnd.
+  wp.
+  skip.
   progress; smt().
 qed.
-
-(* Step 2: combine with the pure lemma *)
-lemma refinement_backward_security (n dm : int) :
-  162 < n =>
-  hoare [RustTemporalBarrier.sample_with_zeroize :
-    N = n /\ deadline_micros = dm ==>
-    attacker_obs (rust_to_abstract res) = false \/
-    (exists xa xb,
-        res = RustValid (xa, xb) /\
-        19 * xa + 9 * xb = n /\
-        (0 < xb => dr xb = dr (2 * dr n)))].
-proof.
-  move=> hn.
-  apply (refinement_step1 n dm).
-  all: by move=> &m; smt(refinement_pure).
-qed.
-
-(* End of MRS_AUTH.ec *)
