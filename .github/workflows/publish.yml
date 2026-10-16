@@ -40,4 +40,4 @@ jobs:
         run: cargo publish --dry-run --all-features --allow-dirty
 
       - name: Publish to Crates.io
-        run: cargo publish --token ${{ secrets.CRATES_TOKEN }} --allow-dirty
+        run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }} --allow-dirty
