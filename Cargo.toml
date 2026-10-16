@@ -1,6 +1,6 @@
 [package]
 name = "mrs_auth_pqc"
-version = "2.0.0"
+version = "2.0.1"
 edition = "2021"
 authors = ["Billal El Issaoui"]
 description = "Post-quantum authentication with Diophantine deniability and a framework-native clock KDF."
