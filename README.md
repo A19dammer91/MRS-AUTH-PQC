@@ -4,7 +4,7 @@
 [![CI](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/ci.yml/badge.svg)](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/ci.yml)
 [![EasyCrypt Proofs](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/easycrypt.yml/badge.svg)](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/easycrypt.yml)
 [![Tests](https://img.shields.io/github/actions/workflow/status/A19dammer91/MRS-AUTH-PQC/rust.yml?label=tests&style=flat-square&logo=githubactions&logoColor=white)](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/rust.yml)
-[![Benchmarks](https://img.shields.io/github/actions/workflow/status/A19dammer91/MRS-AUTH-PQC/benchmark.yml?label=benchmarks&style=flat-square&logo=githubactions&logoColor=white)](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflows/benchmark.yml)
+[![Benchmarks](https://img.shields.io/github/actions/workflow/status/A19dammer91/MRS-AUTH-PQC/benchmark.yml?label=benchmarks&style=flat-square&logo=githubactions&logoColor=white)](https://github.com/A19dammer91/MRS-AUTH-PQC/actions/workflow/benchmark.yml)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square)](LICENSE)
 [![Commercial](https://img.shields.io/badge/commercial-license%20available-orange?style=flat-square)](COMMERCIAL.md)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange?style=flat-square&logo=rust)](https://www.rust-lang.org)
@@ -17,6 +17,8 @@ A Post-Quantum Cryptographic Framework
 *Post-quantum authentication with a framework-native Clock KDF.*
 
 > 🔒 **Mathematical Invariance:** The session key is derived directly from the mathematical structure of the (19, 9) Diophantine representation system. It is framework-native and not hashed from an external seed primitive.
+
+> ⚖️ **Notice:** This repository is governed by a Methodological Declaration (ab initio) and a strict attribution and anti-AI-training amendment (2026). See [Methodological Declaration and Intellectual Property](#methodological-declaration-and-intellectual-property-2026) before citing, forking, or processing any part of this work.
 
 Status: cargo test, 108 passed, 0 failed (52.22s) · EasyCrypt, **14 proof files compile** · **231 lemmas, 21 axioms, 0 admits** (§12)
 
@@ -35,13 +37,17 @@ A single protocol, a single key derivation, a single structural foundation.
 Behind both problems is a fact about numbers. Take any integer `N`. For a well-chosen pair `(p, q)`, you can write `N` as
 
 ```
+
 N = p · A + q · B
+
 ```
 
 in many different ways. When `p` and `q` are chosen so that `p ≡ 1 (mod q)`, those ways are not scattered. They line up. They form **two cycles that interlock** at a fixed ratio:
 
 ```
+
 m = (p − 1) / q
+
 ```
 
 Version 1 was published as *MRS-Hybride-PQC*. **Version 2.0.0 is no longer hybrid.** The same congruence `p ≡ 1 (mod q)` that organises the numbers (`19 ≡ 1 mod 9`) also organises the clock that the key is derived from (`25 ≡ 1 mod 12`).
@@ -80,9 +86,11 @@ Take the pair `(p, q) = (19, 9)`. Every integer can be written as `19A + 9B`. Fo
 
 Look at the columns.
 
-- The first column moves by **9** each step. Its digital root never changes.
-- The second column moves by **−19** each step. Its digital root drops by exactly **1** each step, because `19 ≡ 1 (mod 9)`. This is `p ≡ 1 (mod q)` at work.
-- After `q = 9` steps the digital root of `B` has run through a full cycle. Over those 9 steps `A` rises by `q² = 81` and `B` falls by `p·q = 171`, and `171 = m·q² + q = 2·81 + 9`.
+The first column moves by **9** each step. Its digital root never changes.
+
+The second column moves by **−19** each step. Its digital root drops by exactly **1** each step, because `19 ≡ 1 (mod 9)`. This is `p ≡ 1 (mod q)` at work.
+
+After `q = 9` steps the digital root of `B` has run through a full cycle. Over those 9 steps `A` rises by `q² = 81` and `B` falls by `p·q = 171`, and `171 = m·q² + q = 2·81 + 9`.
 
 Every representation sits on the same two cycles. If you know one, you know them all.
 
@@ -91,7 +99,9 @@ Every representation sits on the same two cycles. If you know one, you know them
 The number `m` is the ratio between the two steps:
 
 ```
+
 m = (p − 1) / q = (19 − 1) / 9 = 18 / 9 = 2.
+
 ```
 
 It is not chosen. It is forced by the pair. Once you pick `(19, 9)`, you get `m = 2`.
@@ -148,20 +158,26 @@ The Clock KDF walks the numbers. The clock decomposition walks the clock. They a
 Every representation starts at the same anchor. We take it from the digital root of `N`:
 
 ```
+
 A₀ = dr(N)
+
 ```
 
 where
 
 ```
+
 dr(N) = 1 + ((N − 1) mod 9)   ∈  {1, 2, …, 9}.
+
 ```
 
 The digital root is the number you get by adding the digits of `N` repeatedly until only one is left. For example:
 
-- `N = 2026`: `2 + 0 + 2 + 6 = 10`, and `1 + 0 = 1`. So `A₀ = 1`.
-- `N = 123`: `1 + 2 + 3 = 6`. So `A₀ = 6`.
-- `N = 999`: `9 + 9 + 9 = 27`, and `2 + 7 = 9`. So `A₀ = 9`.
+`N = 2026`: `2 + 0 + 2 + 6 = 10`, and `1 + 0 = 1`. So `A₀ = 1`.
+
+`N = 123`: `1 + 2 + 3 = 6`. So `A₀ = 6`.
+
+`N = 999`: `9 + 9 + 9 = 27`, and `2 + 7 = 9`. So `A₀ = 9`.
 
 Notice the third example. In normal modular arithmetic, `999 mod 9 = 0`. But here we use `9` instead of `0`. In this framework, `0` and `9` are the same value seen from two sides: `0` means "no anchor", `9` means "the anchor is the whole cycle". Because they are the same value, the anchor is **always at least 1**. It never collapses to zero.
 
@@ -188,28 +204,36 @@ Throughout, `N` is a positive integer and `(p, q)` is an admissible pair: `gcd(p
 
 **The anchor.**
 ```
+
 dr(N) = 1 + ((N − 1) mod q)
 A₀    = dr(N)                 (A₀ ≡ N (mod q))
+
 ```
 
 **The base.**
 ```
+
 B₀   = (N − p·A₀) / q
+
 ```
 
 **The number of representations.**
 ```
+
 R(N) = ⌊ (⌊N/p⌋ − dr(N)) / q ⌋ + 1        (floor-over-floor form)
 R(N) = ⌊ B₀ / p ⌋ + 1                     (base form)
+
 ```
 
 Both forms are exact and equivalent. For `(19, 9)` and `N = 958`, both give `R(958) = 6`. This matches the count from §4.1. The formula agrees with a brute-force count for every `N` from 163 to 59,999 for `(19, 9)`, and for several other admissible pairs.
 
 **The ladder.** Every representation of `N` is on a single ladder, indexed by `k`:
 ```
+
 k_max = R(N) − 1
 A_k   = A₀ + q·k
 B_k   = B₀ − p·k
+
 ```
 
 For `(19, 9)` and `N = 958`, `k_max = 5`, and the six pairs in §4.1 are exactly the six values `k = 0, 1, …, 5`.
@@ -217,7 +241,9 @@ For `(19, 9)` and `N = 958`, `k_max = 5`, and the six pairs in §4.1 are exactly
 **The role of `m`.** `m` does not appear in these formulas directly. It governs the deeper pattern: how many rows each level of the sub-Frobenius grid occupies. Level `j` spans the rows
 
 ```
+
 d ∈ [(j−1)·m,  j·m − 1]   for j = 1, 2, …, q − 1.
+
 ```
 
 That is the structural role of `m`. It is not the count of representations. It is the shape of the pattern.
@@ -233,7 +259,9 @@ The reason is arithmetic. The triangle condition requires `dr(B) = dr(2·dr(N))`
 As a sequence:
 
 ```
+
 F(N) = ( k₀, k₀ + 9, k₀ + 18, …, k_max )
+
 ```
 
 where `k₀` is the first valid index and `k_max` is the last. Every element of the sequence is congruent to `k₀` modulo 9, and every element lies within the bounds of the framework.
@@ -241,7 +269,9 @@ where `k₀` is the first valid index and `k_max` is the last. Every element of 
 As a set:
 
 ```
+
 F(N) = { k : k₀ ≤ k ≤ k_max  and  k ≡ k₀ (mod 9) }
+
 ```
 
 **Why "ladder".** The values rise in fixed steps, like rungs on a ladder. You can only stop at the rungs, never between them. And the rungs are exactly the values where a valid representation of the right signature exists.
@@ -251,14 +281,18 @@ F(N) = { k : k₀ ≤ k ≤ k_max  and  k ≡ k₀ (mod 9) }
 **What the ladder produces.** For each `k` in `F(N)`, the pair `(A_k, B_k)` is a valid representation of `N`:
 
 ```
+
 A_k = A₀ + 9k
 B_k = (N − 19·A_k) / 9
+
 ```
 
 **A fixed point.** Stepping from one rung of `F(N)` to the next moves `k` by 9, so `A` changes by 81 and `B` by −171, because `9 · 19 = 171`. The digital root is invariant under this step: subtracting 171 from a number does not change its digital root (`dr_shift_171` in `MRS_AUTH.ec`). That is why the entire ladder carries one digital signature. Every rung, from `k₀` to `k_max`, satisfies
 
 ```
+
 19·A + 9·B = N,     dr(A) = dr(N),     dr(B) = dr(2·dr(N)).
+
 ```
 
 This is proved as `ladder_signature` in `MRS_AUTH.ec`, together with `ladder_A_step` and `ladder_B_step` (the signature repeats one rung higher) and `ladder_next` (the ladder is closed under the step of 9).
@@ -300,7 +334,9 @@ The table makes the two knobs visible: **`q` sets the number of levels**, and **
 The level structure also gives a purely combinatorial proof of the Sylvester genus formula:
 
 ```
+
 g = (p − 1)(q − 1) / 2.
+
 ```
 
 Level `j` contains `m` rows, each with `j` representables. Summing over all levels gives exactly half the Frobenius bound. Since the sub-Frobenius range has length `(p − 1)(q − 1)`, the number of gaps is also half.
@@ -316,21 +352,23 @@ Most cryptographic systems derive their keys the same way: take some entropy, ru
 MRS-AUTH-PQC changes this. The session key is derived from the **(19, 9) Diophantine structure** the framework is built on. Every step of the derivation is defined by the framework, is visible in the public API, and can be audited independently:
 
 ```
+
 Kyber shared secret (256 bits of entropy)
-        ↓
+↓
 combine_seed(SS ‖ 0x00 ‖ session_id)
-        ↓
+↓
 N = first 128 bits of SHA-256(seed)          structured integer
-        ↓
+↓
 clock decomposition: N → (D, H, M, S, Ms)    bijective, branchless
-        ↓
+↓
 R(N) = ⌊(⌊N/19⌋ − dr(N)) / 9⌋ + 1            closed form, no search
-        ↓
+↓
 k = SHA-256(seed ‖ "k") mod R(N)             representation selector
-        ↓
+↓
 (A_k, B_k) = (A₀ + 9k, B₀ − 19k)             direct, no loop
-        ↓
+↓
 key = SHA-256(structured transcript)         single hash pass
+
 ```
 
 ### Comparison with generic HKDF
@@ -354,7 +392,9 @@ The Clock KDF does **not add entropy**. It shapes the entropy that already exist
 The clock decomposition `N → (D, H, M, S, Ms)` is not decoration. It is a **bijection**. Every integer `N` maps to exactly one clock tuple, and every tuple maps back to exactly one integer. The formula is:
 
 ```
+
 N = 86,400,000·D + 3,600,000·H + 60,000·M + 1000·S + Ms
+
 ```
 
 That is just the number of milliseconds in a day, broken into days, hours, minutes, seconds, and milliseconds. It is a natural encoding, and it is reversible.
@@ -400,9 +440,11 @@ The 2-dimensional case is `19A + 9B = N`. But there is nothing special about two
 The chain is:
 
 ```
+
 (19, 9)         →  19A + 9B = N              (2 dimensions)
 (19, 9, 3)      →  19A + 9B + 3C = N         (3 dimensions)
 (19, 9, 3, 3)   →  19A + 9B + 3C + 3D = N    (4 dimensions)
+
 ```
 
 The numbers come from the pattern of divisors: `1 | 3 | 3 | 9`. Each new dimension divides the previous one by an integer factor. The base is always `19 ≡ 1 (mod 9)`.
@@ -451,7 +493,9 @@ Formalise it as a game. An adversary receives a witness and must decide which of
 The theorem, proved in EasyCrypt, says exactly that. Against **any** adversary, no matter how clever, the probability of distinguishing the witness from an alternative is:
 
 ```
+
 Pr[ the adversary guesses correctly ] = 1/2
+
 ```
 
 Not "approximately 1/2". Not "1/2 plus a negligible term". Exactly 1/2. No computational assumption. No hardness lemma. Just symmetry.
@@ -508,10 +552,13 @@ EasyCrypt is not a tool that helps a human reviewer. It is a **checker**. A proo
 
 The 21 axioms fall into four categories:
 
-- **Interface with external code** (Rust / AEAD): `prefix_weight_*` (3) contract with `floor_sum_ct`; `aead_secure` (1) is the standard AEAD assumption; the sampler interface axioms (9) in `MRS_Sampler.ec` contract with `cdf_sampler.rs`.
-- **Encoding interface**: `chain_to_bytes_inj`, `chain_to_bytes_len` (2), abstract until `chain_to_bytes` is instantiated concretely.
-- **Constructive trace interface**: `trace_build_*` (4) in `MRS_DigitSum.ec` describe `trace_build` as a list of length `m+1` with nth/head/last values `N − 9i`.
-- **Proofs relocated to companion files**: `sample_basic_correct` (1) in `MRS_Core.ec` and `deny_success_probability` (1) in `MRS_Deny.ec`. The second is fully proved in `MRS_DenyProof.ec`. The first is a composition of already-proven lemmas whose `<$`-sampling cannot be discharged by EasyCrypt r2024.09.
+**Interface with external code** (Rust / AEAD): `prefix_weight_*` (3) contract with `floor_sum_ct`; `aead_secure` (1) is the standard AEAD assumption; the sampler interface axioms (9) in `MRS_Sampler.ec` contract with `cdf_sampler.rs`.
+
+**Encoding interface**: `chain_to_bytes_inj`, `chain_to_bytes_len` (2), abstract until `chain_to_bytes` is instantiated concretely.
+
+**Constructive trace interface**: `trace_build_*` (4) in `MRS_DigitSum.ec` describe `trace_build` as a list of length `m+1` with nth/head/last values `N − 9i`.
+
+**Proofs relocated to companion files**: `sample_basic_correct` (1) in `MRS_Core.ec` and `deny_success_probability` (1) in `MRS_Deny.ec`. The second is fully proved in `MRS_DenyProof.ec`. The first is a composition of already-proven lemmas whose `<$`-sampling cannot be discharged by EasyCrypt r2024.09.
 
 ### 12.2 What each file does
 
@@ -557,24 +604,33 @@ The proofs verify the **abstract mathematical model**. The Rust implementation i
 
 **What the model proves.**
 
-- The number system: digital-root lemmas, the Positive Anchor Convention, the Frobenius boundary 162, the full family of representations.
-- The temporal barrier in partial correctness.
-- The fractal ladder: signature of every rung, step invariance, closure, non-emptiness.
-- The zeroize model: cleared state is unobservable.
-- Deniability: exact success probability `1/2` (§11).
-- The honey layer: pseudorandomness of the `M` blobs under the AEAD assumption.
+The number system: digital-root lemmas, the Positive Anchor Convention, the Frobenius boundary 162, the full family of representations.
+
+The temporal barrier in partial correctness.
+
+The fractal ladder: signature of every rung, step invariance, closure, non-emptiness.
+
+The zeroize model: cleared state is unobservable.
+
+Deniability: exact success probability `1/2` (§11).
+
+The honey layer: pseudorandomness of the `M` blobs under the AEAD assumption.
 
 **What lies outside the model, and where it is covered instead.**
 
-- Timing of the real code is a measurement topic, covered by the sampler's fixed draw count (§12.2) and by benchmarks (§20).
-- The Clock KDF is a design with a Rust implementation and tests (§19).
-- Termination and probability statements about the sampler's distribution over the ladder are not part of the barrier lemmas.
-- The honey statement concerns ciphertexts: it contains no decryption, wrong-key behaviour or key derivation. Ciphertext lengths remain visible. The chain generator is abstract.
+Timing of the real code is a measurement topic, covered by the sampler's fixed draw count (§12.2) and by benchmarks (§20).
+
+The Clock KDF is a design with a Rust implementation and tests (§19).
+
+Termination and probability statements about the sampler's distribution over the ladder are not part of the barrier lemmas.
+
+The honey statement concerns ciphertexts: it contains no decryption, wrong-key behaviour or key derivation. Ciphertext lengths remain visible. The chain generator is abstract.
 
 EasyCrypt does not support every proof technique. Two limitations appear in this development, and both are handled openly:
 
-- **Sampling distribution limitations.** EasyCrypt r2024.09 does not expose enough of the internal structure of some sampling distributions to let the tactic engine discharge certain obligations automatically. Where this happens, the property is stated as an interface contract, with a note explaining what would be needed to prove it. The interface is verified against the Rust implementation by the test suite.
-- **Recursive definitions.** EasyCrypt's `op` command does not support recursion. Where a recursively defined object would be natural, like the digit-sum trace, the object is characterised by a small set of mathematical properties instead.
+**Sampling distribution limitations.** EasyCrypt r2024.09 does not expose enough of the internal structure of some sampling distributions to let the tactic engine discharge certain obligations automatically. Where this happens, the property is stated as an interface contract, with a note explaining what would be needed to prove it. The interface is verified against the Rust implementation by the test suite.
+
+**Recursive definitions.** EasyCrypt's `op` command does not support recursion. Where a recursively defined object would be natural, like the digit-sum trace, the object is characterised by a small set of mathematical properties instead.
 
 These are tool limitations, not gaps in the mathematics. They are documented at the point of use, in the files themselves. The directories `Archive/` and `legacy/` hold earlier files that are not part of the verified set.
 
@@ -591,62 +647,60 @@ for f in MRS_FloorSum.ec MRS_DigitSum.ec MRS_Distr.ec MRS_Framework.ec \
 done
 ```
 
-The `easycrypt.yml` workflow does exactly this on every push. If the badge is green, the proofs compile. If it is not, they do not. There is nothing in between.
+The easycrypt.yml workflow does exactly this on every push. If the badge is green, the proofs compile. If it is not, they do not. There is nothing in between.
 
 ---
 
-## 13. Threat Model
+13. Threat Model
 
 Coercion-resistant cryptography protects against a specific, well-defined threat. MRS-AUTH-PQC is precise about its scope.
 
-**The threat.** The adversary has physical access to the user. They can demand the key. They cannot be stopped by any cryptographic primitive. What they can be denied is **proof** that they received the real key.
+The threat. The adversary has physical access to the user. They can demand the key. They cannot be stopped by any cryptographic primitive. What they can be denied is proof that they received the real key.
 
-**The defence.** The user hands over a witness. The witness is mathematically valid. It fits the same structure as the real one. Nothing in the witness reveals that it is an alternative. An adversary who refuses to accept any witness short of a proof that no alternative exists cannot be satisfied, because that proof does not exist by design. This is the same limit shared by every deniable scheme.
+The defence. The user hands over a witness. The witness is mathematically valid. It fits the same structure as the real one. Nothing in the witness reveals that it is an alternative. An adversary who refuses to accept any witness short of a proof that no alternative exists cannot be satisfied, because that proof does not exist by design. This is the same limit shared by every deniable scheme.
 
-**Lineage.** MRS-AUTH-PQC is a mathematical descendant of **Rubberhose** (Assange et al.). Rubberhose achieved plausible deniability by filling a disk with indistinguishable encrypted chaff. MRS-AUTH-PQC moves that haystack from disk space into abstract mathematics. A single small chain travels with the message, and the alternative witnesses are generated on the fly by the Crown Equations sampler.
+Lineage. MRS-AUTH-PQC is a mathematical descendant of Rubberhose (Assange et al.). Rubberhose achieved plausible deniability by filling a disk with indistinguishable encrypted chaff. MRS-AUTH-PQC moves that haystack from disk space into abstract mathematics. A single small chain travels with the message, and the alternative witnesses are generated on the fly by the Crown Equations sampler.
 
-**Verification power is concentrated by design.** `MasterSecret::verify_authenticity` requires the master secret to distinguish `Authentic` from `BindingMismatch`. The public `WitnessSpace::verify_membership` path only ever sees `ValidButUnbound`. Whoever holds the master secret can tell the difference. This is inherent to centralised verification.
+Verification power is concentrated by design. MasterSecret::verify_authenticity requires the master secret to distinguish Authentic from BindingMismatch. The public WitnessSpace::verify_membership path only ever sees ValidButUnbound. Whoever holds the master secret can tell the difference. This is inherent to centralised verification.
 
-The intended deployment holds the master secret server-side, ideally in a sealed enclave. Under coercion, the client computes an alternative path using only the public value `N`.
-
----
-
-## 14. Security Properties
-
-| Property | Mechanism | Guarantee |
-|---|---|---|
-| Confidentiality | ML-KEM-1024 (FIPS 203) | IND-CCA2, NIST Level 5 |
-| Key derivation | Framework-native Clock KDF | Branchless, bijective, auditable |
-| Coercion resistance | (19, 9) witness ambiguity | Machine-checked 1/2 success probability against any adversary |
-| Forward secrecy | Per-session ephemeral keys | Past sessions safe under long-term key compromise |
-| Integrity | AES-256-GCM AEAD | 128-bit authentication tag |
-| Timing resistance | `subtle` + constant-time arithmetic | Branch-free comparison and selection |
-| Memory safety | `zeroize` + RAII drops | Secrets cleared from RAM on scope exit |
-| Deniability | Double-cycle witness space | Machine-checked by EasyCrypt |
+The intended deployment holds the master secret server-side, ideally in a sealed enclave. Under coercion, the client computes an alternative path using only the public value N.
 
 ---
 
-## 15. Architecture
+14. Security Properties
 
-| Layer | Module | Role |
-|---|---|---|
-| Foundation | `core::diophantine` | `DiophantinePair`, digital root, triangle condition |
-| Foundation | `forest` | `ForestNode`, `ForestBranch`, `rn`, `a0`, `b0`, Frobenius bound |
-| Sampler | `sampler::cdf_sampler` | Constant-time 3-layer chain builder |
-| Sampler | `sampler::supergrid` | 90/366/2520 temporal transform |
-| Crypto | `crypto::clock` | Framework-native Clock KDF + AES-256-GCM |
-| Crypto | `crypto::shamir` | Shamir Secret Sharing over GF(2⁸) |
-| Security | `security::witness` | Authentic + alternative witness generation |
-| Security | `security::witness_supergrid` | Temporal witness authentication |
-| Security | `security::timecode` | HMAC-SHA256 temporal barrier |
-| Security | `security::merkle` | Merkle commitment and inclusion proofs |
-| Orchestration | `framework` | `MrsAuthFramework` top-level API |
-
-The Clock KDF imports `rn`, `a0`, `b0` from `forest`, so the (19, 9) arithmetic has a single source of truth in the Rust code. The `forest` module is pure mathematics with no cryptographic dependencies.
+Property Mechanism Guarantee
+Confidentiality ML-KEM-1024 (FIPS 203) IND-CCA2, NIST Level 5
+Key derivation Framework-native Clock KDF Branchless, bijective, auditable
+Coercion resistance (19, 9) witness ambiguity Machine-checked 1/2 success probability against any adversary
+Forward secrecy Per-session ephemeral keys Past sessions safe under long-term key compromise
+Integrity AES-256-GCM AEAD 128-bit authentication tag
+Timing resistance subtle + constant-time arithmetic Branch-free comparison and selection
+Memory safety zeroize + RAII drops Secrets cleared from RAM on scope exit
+Deniability Double-cycle witness space Machine-checked by EasyCrypt
 
 ---
 
-## 16. Repository Structure
+15. Architecture
+
+Layer Module Role
+Foundation core::diophantine DiophantinePair, digital root, triangle condition
+Foundation forest ForestNode, ForestBranch, rn, a0, b0, Frobenius bound
+Sampler sampler::cdf_sampler Constant-time 3-layer chain builder
+Sampler sampler::supergrid 90/366/2520 temporal transform
+Crypto crypto::clock Framework-native Clock KDF + AES-256-GCM
+Crypto crypto::shamir Shamir Secret Sharing over GF(2⁸)
+Security security::witness Authentic + alternative witness generation
+Security security::witness_supergrid Temporal witness authentication
+Security security::timecode HMAC-SHA256 temporal barrier
+Security security::merkle Merkle commitment and inclusion proofs
+Orchestration framework MrsAuthFramework top-level API
+
+The Clock KDF imports rn, a0, b0 from forest, so the (19, 9) arithmetic has a single source of truth in the Rust code. The forest module is pure mathematics with no cryptographic dependencies.
+
+---
+
+16. Repository Structure
 
 ```
 MRS-AUTH-PQC/
@@ -713,15 +767,15 @@ MRS-AUTH-PQC/
         └── merkle.rs
 ```
 
-The `proofs/` directory is the source of truth for the security claims. The `src/` directory provides the Rust reference implementation. The `docs/`, `demo/`, `benches/`, `legacy/`, `scripts/` and `Archive/` directories are supporting material.
+The proofs/ directory is the source of truth for the security claims. The src/ directory provides the Rust reference implementation. The docs/, demo/, benches/, legacy/, scripts/ and Archive/ directories are supporting material.
 
 ---
 
-## 17. Installation
+17. Installation
 
-**Requirements:** Rust 1.70 or newer.
+Requirements: Rust 1.70 or newer.
 
-**From Git:**
+From Git:
 
 ```toml
 [dependencies]
@@ -745,7 +799,7 @@ cargo build --release
 
 ---
 
-## 18. Quick Start
+18. Quick Start
 
 ```rust
 use mrs_auth_pqc::MrsAuthFramework;
@@ -784,7 +838,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### 18.1 Inspecting the Clock Key
+18.1 Inspecting the Clock Key
 
 The full structured derivation is exposed for audit:
 
@@ -802,23 +856,29 @@ println!("(A_k, B_k) = {:?}", ck.ab);
 println!("key        = {:02x?}", ck.key);
 ```
 
-**Note on the demonstration code.** The `println!` calls above are for illustration only. In production code, never log `ck.key`, `ck.n`, or any intermediate value of the derivation. The audit value of the Clock KDF lies in being able to **re-derive the path from a test seed**, not in printing the runtime key. The API exposes the intermediate values so that an auditor can check them in a controlled setting. It does not mean those values are meant to be shown during normal operation.
+Note on the demonstration code. The println! calls above are for illustration only. In production code, never log ck.key, ck.n, or any intermediate value of the derivation. The audit value of the Clock KDF lies in being able to re-derive the path from a test seed, not in printing the runtime key. The API exposes the intermediate values so that an auditor can check them in a controlled setting. It does not mean those values are meant to be shown during normal operation.
 
-For the full API, see the module documentation via `cargo doc --open`. It covers `MasterSecret`, `WitnessSpace`, `ForestNode`, Shamir, and supergrid.
+For the full API, see the module documentation via cargo doc --open. It covers MasterSecret, WitnessSpace, ForestNode, Shamir, and supergrid.
 
 ---
 
-## 19. Test Suite & Continuous Integration
+19. Test Suite & Continuous Integration
 
 Every push runs the full matrix.
 
-- **Clock KDF:** determinism, avalanche, bijectivity of the decomposition, representation validity.
-- **Forest:** `rn` matches the brute-force count, Frobenius boundary, edge cases at `n = 9, 18, 144, 153, 162`.
-- **Sampler:** structural validity of generated chains across all layers; `a0 = dr(N)`; fixed draw count across retries; first triangle-valid `N` is 171.
-- **Witness:** authenticity binding, session isolation, coercion-resistance statistical tests.
-- **Shamir:** split and recover round-trips, commitment mismatch, subset recovery.
-- **At-rest protection:** seal and unseal round-trip, wrong-key rejection.
-- **Framework:** end-to-end encryption and decryption.
+Clock KDF: determinism, avalanche, bijectivity of the decomposition, representation validity.
+
+Forest: rn matches the brute-force count, Frobenius boundary, edge cases at n = 9, 18, 144, 153, 162.
+
+Sampler: structural validity of generated chains across all layers; a0 = dr(N); fixed draw count across retries; first triangle-valid N is 171.
+
+Witness: authenticity binding, session isolation, coercion-resistance statistical tests.
+
+Shamir: split and recover round-trips, commitment mismatch, subset recovery.
+
+At-rest protection: seal and unseal round-trip, wrong-key rejection.
+
+Framework: end-to-end encryption and decryption.
 
 ```bash
 cargo test
@@ -832,77 +892,81 @@ Two checkers, two objects, both running continuously. The Rust suite covers the 
 
 ---
 
-## 20. Benchmarks
+20. Benchmarks
 
 ```bash
 cargo bench --bench sampler_bench
 ```
 
-The Clock KDF cost is dominated by a single SHA-256 pass plus one `mod R(N)`. It runs in well under a microsecond on typical hardware, and its cost is independent of the size of the input seed.
+The Clock KDF cost is dominated by a single SHA-256 pass plus one mod R(N). It runs in well under a microsecond on typical hardware, and its cost is independent of the size of the input seed.
 
-The sampler runs at near-constant time across six orders of magnitude in `N`, from roughly 10⁶ to 10¹⁸. That is the expected result of an O(1) closed-form sampling procedure.
+The sampler runs at near-constant time across six orders of magnitude in N, from roughly 10⁶ to 10¹⁸. That is the expected result of an O(1) closed-form sampling procedure.
 
 ---
 
-## 21. Interactive Demo
+21. Interactive Demo
 
-An interactive browser visualisation of the security proof is available in `demo/mrs-auth-security-game.html`. It covers the Forest Game, adaptive attacker strategies, per-field histograms, a rolling-accuracy timeline, and a Shamir Secret Sharing walkthrough.
+An interactive browser visualisation of the security proof is available in demo/mrs-auth-security-game.html. It covers the Forest Game, adaptive attacker strategies, per-field histograms, a rolling-accuracy timeline, and a Shamir Secret Sharing walkthrough.
 
 No build step. No server. No external dependency. Open the file directly in any modern browser.
 
-See `docs/user-manual.md` for a full walkthrough.
+See docs/user-manual.md for a full walkthrough.
 
 ---
 
-## 22. Glossary
+22. Glossary
 
-| Term | Meaning |
-|------|---------|
-| **Admissible pair** | A pair `(p, q)` with `gcd(p, q) = 1` and `p ≡ 1 (mod q)`. |
-| **`m`** | The double-cycle ratio, `m = (p − 1)/q`. |
-| **Digital root `dr(N)`** | The single digit you get by adding the digits of `N` repeatedly. In this framework, it lives in `{1, …, 9}`. |
-| **Positive anchor `A₀`** | `A₀ = dr(N)`, written with a subscript. Always at least 1. |
-| **Positive Anchor Convention** | `A₀ = dr(N)` (range 1..9) instead of `N mod 9` (range 0..8). Guarantees `A ≥ 1` and puts the Frobenius boundary at 162. |
-| **Base `B₀`** | `B₀ = (N − p·A₀)/q`. |
-| **Representation** | A pair `(A, B)` such that `p·A + q·B = N`. |
-| **Representation ladder** | The sequence `(A₀ + q·k, B₀ − p·k)` for `k = 0, 1, …, k_max`. |
-| **Rung** | One element of a ladder; one representation. |
-| **Fractal ladder ⧊** | The sequence `k₀, k₀ + 9, k₀ + 18, …, k_max` of valid indices for a representation. Every element is congruent to `k₀` modulo 9, and every rung carries the same digital signature. It is the set of triangle-valid rungs, one in every nine. |
-| **Digital signature (of a rung)** | `19A + 9B = N`, `dr(A) = dr(N)`, `dr(B) = dr(2·dr N)`. Identical on every rung of the fractal ladder. |
-| **Representation count `R(N)`** | The number of representations. Closed form in §6. |
-| **Double cycle** | The interlocking of the `A`-progression (step `q`) and the `B`-progression (step `−p`). |
-| **Level** | A block of `m` consecutive rows in the sub-Frobenius grid. |
-| **Palindrome Block Theorem** | The closed criterion `d ≥ m·r` for representability below the Frobenius bound. |
-| **Frobenius number** | The largest non-representable `N`: 143 for `A ≥ 0`, **162** under the Positive Anchor (`A ≥ 1`). The classical bound `(p − 1)(q − 1)` equals 144 for `(19, 9)`. |
-| **Witness** | A triple `(k, A_k, B_k)` for a fixed `N`. |
-| **Witness space** | The set of all witnesses for a given `N`. Equals the double cycle. |
-| **Chain** | A structured object built from a witness, used in authentication. |
-| **Clock decomposition** | The bijection `N ↔ (D, H, M, S, Ms)`, where `N` counts milliseconds in a day. |
-| **Clock KDF** | The framework-native key derivation function, based on the chain position. |
-| **Temporal barrier** | The sampler that returns a rung only before its deadline, and `None` after it. |
-| **Zeroize** | Clearing the secret state; afterwards the attacker observes nothing. |
-| **Honey / decoy** | A chain designed to be indistinguishable from the real one. |
-| **Honey blobs** | The `M` ciphertexts of the honey layer, one of which contains the true chain. |
-| **Deniability** | The property that no adversary can distinguish a witness from an alternative better than chance. |
-| **`ValidButUnbound`** | A witness that is structurally valid but not bound to the master secret. |
-| **Triangle condition** | `dr(B) = dr(2·dr(N))`. A stricter condition than mere representability. |
+22.1 Core terms
 
----
+Term Meaning
+Admissible pair A pair (p, q) with gcd(p, q) = 1 and p ≡ 1 (mod q).
+m The double-cycle ratio, m = (p − 1)/q.
+Digital root dr(N) The single digit you get by adding the digits of N repeatedly. In this framework, it lives in {1, …, 9}.
+Positive anchor A₀ A₀ = dr(N), written with a subscript. Always at least 1.
+Positive Anchor Convention A₀ = dr(N) (range 1..9) instead of N mod 9 (range 0..8). Guarantees A ≥ 1 and puts the Frobenius boundary at 162.
+Base B₀ B₀ = (N − p·A₀)/q.
+Representation A pair (A, B) such that p·A + q·B = N.
+Representation ladder The sequence (A₀ + q·k, B₀ − p·k) for k = 0, 1, …, k_max.
+Rung One element of a ladder; one representation.
+Representation count R(N) The number of representations. Closed form in §6.
+Double cycle The interlocking of the A-progression (step q) and the B-progression (step −p).
+Level A block of m consecutive rows in the sub-Frobenius grid.
+Palindrome Block Theorem The closed criterion d ≥ m·r for representability below the Frobenius bound.
+Frobenius number The largest non-representable N: 143 for A ≥ 0, 162 under the Positive Anchor (A ≥ 1). The classical bound (p − 1)(q − 1) equals 144 for (19, 9).
+Witness A triple (k, A_k, B_k) for a fixed N.
+Witness space The set of all witnesses for a given N. Equals the double cycle.
+Chain A structured object built from a witness, used in authentication.
+Triangle condition dr(B) = dr(2·dr(N)). A stricter condition than mere representability.
 
-## 23. Papers
+22.2 Extended terms
 
-- **RDSI, Representation, Domain Modelling and Software Implementation.**
-  DOI: [10.5281/zenodo.23077746](https://doi.org/10.5281/zenodo.23077746)
-- **The 19-9 System: N = 19A + 9B.**
-  DOI: [10.5281/zenodo.19474707](https://doi.org/10.5281/zenodo.19474707)
-
-Background material for the 90/366/2520 transformation lives in `docs/research-notes/`.
+Term Meaning
+Fractal ladder ⧊ The sequence k₀, k₀ + 9, k₀ + 18, …, k_max of valid indices for a representation. Every element is congruent to k₀ modulo 9, and every rung carries the same digital signature. It is the set of triangle-valid rungs, one in every nine.
+Digital signature (of a rung) 19A + 9B = N, dr(A) = dr(N), dr(B) = dr(2·dr N). Identical on every rung of the fractal ladder.
+Clock decomposition The bijection N ↔ (D, H, M, S, Ms), where N counts milliseconds in a day.
+Clock KDF The framework-native key derivation function, based on the chain position.
+Temporal barrier The sampler that returns a rung only before its deadline, and None after it.
+Zeroize Clearing the secret state; afterwards the attacker observes nothing.
+Honey / decoy A chain designed to be indistinguishable from the real one.
+Honey blobs The M ciphertexts of the honey layer, one of which contains the true chain.
+Deniability The property that no adversary can distinguish a witness from an alternative better than chance.
+ValidButUnbound A witness that is structurally valid but not bound to the master secret.
 
 ---
 
-## 24. Citation
+23. Papers
 
-Academic use does not require citation. If you'd like to cite this work anyway:
+RDSI, Representation, Domain Modelling and Software Implementation. DOI: 10.5281/zenodo.23077746
+
+The 19-9 System: N = 19A + 9B. DOI: 10.5281/zenodo.19474707
+
+Background material for the 90/366/2520 transformation lives in docs/research-notes/.
+
+---
+
+24. Citation
+
+Academic use does not require citation. If you would like to cite this work anyway:
 
 ```bibtex
 @misc{elissaoui2026forest,
@@ -916,45 +980,91 @@ Academic use does not require citation. If you'd like to cite this work anyway:
 
 ---
 
-## 25. Disclaimer
+25. Disclaimer
 
-**Research Prototype.**
+Research Prototype.
 
-MRS-AUTH-PQC is an active research-phase cryptographic framework, built on machine-checked EasyCrypt proofs of its abstract model and a comprehensive test suite for its Rust implementation. It has **not** undergone independent third-party security audit, formal code review, or red-team penetration testing, and it carries **no certification of any kind**. Treat production deployment accordingly until that review has happened.
+MRS-AUTH-PQC is an active research-phase cryptographic framework, built on machine-checked EasyCrypt proofs of its abstract model and a comprehensive test suite for its Rust implementation. It has not undergone independent third-party security audit, formal code review, or red-team penetration testing, and it carries no certification of any kind. Treat production deployment accordingly until that review has happened.
 
 Version 2.0.0 marks the transition from an HKDF-based hybrid KDF to a framework-native Clock KDF. It does not indicate a security audit or production readiness.
 
----
-
-## 26. License
-
-MRS-AUTH-PQC uses a **dual-licensing model**.
-
-**Open source use.** The Rust implementation, the EasyCrypt proofs and the supporting scripts are released under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. You are free to use, study, modify and distribute the software under the terms of that license. The full text is in [`LICENSE`](LICENSE).
-
-**Commercial use.** Using MRS-AUTH-PQC in a proprietary product, or in a network service that does not disclose its full source code under the AGPL-3.0, requires a **separate commercial license**. See [`COMMERCIAL.md`](COMMERCIAL.md) for the terms, or contact the author through the repository.
-
-**Documentation and papers.** The README, the papers listed in §23, and the supporting documentation are released under **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)**. Commercial use of the documentation requires prior written permission.
-
-**Why this model.** The AGPL-3.0 guarantees that anyone who builds on this work, including in a hosted service, contributes their changes back to the community. A commercial license is available for organisations that cannot meet that requirement. This keeps the research open while making commercial adoption sustainable.
+Nothing in this disclaimer limits the attribution, anti-plagiarism, or anti-AI-training provisions of the Methodological Declaration and Intellectual Property (2026).
 
 ---
 
-## 27. Support and Collaboration
+26. License
+
+MRS-AUTH-PQC uses a dual-licensing model.
+
+Open source use. The Rust implementation, the EasyCrypt proofs and the supporting scripts are released under the GNU Affero General Public License v3.0 (AGPL-3.0). You are free to use, study, modify and distribute the software under the terms of that license. The full text is in LICENSE.
+
+Commercial use. Using MRS-AUTH-PQC in a proprietary product, or in a network service that does not disclose its full source code under the AGPL-3.0, requires a separate commercial license. See COMMERCIAL.md for the terms, or contact the author through the repository.
+
+Documentation and papers. The README, the papers listed in §23, and the supporting documentation are released under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0). Commercial use of the documentation requires prior written permission.
+
+Why this model. The AGPL-3.0 guarantees that anyone who builds on this work, including in a hosted service, contributes their changes back to the community. A commercial license is available for organisations that cannot meet that requirement. This keeps the research open while making commercial adoption sustainable.
+
+---
+
+Methodological Declaration and Intellectual Property (2026)
+
+This section consists of two parts: (1) a methodological declaration establishing how the underlying mathematical framework came into being, and (2) an attribution and protection amendment. Both form an integral part of the licensing terms of this repository and apply to all contents: text documentation, mathematical derivations, EasyCrypt proofs (proofs/), Rust source code (src/), and the underlying cosmological/theological synthesis.
+
+Part 1. Methodological Declaration: Discovery from First Principles (Ab Initio)
+
+1. Zero-Reference Foundational Framework
+
+The mathematical framework underlying MRS-AUTH-PQC (the (19, 9) Diophantine representation system, the digital-root anchor A₀ = dr(N), the double-cycle structure p ≡ 1 (mod q), the 2,520-day LCM synchronization model, and the 7,000-year cycle closure) and the resulting iGoSpiral / MRS-AUTH architecture were developed entirely from scratch (tabula rasa). The author utilized zero external references, prior literature, or pre-existing academic frameworks. This work does not build upon, extend, or modify the historical theories of Aristotle, Ibn al-Haytham, Einstein, or any other classical or modern physicist or mathematician. Every axiom, mapping, and structural conclusion was derived independently from absolute fundamental arithmetic.
+
+2. Manual Integer Dissection and Empirical Methodology
+
+The discoveries presented in this work are the result of hundreds of thousands of hours of rigorous, manual empirical analysis. The author individualistically dissected every single integer from 1 to 2000, analyzing their optimal representations, factoring limits, and structural permutations.
+
+Through this exhaustive manual data collection, unique internal balances were discovered, including the foundational leap year equation:
+
+6 · 19 + 28 · 9 = 114 + 252 = 366
+
+This equation bridges the first two perfect numbers (6, observed natively in natural geometries such as honeycombs and snowflakes; and 28, derived structurally as the sum of the Diophantine components 19 + 9) directly with the 366-day intercalary cycle. The resulting factor 252 represents exactly one-tenth of the universal 2,520 LCM time-synchronization constant.
+
+3. Clarification on the Role of Artificial Intelligence
+
+AI was used by the author exclusively as (i) a linguistic compiler for the prose and (ii) a programming aid for Python scripts and Rust tooling used for numerical verification. The conceptual discovery, including the manual discovery of A₀ = dr(N), the double-cycle structure, the Positive Anchor Convention, the Frobenius boundary at 162, and the 2,520/7,000-year cycle closures, is entirely human. The scripts executed; they did not discover. Any claim to the contrary is factually erroneous and constitutes academic defamation.
+
+Part 2. Attribution and Protection
+
+1. Academic Attribution and Anti-Plagiarism Clause
+
+The mathematical framework, including but not limited to the general form p ≡ 1 (mod q), the structural classification of moduli (Classes A, B, and C), the 2,520-day LCM synchronization model, the 7,000-year cycle closure, the Positive Anchor Convention, and the (19, 9) Diophantine representation system, constitutes the original, foundational intellectual property of Bilal el Issaoui.
+
+Any academic paper, presentation, lecture, or professional publication that references, implements, or builds upon these specific concepts MUST explicitly credit Bilal el Issaoui as the original author. Attributing the discovery, synthesis, or architecture of this system to artificial intelligence, automated agents, or unspecified algorithmic generation is strictly forbidden and constitutes a direct violation of academic integrity and moral copyright.
+
+2. Strict Prohibition on Large Language Model (LLM) and AI Training
+
+Under no circumstances may any part of this repository (including the text documentation, mathematical derivations, EasyCrypt proofs, Rust source code, and underlying cosmological/theological synthesis) be used to train, fine-tune, test, or validate Large Language Models (LLMs), neural networks, or any other artificial intelligence systems. Scraping this data for automated synthesis or rewriting by AI tools is a violation of the author's copyright. This prohibition concerns the use of the content of this repository as training data; the author naturally remains free to use their own Python scripts and verification tools in developing the work itself.
+
+3. Software Provenance and Human Architecture Verification
+
+Notice is hereby given that the application code within src/ is engineered as a local-first, dependency-minimal architecture utilizing native integer arithmetic and constant-time primitives to maintain structural mathematical precision. The lack of external dependencies in the hot path is a deliberate human architectural decision to align software execution with the purity of modular arithmetic. The Rust implementation and EasyCrypt proofs are provided under the GNU Affero General Public License v3.0 (AGPLv3) for open-source use, but the core mathematical theory remains proprietary and protected under global copyright law.
+
+---
+
+27. Support and Collaboration
 
 This is independent research without institutional funding. The Rust implementation, the EasyCrypt proofs and the tests are open under the AGPL-3.0.
 
 If you are a researcher, auditor or funder who would like to review this construction, support an independent audit, or help extend the formal verification, we would be glad to hear from you. Independent review is welcome, and it is the next natural step for a project at this stage.
 
-Please reach out through the repository.
+Commercial licensing. If your organisation wants to use MRS-AUTH-PQC in a proprietary product or a closed network service, a commercial license is available. See COMMERCIAL.md for the terms. Commercial licensing directly funds continued formal verification and independent audit work.
 
-**Commercial licensing.** If your organisation wants to use MRS-AUTH-PQC in a proprietary product or a closed network service, a commercial license is available. See [`COMMERCIAL.md`](COMMERCIAL.md) for the terms. Commercial licensing directly funds continued formal verification and independent audit work.
+Independent review of the mathematical framework is governed by the attribution terms in the Methodological Declaration and Intellectual Property (2026).
 
 ---
 
 *The double cycle is not a trick.
 It is a fact about the integers.
 
-The framework rests on a general `p/q` theorem that admits one cycle, two cycles, or many.
-Of these, `(19, 9)` is the optimal choice:
+The framework rests on a general p/q theorem that admits one cycle, two cycles, or many.
+Of these, (19, 9) is the optimal choice:
 the smallest pair that gives two cycles on the base-9 anchor the decimal system already uses.*
+
+```
